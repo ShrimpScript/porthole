@@ -27,10 +27,10 @@ jobs:
       - name: test
         working-directory: daemon
         run: go test ./...
-      - name: capture, sshd and new sessions on a real Mac
+      - name: capture, sshd, new sessions and the terminal on a real Mac
         if: runner.os == 'macOS'
         working-directory: daemon
-        run: go test -count=1 -v -run 'TestMacCapture|TestRealSSHD|TestNewSession' ./internal/server/ ./internal/sshkeys/
+        run: go test -count=1 -v -run 'TestMacCapture|TestRealSSHD|TestNewSession|TestPhoneAlone' ./internal/server/ ./internal/sshkeys/ ./internal/termbridge/
       - name: build for every release target
         working-directory: daemon
         run: |
