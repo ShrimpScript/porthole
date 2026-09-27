@@ -43,9 +43,9 @@ func TestMacCapture(t *testing.T) {
 		t.Fatalf("clip is not an ISO media file: % x", b[:min(12, len(b))])
 	}
 	t.Logf("clip: %d bytes, brand %q, made by %s", len(b), b[8:12], macClipVia)
+	// Every Mac has avconvert, so a clip sent as the raw movie means its arguments broke.
 	if strings.HasPrefix(macClipVia, "the movie") {
-		// What this macOS's avconvert accepts, to fix its arguments from.
 		out, _ := exec.Command("avconvert", "--help").CombinedOutput()
-		t.Logf("avconvert --help:\n%s", out)
+		t.Fatalf("the clip was not converted: %s\navconvert --help:\n%s", macClipVia, out)
 	}
 }

@@ -42,9 +42,7 @@ func macStill(ctx context.Context) ([]byte, error) {
 func macClip(ctx context.Context, seconds int) ([]byte, error) {
 	stamp := time.Now().UnixMilli()
 	mov := filepath.Join(captureDir(), fmt.Sprintf("clip-%d.mov", stamp))
-	mp4 := filepath.Join(captureDir(), fmt.Sprintf("clip-%d.mp4", stamp))
 	defer os.Remove(mov)
-	defer os.Remove(mp4)
 
 	rctx, cancel := context.WithTimeout(ctx, time.Duration(seconds+20)*time.Second)
 	defer cancel()
@@ -60,18 +58,19 @@ func macClip(ctx context.Context, seconds int) ([]byte, error) {
 	tctx, cancel2 := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel2()
 	var tried []string
-	for _, conv := range macConverters(mov, mp4) {
-		if _, err := exec.LookPath(conv[0]); err != nil {
+	for _, conv := range macConverters(mov) {
+		if _, err := exec.LookPath(conv.args[0]); err != nil {
 			continue
 		}
-		out, err := exec.CommandContext(tctx, conv[0], conv[1:]...).CombinedOutput()
-		if b, rerr := os.ReadFile(mp4); err == nil && rerr == nil && len(b) > 0 {
-			macClipVia = conv[0]
+		out, err := exec.CommandContext(tctx, conv.args[0], conv.args[1:]...).CombinedOutput()
+		b, rerr := os.ReadFile(conv.out)
+		_ = os.Remove(conv.out)
+		if err == nil && rerr == nil && len(b) > 0 {
+			macClipVia = conv.args[0]
 			return b, nil
 		}
 		// The next converter gets its turn; the raw movie is the last resort.
-		tried = append(tried, conv[0]+": "+firstLine(out, err))
-		_ = os.Remove(mp4)
+		tried = append(tried, conv.args[0]+": "+firstLine(out, err))
 	}
 	// Nothing converted it. A short QuickTime movie of H.264 plays on Android as it is;
 	// the caller refuses it if it is too large to send.
@@ -82,14 +81,22 @@ func macClip(ctx context.Context, seconds int) ([]byte, error) {
 // macClipVia says what made the last clip, for the capture test on a Mac.
 var macClipVia string
 
-// macConverters are the commands that turn the movie into a small MP4, best first.
-func macConverters(mov, mp4 string) [][]string {
-	return [][]string{
-		{"ffmpeg", "-y", "-loglevel", "error", "-i", mov,
+type converter struct {
+	args []string
+	out  string
+}
+
+// macConverters are the commands that turn the movie into a small MPEG-4 file, best
+// first. avconvert's 720p preset writes .m4v and refuses any other extension; an m4v is
+// an MP4 with Apple's brand, which Android plays.
+func macConverters(mov string) []converter {
+	base := strings.TrimSuffix(mov, ".mov")
+	return []converter{
+		{[]string{"ffmpeg", "-y", "-loglevel", "error", "-i", mov,
 			"-vf", "scale='min(1280,iw)':-2", "-r", "20",
 			"-c:v", "libx264", "-crf", "30", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-			"-an", "-movflags", "+faststart", mp4},
-		{"avconvert", "--source", mov, "--output", mp4, "--preset", "PresetAppleM4V720pHD", "--replace"},
+			"-an", "-movflags", "+faststart", base + ".mp4"}, base + ".mp4"},
+		{[]string{"avconvert", "--source", mov, "--output", base + ".m4v", "--preset", "PresetAppleM4V720pHD", "--replace"}, base + ".m4v"},
 	}
 }
 
