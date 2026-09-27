@@ -33,6 +33,7 @@ const (
 	TypeSessionEarlier   = "session.earlier" // older rows of the attached session, before what the phone holds
 	TypeSessionStart     = "session.start"   // start Claude Code in a known project directory: resume or fresh
 	TypeSessionStarted   = "session.started" // the daemon's answer
+	TypeSessionNew       = "session.new"     // start a fresh Claude Code in a folder, in a tmux session of its own
 	TypePromptSend       = "prompt.send"
 	TypePermissionDecide = "permission.decide"
 	TypeHookEvent        = "hook.event"

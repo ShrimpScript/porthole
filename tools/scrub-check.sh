@@ -25,7 +25,7 @@ python3 tools/check-bytes.py || fail=1
 # Synthetic fixtures that match on purpose: an example address in a unit test, a fictional
 # path in a transcript fixture. Listed by path rather than by loosening the patterns, so a
 # real identifier appearing in either file still fails.
-ALLOW='daemon/internal/server/server_test.go|daemon/internal/server/failsafe_test.go|daemon/internal/sshkeys/sshkeys_test.go|daemon/internal/sshkeys/sshd_test.go|daemon/internal/transcript/transcript_test.go'
+ALLOW='daemon/internal/server/server_test.go|daemon/internal/server/failsafe_test.go|daemon/internal/sshkeys/sshkeys_test.go|daemon/internal/sshkeys/sshd_test.go|daemon/internal/transcript/transcript_test.go|app-android/app/src/test/java/dev/shrimpscript/porthole/ui/NewSessionTest.kt'
 
 # Fixed patterns: tailnet CGNAT addresses, home paths, and a real MagicDNS tailnet id.
 patterns=('100\.[0-9]+\.[0-9]+\.[0-9]+' '/home/[a-z]' 'tail[0-9a-f]{6,}\.ts\.net')

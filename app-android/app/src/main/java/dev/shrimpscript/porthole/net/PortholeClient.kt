@@ -89,7 +89,7 @@ data class PreviewState(val servers: List<DevServer>, val active: List<PreviewSh
 data class TurnEvent(val sessionId: String, val title: String, val text: String)
 
 /** The daemon started (or found already running) Claude Code for a session. */
-data class StartedEvent(val sessionId: String, val tmux: String, val mode: String, val pane: String = "")
+data class StartedEvent(val sessionId: String, val tmux: String, val mode: String, val pane: String = "", val cwd: String = "")
 
 /** A session started or stopped working, or moved on to another tool. */
 data class WorkingEvent(val sessionId: String, val title: String, val working: Boolean, val sinceMs: Long, val doing: String, val asking: String = "")
@@ -589,6 +589,16 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         send(JSONObject().put("type", "session.start").put("session_id", sessionId).put("mode", mode).toString())
     }
 
+    /**
+     * A fresh Claude Code in [cwd] (a full path, or one starting with ~/), in a tmux
+     * session of its own. The answer is a [started] event with mode "new" and the pane
+     * it was typed into, or a [notice] when the computer refuses.
+     */
+    fun newSession(cwd: String) {
+        _notice.value = null
+        send(JSONObject().put("type", "session.new").put("cwd", cwd).toString())
+    }
+
     /** Ask for the page of history before what the feed holds. */
     fun loadEarlier() = send(JSONObject().put("type", "session.earlier").put("before", fileRows).toString())
 
@@ -868,7 +878,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     parseState(obj.optJSONObject("state"))?.let { _state.value = it }
                 }
                 "session.started" -> _started.tryEmit(
-                    StartedEvent(obj.optString("session_id"), obj.optString("tmux"), obj.optString("mode"), obj.optString("pane"))
+                    StartedEvent(obj.optString("session_id"), obj.optString("tmux"), obj.optString("mode"), obj.optString("pane"), obj.optString("cwd"))
                 )
                 "session.working" -> _working.tryEmit(
                     WorkingEvent(obj.optString("session_id"), obj.optString("title"), obj.optBoolean("working"),

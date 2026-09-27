@@ -24,7 +24,8 @@ between your phone and your computer.
 - **What changed.** The git diff of the session's directory, file by file.
 - **A real terminal.** The tmux pane at the desk's width, with a key row built for
   Claude Code.
-- **Start or resume** Claude Code in any project it has been used in.
+- **Start, resume, or start another.** The + on the session list starts a fresh Claude Code in
+  any project folder, in a tmux session of its own, like `porthole` at the desk.
 - **Notifications** while a turn runs, when it finishes (with Reply from the shade), when a
   question waits, when a usage limit hits, and when the computer comes back.
 - **Builds of your own Android projects**, published on the computer, installed on the

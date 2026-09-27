@@ -54,6 +54,9 @@ import dev.shrimpscript.porthole.ui.ApprovalOverlay
 import dev.shrimpscript.porthole.ui.CLI_COMMANDS
 import dev.shrimpscript.porthole.ui.ConnectScreen
 import dev.shrimpscript.porthole.ui.ConsentScreen
+import dev.shrimpscript.porthole.ui.NewSessionSheet
+import dev.shrimpscript.porthole.ui.projectsOf
+import kotlinx.coroutines.flow.first
 import dev.shrimpscript.porthole.ui.FailsafeScreen
 import dev.shrimpscript.porthole.ui.FailureScreen
 import dev.shrimpscript.porthole.ui.LicencesScreen
@@ -492,6 +495,11 @@ private fun PortholeApp(
             limitText = "You've hit your session limit · resets 3:45pm")
         else -> liveStatus
     }
+    // New session from the list: the sheet, the folder being started ("machineId|cwd")
+    // and what went wrong, if anything.
+    var showNewSession by remember { mutableStateOf(false) }
+    var newStart by remember { mutableStateOf<String?>(null) }
+    var newNote by remember { mutableStateOf<String?>(null) }
     // A session we asked the computer to start: poll the list until it is live, then re-attach.
     var startingId by remember { mutableStateOf("") }
     // The pane the daemon typed "claude" into; the new session registers there. Matching
@@ -529,6 +537,8 @@ private fun PortholeApp(
         }
     }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // The first computer's client answers to a blank machine id, as its rows carry one.
+    fun clientOf(machineId: String) = if (machineId.isBlank()) client else vm.fleet.client(machineId)
 
     fun openSession(s: SessionInfo) {
         openSession = s
@@ -541,6 +551,45 @@ private fun PortholeApp(
         // Landscape means the phone was turned sideways to type, so a live session opens on its terminal.
         sessionView = if (landscape && s.tmux) SessionView.Terminal else SessionView.Feed
         route = Route.Session
+    }
+
+    // New session: ask the computer, learn the pane it typed `claude` into, then wait for
+    // Claude Code to register there and open it. Only one start runs at a time, so the
+    // next "new" answer from that computer is this one.
+    LaunchedEffect(newStart) {
+        val req = newStart ?: return@LaunchedEffect
+        val machineId = req.substringBefore('|')
+        val sc = clientOf(machineId)
+        var ev: dev.shrimpscript.porthole.net.StartedEvent? = null
+        // Listening before asking: the answer is not replayed to a late collector.
+        val listen = launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            ev = sc.started.first { it.mode == "new" && it.sessionId.isBlank() }
+        }
+        sc.newSession(req.substringAfter('|'))
+        val answerBy = System.currentTimeMillis() + 15_000
+        while (ev == null && sc.notice.value == null && System.currentTimeMillis() < answerBy) delay(100)
+        listen.cancel()
+        val started = ev
+        if (started == null) {
+            newNote = sc.notice.value ?: "The computer did not answer. Try again when it is connected."
+            newStart = null
+            return@LaunchedEffect
+        }
+        val readyBy = System.currentTimeMillis() + 40_000
+        while (System.currentTimeMillis() < readyBy) {
+            sc.refreshSessions()
+            delay(1500)
+            val s = vm.fleet.sessions.value.firstOrNull { it.machineId == machineId && it.pane == started.pane && it.live }
+            if (s != null) {
+                showNewSession = false
+                newStart = null
+                openSession(s)
+                return@LaunchedEffect
+            }
+        }
+        newNote = "Claude Code has not started in tmux session ${started.tmux} yet. It may be asking something " +
+            "there first; at the desk: tmux attach -t ${started.tmux}"
+        newStart = null
     }
 
     fun cancelAdd() {
@@ -1042,7 +1091,16 @@ private fun PortholeApp(
                     } else null,
                 )
 
-                Route.Sessions -> SessionsScreen(
+                Route.Sessions -> {
+                if (showNewSession) NewSessionSheet(
+                    projects = projectsOf(sessions),
+                    machines = if (machines.size > 1) machines.map { it.id to it.shown } else listOf("" to (daemon?.host?.ifBlank { null } ?: "this computer")),
+                    starting = newStart,
+                    note = newNote,
+                    onStart = { machineId, cwd -> newNote = null; newStart = "$machineId|$cwd" },
+                    onDismiss = { showNewSession = false; newNote = null },
+                )
+                SessionsScreen(
                     machine = if (machines.size > 1) "${machines.size} computers" else daemon?.host?.ifBlank { null } ?: host.ifBlank { "your computer" },
                     computers = if (machines.size > 1) "${machines.count { fleetConns[it.id] is Connection.Live || (it.id == machines.first().id && connection is Connection.Live) }} of ${machines.size} connected" else "",
                     ring = ring,
@@ -1056,7 +1114,9 @@ private fun PortholeApp(
                     updateNote = updateNote,
                     onUpdate = { startUpdate() },
                     onDismissUpdate = { offeredBuild?.let { dismissBuild(it) } },
+                    onNewSession = if ("start" in (daemon?.caps ?: emptyList())) ({ newNote = null; showNewSession = true }) else null,
                 )
+                }
 
                 Route.Session -> {
                     val s = openSession

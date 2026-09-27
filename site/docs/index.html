@@ -531,7 +531,9 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
 <section class="d-sec" id="start">
   <h2><a href="#start">Start and resume from the phone</a></h2>
   <div class="prose">
-    <p>A session whose Claude Code has stopped shows a card with two choices. <strong>Resume</strong> continues that transcript; <strong>New session</strong> starts fresh in the same directory. The daemon uses the tmux window that already sits in that directory when it holds an idle shell, and opens a new window there otherwise; it never types into a window running something else. Only directories that already hold a transcript are offered: the phone names a session, never a path.</p>
+    <p id="new-session"><strong>A new session, anywhere.</strong> The <b>+</b> at the top of the session list opens <b>New session</b>: every folder Claude Code has been used in on the computer, most recent first, and a field for another folder (a full path, or one starting with <code>~/</code>). Pick one and the computer starts Claude Code in a tmux session of its own, named after the folder - <code>app</code>, then <code>app-2</code> for a second task there - exactly as <code>porthole</code> does at the desk. The phone opens it as soon as Claude Code is up, and <code>tmux attach -t app</code> reaches the same session at the desk. It works the same on a Mac and on Linux.</p>
+    <p>A session whose Claude Code has stopped shows a card with two choices. <strong>Resume</strong> continues that transcript; <strong>New session</strong> starts fresh in the same directory. The daemon uses the tmux window that already sits in that directory when it holds an idle shell, and opens a new window there otherwise; it never types into a window running something else.</p>
+    <p class="small muted">A folder Claude Code has never been used in asks, at the start, whether you trust it; answer in the Terminal tab. Naming a folder gives the phone nothing it did not have: a paired phone can already run commands on the computer.</p>
   </div>
 </section>
 

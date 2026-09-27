@@ -117,6 +117,18 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.28.0" class="v">0.28.0</span>
+        <h2>A new session from the phone</h2>
+        <div class="rel-date"><span>26 September 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>New session.</b> The + at the top of the session list lists every folder Claude Code has been used in on your computers, most recent first, with a field for any other folder. Pick one and Claude Code starts there in a tmux session of its own, named after the folder, and opens on the phone as soon as it is up. A second one in the same folder gets its own session. The same on a Mac and on Linux.</li>
+            <li><b>Fix: the terminal on a Mac showed underscores</b> in place of every character outside ASCII, which is all of Claude Code's frame. tmux decides what a client can show from the locale, and a launchd agent has none; the phone's terminal now always asks for UTF-8, and the agent gets the locale of the shell that installed it. Run <code>portholed service install</code> once on a Mac to pick up the second half.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
         <span id="v0.27.0" class="v">0.27.0</span>
         <h2>Porthole on a Mac</h2>
         <div class="rel-date"><span>26 September 2026</span><span class="tag">feature</span></div>

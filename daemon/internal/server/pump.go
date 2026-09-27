@@ -94,6 +94,7 @@ type clientFrame struct {
 	// named in the prompt, so Claude can Read them.
 	Attachments []promptImage `json:"attachments"`
 	PublicKey   string        `json:"public_key"` // ssh.key: the phone's failsafe key; empty removes it
+	Cwd         string        `json:"cwd"`        // session.new: the folder to start Claude Code in
 }
 
 type promptImage struct {
@@ -242,6 +243,8 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 			s.earlier(ctx, w, att, f.Before)
 		case proto.TypeSessionStart:
 			s.startClaude(ctx, w, f.SessionID, f.Mode, deviceName)
+		case proto.TypeSessionNew:
+			s.newClaude(ctx, w, f.Cwd, deviceName)
 		case proto.TypeSessionInterrupt:
 			s.interrupt(ctx, w, f.SessionID, deviceName)
 		case proto.TypeSessionKey:
@@ -329,6 +332,7 @@ type startedFrame struct {
 	Tmux      string `json:"tmux"`
 	Pane      string `json:"pane,omitempty"` // where claude was typed; the new session will register here
 	Mode      string `json:"mode"`
+	Cwd       string `json:"cwd,omitempty"` // session.new: the directory it was started in
 }
 
 // startClaude runs Claude Code in the directory of a known session, from the phone: in
@@ -473,7 +477,7 @@ func tmuxNameFor(ctx context.Context, cwd string) string {
 		name = "claude"
 	}
 	taken := map[string]bool{}
-	if out, err := exec.CommandContext(ctx, "tmux", "list-sessions", "-F", "#{session_name}").Output(); err == nil {
+	if out, err := runCmd(ctx, "tmux", "list-sessions", "-F", "#{session_name}"); err == nil {
 		for _, l := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			taken[l] = true
 		}

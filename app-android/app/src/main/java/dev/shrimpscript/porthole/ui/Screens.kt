@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Text
@@ -205,6 +206,8 @@ fun SessionsScreen(
     onUpdate: () -> Unit = {},
     /** Put this build away; a newer version of the same app brings the banner back. */
     onDismissUpdate: () -> Unit = {},
+    /** Start a fresh Claude Code in a folder; null when no computer can start one. */
+    onNewSession: (() -> Unit)? = null,
 ) = Screen {
     val c = Porthole.colors
     Column(Modifier.fillMaxSize()) {
@@ -223,6 +226,7 @@ fun SessionsScreen(
                     style = PortholeType.meta, color = c.faint,
                 )
             }
+            if (onNewSession != null) IconTarget(Icons.Outlined.Add, "New session", onNewSession)
             IconTarget(Icons.Outlined.Refresh, "Refresh sessions", onRefresh)
             IconTarget(Icons.Outlined.Settings, "Settings", onSettings)
         }
