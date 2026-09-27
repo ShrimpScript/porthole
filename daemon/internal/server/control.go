@@ -30,6 +30,7 @@ type ctlRequest struct {
 	Cmd    string          `json:"cmd"`
 	NodeID string          `json:"node_id,omitempty"`
 	Event  json.RawMessage `json:"event,omitempty"`
+	Wait   int             `json:"wait,omitempty"` // access: seconds to wait for an answer at the Mac
 }
 
 type ctlResponse struct {
@@ -41,6 +42,7 @@ type ctlResponse struct {
 	Status   *statusView    `json:"status,omitempty"`
 	Sessions []session.Info `json:"sessions,omitempty"`
 	Decision string         `json:"decision,omitempty"`
+	Access   []FolderAccess `json:"access,omitempty"`
 	Reason   string         `json:"reason,omitempty"`
 }
 
@@ -173,6 +175,15 @@ func (s *Server) handleControl(c net.Conn) {
 		_ = enc.Encode(ctlResponse{OK: true, Status: &statusView{
 			Version: Version, Devices: len(devs), Live: live,
 		}})
+
+	case "access":
+		wait := time.Duration(req.Wait) * time.Second
+		if wait <= 0 || wait > 3*time.Minute {
+			wait = 3 * time.Second
+		}
+		// Each folder may wait on a person at the Mac, one after another.
+		_ = c.SetDeadline(time.Now().Add(time.Duration(len(guardedFolders))*wait + 5*time.Second))
+		_ = enc.Encode(ctlResponse{OK: true, Access: folderAccess(wait)})
 
 	default:
 		_ = enc.Encode(ctlResponse{Error: "unknown command " + req.Cmd})

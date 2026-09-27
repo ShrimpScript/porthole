@@ -642,6 +642,8 @@ func cmdSetup(args []string) error {
 	}
 	fmt.Println()
 	if runtime.GOOS == "darwin" {
+		macFolderAccess()
+		fmt.Println()
 		fmt.Println("On a Mac: turn on Remote Login (System Settings > General > Sharing) so the phone")
 		fmt.Println("has a way back in if the daemon ever stops. portholed keeps the Mac awake while a")
 		fmt.Println("session works or a phone is connected, on the power adapter.")
@@ -685,4 +687,30 @@ func cmdService(args []string) error {
 		return fmt.Errorf("usage: portholed service install|restart|status|uninstall")
 	}
 	return nil
+}
+
+// macFolderAccess has the running daemon read the folders macOS guards, so that macOS asks
+// about them now, with someone at the Mac to answer, rather than when Claude Code started
+// from the phone first reaches into one of them.
+func macFolderAccess() {
+	fmt.Println("Folders")
+	fmt.Println("macOS may now ask whether portholed can use your Desktop, Documents and Downloads")
+	fmt.Println("folders. Allow it: Claude Code started from the phone works in them as portholed.")
+	ask := map[string]any{"cmd": "access", "wait": 60}
+	resp, err := server.CallWithTimeout("", ask, 4*time.Minute)
+	for i := 0; err != nil && i < 10; i++ { // the service was only just started
+		time.Sleep(time.Second)
+		resp, err = server.CallWithTimeout("", ask, 4*time.Minute)
+	}
+	if err != nil {
+		fmt.Println("the daemon is not answering yet; portholed doctor checks the folders later")
+		return
+	}
+	for _, a := range resp.Access {
+		if a.OK {
+			fmt.Printf("  %s: allowed\n", a.Name)
+		} else {
+			fmt.Printf("  %s: %s\n", a.Name, a.Error)
+		}
+	}
 }

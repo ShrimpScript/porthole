@@ -243,6 +243,9 @@ func runDoctor() []check {
 	// The daemon and its service.
 	if resp, err := server.Call("", map[string]string{"cmd": "status"}); err == nil {
 		add("ok", "daemon", fmt.Sprintf("portholed %s answering, %d paired device(s), %d connected now", resp.Status.Version, resp.Status.Devices, resp.Status.Live))
+		if runtime.GOOS == "darwin" {
+			macFolderCheck(add)
+		}
 		if resp.Status.Devices == 0 {
 			add("info", "pairing", "no phone paired yet: run `portholed pair`")
 		}
@@ -308,4 +311,25 @@ func probe(name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return exec.CommandContext(ctx, name, args...).Output()
+}
+
+// macFolderCheck asks the running daemon whether macOS lets it read the folders it guards:
+// a Claude Code the daemon starts works in them as portholed.
+func macFolderCheck(add func(state, name, detail string)) {
+	resp, err := server.CallWithTimeout("", map[string]any{"cmd": "access", "wait": 3}, 20*time.Second)
+	if err != nil || len(resp.Access) == 0 {
+		return
+	}
+	var denied []string
+	for _, a := range resp.Access {
+		if !a.OK {
+			denied = append(denied, a.Name)
+		}
+	}
+	if len(denied) == 0 {
+		add("ok", "folders", "the daemon may read Desktop, Documents and Downloads")
+		return
+	}
+	add("warn", "folders", "macOS has not let the daemon read "+strings.Join(denied, ", ")+
+		": Claude Code started from the phone cannot work there. Allow portholed in System Settings > Privacy & Security > Files and Folders, or run portholed setup again at the Mac")
 }
