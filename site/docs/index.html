@@ -259,7 +259,7 @@
           <div class="cmd" data-copy><code>brew install shrimpscript/tap/porthole</code></div>
           <div class="cmd" data-copy><code>portholed setup</code></div>
           <p>The service is a launchd agent: it starts when you log in and restarts if it fails. After an unattended reboot it waits until someone logs in, unless the Mac logs in by itself (System Settings &rsaquo; Users &amp; Groups &rsaquo; Automatically log in). While a session works or a phone is connected, it keeps the Mac from sleeping, on the power adapter only.</p>
-          <p>The first screenshot taken from the phone makes macOS ask, at the Mac, to let portholed record the screen.</p>
+          <p><code>portholed setup</code> also has the daemon look into your Desktop, Documents and Downloads folders, so macOS asks now, while you are at the Mac, whether portholed may use them. Allow it: a Claude Code started from the phone works in those folders as portholed, and a question nobody is there to answer leaves it with "Operation not permitted". Likewise, the first screenshot taken from the phone makes macOS ask to let portholed record the screen.</p>
           <p class="small muted">No Homebrew? Clone the repository and run <code>./tools/install.sh</code>, as on Linux.</p>
         </div>
         <div data-os-only="linux">
@@ -741,7 +741,7 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
       <p>Upgrade it with Homebrew, then restart the service so the new binary is the one running:</p>
       <div class="cmd" data-copy><code>brew upgrade porthole</code></div>
       <div class="cmd" data-copy><code>portholed service restart</code></div>
-      <p class="small muted">After an upgrade that changes the service itself (the release notes say so), run <code>portholed service install</code> once instead of the restart.</p>
+      <p class="small muted">Each new version is a new program to macOS, so it may ask again about your folders and the screen. Run <code>portholed setup</code> at the Mac after an upgrade to get those questions over with; it also rewrites the service when a release changes it.</p>
     </div>
     <div data-os-only="linux">
       <p class="os-h">On Linux</p>
@@ -795,6 +795,7 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
         <tr><td>&ldquo;This device was revoked&rdquo;</td><td>The computer removed this phone.</td><td><code>portholed pair</code> again.</td></tr>
         <tr><td>&ldquo;the computer did not accept this phone's key&rdquo;</td><td>The key was removed there, or the phone was set up again.</td><td>Settings &rsaquo; If Porthole cannot connect &rsaquo; Add this phone's key, while Porthole is connected.</td></tr>
         <tr><td>Remote Login is off (a Mac)</td><td>Nothing answers for SSH, so the failsafe has no way in.</td><td>System Settings &rsaquo; General &rsaquo; Sharing &rsaquo; Remote Login.</td></tr>
+        <tr><td>Claude Code started from the phone says "Operation not permitted" (a Mac)</td><td>macOS has not let portholed use the folder: Desktop, Documents and Downloads are guarded, and a Claude Code the daemon started works in them as portholed.</td><td>At the Mac: <code>portholed setup</code>, and allow the questions; or System Settings &rsaquo; Privacy &amp; Security &rsaquo; Files and Folders &rsaquo; portholed. <code>portholed doctor</code> shows it on its <code>folders</code> line.</td></tr>
         <tr><td>A screenshot shows only the wallpaper (a Mac)</td><td>macOS has not allowed portholed to record the screen.</td><td>At the Mac: System Settings &rsaquo; Privacy &amp; Security &rsaquo; Screen &amp; System Audio Recording, allow portholed.</td></tr>
         <tr><td>&ldquo;Tailscale wants you to sign in again&rdquo;</td><td>The tailnet's SSH rule is set to &ldquo;check&rdquo;.</td><td>Sign in, or set the rule to &ldquo;accept&rdquo; in the Tailscale admin console.</td></tr>
         <tr><td>&ldquo;workstation runs a newer Porthole&rdquo;</td><td>The daemon is newer than the app.</td><td>Settings &rsaquo; Updates &rsaquo; Check now.</td></tr>

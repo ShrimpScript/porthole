@@ -382,7 +382,8 @@ fun SetupScreen(
                 Spacer(Modifier.height(10.dp))
                 Text(
                     "It keeps the Mac awake while a session works or this phone is connected, on the " +
-                        "power adapter. Allow it to record the screen when macOS asks, for screenshots.",
+                        "power adapter. When macOS asks whether portholed may use your folders or record " +
+                        "the screen, allow it.",
                     style = PortholeType.secondary, color = c.faint,
                 )
             }

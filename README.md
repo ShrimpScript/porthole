@@ -85,8 +85,11 @@ from the latest release and open it; Android asks once to allow installs from yo
 
 The daemon is a launchd agent: it starts when you log in (after an unattended reboot, only
 once someone logs in, unless the Mac logs in by itself) and keeps the Mac awake while a
-session works or a phone is connected, on the power adapter. Allow portholed to record the
-screen when macOS asks, for screenshots. Log: `~/Library/Logs/portholed.log`. No Homebrew?
+session works or a phone is connected, on the power adapter. `portholed setup` has macOS ask
+right away whether portholed may use your Desktop, Documents and Downloads folders - allow it,
+since a Claude Code started from the phone works there as portholed - and the first screenshot
+asks about recording the screen. Each new version is a new program to macOS, so run
+`portholed setup` at the Mac again after an upgrade. Log: `~/Library/Logs/portholed.log`. No Homebrew?
 The installer below works on a Mac too.
 
 ### On Linux

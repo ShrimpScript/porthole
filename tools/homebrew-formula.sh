@@ -63,6 +63,8 @@ class Porthole < Formula
         portholed doctor
         portholed pair
       Start Claude Code with porthole instead of claude, in your project's folder.
+      On a Mac, run portholed setup again after an upgrade: macOS treats each version as
+      a new program and asks again about your folders.
     EOS
   end
 
