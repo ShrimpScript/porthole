@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+
+	"github.com/shrimpscript/porthole/daemon/internal/tmuxtest"
 )
 
 func tmuxAvailable(t *testing.T) {
@@ -22,6 +24,7 @@ func tmuxAvailable(t *testing.T) {
 // startSession makes a throwaway tmux session at a known size.
 func startSession(t *testing.T, name string, cols, rows int) {
 	t.Helper()
+	tmuxtest.Require(t)
 	_ = exec.Command("tmux", "kill-session", "-t", "="+name).Run()
 	cmd := exec.Command("tmux", "new-session", "-d", "-s", name,
 		"-x", strconv.Itoa(cols), "-y", strconv.Itoa(rows), "sh")
