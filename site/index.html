@@ -29,6 +29,17 @@
 // Mac or Linux, before the page paints: this visitor's last choice, else their own system.
 (function(){var o;try{o=localStorage.getItem('porthole-os')}catch(e){}if(o!=='mac'&&o!=='linux')o=/Linux|X11/.test(navigator.userAgent)&&!/Android|CrOS/.test(navigator.userAgent)?'linux':'mac';var h=document.documentElement;h.classList.add('os-js');h.dataset.os=o})();
 </script>
+<link rel="stylesheet" href="/assets/intro/intro.css">
+<script>
+// A first visit, with motion allowed, waits in the dark for the opening shot rather than
+// showing the page and then hiding it. If the scene is not there in five seconds, the page is.
+(function(){var h=document.documentElement,s;try{s=localStorage.getItem('porthole-intro')}catch(e){}
+if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]settled/.test(location.search)){h.classList.add('cine-pending');setTimeout(function(){h.classList.remove('cine-pending')},5000)}})();
+</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.15.0/gsap.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.15.0/ScrollTrigger.min.js" defer></script>
+<script type="module" src="/assets/intro/intro.js"></script>
 <script src="/assets/kit.js" defer></script>
 <script src="/assets/kit-more.js" defer></script>
 </head>
@@ -48,11 +59,22 @@
 
 <main id="main">
 
-  <!-- Hero: the question scene. Claude asks at the desk; one tap on the phone answers it. -->
-  <section class="section hero" aria-labelledby="top-h">
-    <div class="wrap hero-grid">
-      <h1 id="top-h"><span>Run Claude Code on your computer.</span> <span>Answer it from your phone.</span></h1>
-      <div class="hero-copy">
+  <!-- The opening shot: a phone under a spotlight, the app on it, and the moments that
+       matter lifting out. The words and buttons are plain HTML over it, and a still of the
+       settled frame stands in whenever the scene is not running. -->
+  <section class="cine" aria-labelledby="top-h">
+    <div class="cine-stage">
+      <picture>
+        <source media="(max-width: 759px)" srcset="/assets/intro/still-m.webp" width="780" height="1688">
+        <img class="cine-still" src="/assets/intro/still.webp" alt="" aria-hidden="true" width="1920" height="1080" fetchpriority="high">
+      </picture>
+      <canvas class="cine-canvas" aria-hidden="true"></canvas>
+      <p class="cine-cap" aria-hidden="true"><span class="k">Sessions</span>Every Claude Code session on your computer, on your phone.</p>
+      <p class="cine-cap" aria-hidden="true"><span class="k">Questions</span>Claude asks. You answer with a tap.</p>
+      <p class="cine-cap" aria-hidden="true"><span class="k">Approvals</span>Allow or deny a command, with the command in full.</p>
+      <p class="cine-cap" aria-hidden="true"><span class="k">Terminal</span>The same terminal as at the desk.</p>
+      <div class="cine-hero">
+        <h1 id="top-h"><span>Run Claude Code on your computer.</span> <span>Answer it from your phone.</span></h1>
         <p class="lead">Porthole puts every Claude Code session on your Mac or Linux computer on your Android phone, so you can answer, approve and type into each one over your own Tailscale network.</p>
         <div class="cluster">
           <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download for Android</a>
@@ -61,7 +83,10 @@
         </div>
         <p class="needs small muted">Needs Android 10 or later, a Mac or Linux computer running Claude Code in tmux, and Tailscale on both. There is no account to make.</p>
       </div>
-      <div class="pk-scene" data-scene="question"><noscript><img class="pk-still-img" src="/assets/frames/question.webp" width="1160" height="811" alt="Claude Code in tmux on the computer asks which theme new users should get. The same question is on the phone as a card with two options, and a finger taps option 2, Always light."></noscript></div>
+      <button type="button" class="cine-skip">Skip intro</button>
+      <button type="button" class="cine-replay">Replay intro</button>
+      <div class="cine-cue" aria-hidden="true">Scroll</div>
+      <div class="cine-fade" aria-hidden="true"></div>
     </div>
   </section>
 

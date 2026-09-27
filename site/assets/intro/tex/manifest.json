@@ -1,0 +1,43 @@
+{
+ "screen": {
+  "w": 360,
+  "h": 800
+ },
+ "cards": {
+  "question": {
+   "screen": "session-question",
+   "x": 12,
+   "y": 400,
+   "w": 336,
+   "h": 302
+  },
+  "approval": {
+   "screen": "approval",
+   "x": 16,
+   "y": 534,
+   "w": 328,
+   "h": 226
+  },
+  "strip": {
+   "screen": "session-working",
+   "x": 12,
+   "y": 644,
+   "w": 336,
+   "h": 64
+  },
+  "notify": {
+   "screen": "shade",
+   "x": 12,
+   "y": 120,
+   "w": 336,
+   "h": 104
+  },
+  "terminal": {
+   "screen": "terminal",
+   "x": 0,
+   "y": 176,
+   "w": 360,
+   "h": 538
+  }
+ }
+}

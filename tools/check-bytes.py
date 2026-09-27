@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 
-BINARY = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico",
+BINARY = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".glb", ".blend",
           ".ttf", ".otf", ".woff", ".woff2", ".jar", ".zip")
 ALLOWED = {0x09, 0x0A, 0x0D}  # tab, newline, carriage return
 

@@ -1,0 +1,130 @@
+/* The opening shot: a dark stage the height of the screen, held in place while the page
+   scrolls past it, so scrolling can drive the camera. Everything on it is light on dark,
+   whatever the page's theme. Without the scene, the still and the words below stand in. */
+
+.cine {
+  --stage: #030807;
+  position: relative;
+  height: 250vh;
+  background: var(--stage);
+  color: #E8F0EE;
+}
+.cine-stage {
+  position: sticky; top: 0;
+  height: 100vh; height: 100svh;
+  overflow: hidden;
+  background: var(--stage);
+}
+.cine-still, .cine-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+}
+.cine-still { object-fit: cover; object-position: 60% 50%; }
+.cine-canvas { opacity: 0; transition: opacity .7s ease; }
+.cine-ready .cine-canvas { opacity: 1; }
+.cine-failed .cine-canvas { display: none; }
+
+/* A first visit waits in the dark for the opening, instead of showing the page and then
+   hiding it; the head script lifts this after a few seconds if the scene never comes. */
+html.cine-pending .cine-still,
+html.cine-pending .cine-hero { visibility: hidden; }
+
+/* Film: a little grain and a vignette over the render. */
+.cine-stage::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 45%, transparent 55%, rgb(0 0 0 / .55) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E");
+  mix-blend-mode: normal;
+}
+
+/* The words, once the phone has stepped aside. */
+.cine-hero {
+  position: absolute; z-index: 2;
+  left: max(24px, 7vw); top: 50%;
+  transform: translateY(-50%);
+  width: min(560px, 44vw);
+}
+.cine-hero h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 4.2vw, 3.6rem); line-height: 1.04; letter-spacing: -.028em;
+  font-weight: 600; color: #F2F7F6;
+}
+.cine-hero h1 span { display: block; }
+.cine-hero h1 span + span { color: #3FD4C0; }
+.cine-hero .lead { color: #A9BAB6; margin-top: 20px; max-width: 34rem; }
+.cine-hero .cluster { margin-top: 28px; }
+.cine-hero .needs { color: #7B908C; margin-top: 18px; max-width: 32rem; }
+.cine-hero .btn:not(.btn-primary) { color: #E8F0EE; border-color: rgb(232 240 238 / .28); background: rgb(255 255 255 / .03); }
+.cine-hero .btn:not(.btn-primary):hover { background: rgb(255 255 255 / .08); }
+.cine-hero .gh { color: #A9BAB6; }
+
+/* Lower thirds during the opening: a label and a line, one at a time. */
+.cine-cap {
+  position: absolute; z-index: 2;
+  left: max(24px, 7vw); bottom: 13vh;
+  margin: 0; max-width: 30rem;
+  font-size: clamp(1.15rem, 1.9vw, 1.6rem); line-height: 1.25; font-weight: 500; color: #F2F7F6;
+  visibility: hidden;
+}
+.cine-cap .k {
+  display: block; margin-bottom: 8px;
+  font: 500 .72rem/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: #3FD4C0;
+}
+
+.cine-skip, .cine-replay {
+  position: absolute; z-index: 3; right: max(20px, 3vw); bottom: max(20px, 4vh);
+  font: 500 .82rem/1 var(--sans); color: #C9D6D3;
+  background: rgb(255 255 255 / .06); border: 1px solid rgb(232 240 238 / .2); border-radius: 999px;
+  padding: 10px 16px; min-height: 40px; cursor: pointer;
+  visibility: hidden;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.cine-skip:hover, .cine-replay:hover { background: rgb(255 255 255 / .12); color: #fff; }
+.cine-skip:focus-visible, .cine-replay:focus-visible { outline: 2px solid #3FD4C0; outline-offset: 3px; }
+
+.cine-cue {
+  position: absolute; z-index: 2; left: 50%; bottom: max(22px, 4vh); transform: translateX(-50%);
+  font: 500 .7rem/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: #7B908C;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  visibility: hidden;
+}
+.cine-cue::after {
+  content: ""; width: 1px; height: 34px;
+  background: linear-gradient(#3FD4C0, transparent);
+  animation: cine-cue 1.8s cubic-bezier(.65, 0, .35, 1) infinite;
+  transform-origin: top;
+}
+@keyframes cine-cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+
+/* The hand-off: the screen the camera went into becomes the page. */
+.cine-fade { position: absolute; inset: 0; z-index: 4; background: var(--ground); visibility: hidden; opacity: 0; pointer-events: none; }
+
+/* The header floats over the stage, and is itself again below it. */
+.site-h.over-stage { position: fixed; left: 0; right: 0; background: transparent; border-bottom-color: transparent;
+  -webkit-backdrop-filter: none; backdrop-filter: none; transition: background .3s, border-color .3s; }
+.site-h.over-stage.on-stage .brand,
+.site-h.over-stage.on-stage .site-nav a { color: #E8F0EE; }
+.site-h.over-stage.on-stage .site-nav a:hover { background: rgb(255 255 255 / .08); }
+.site-h.over-stage:not(.on-stage) {
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--edge) 70%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+
+@media (max-width: 759px) {
+  .cine-hero { left: 20px; right: 20px; width: auto; top: auto; bottom: 7vh; transform: none; }
+  .cine-hero h1 { font-size: clamp(1.9rem, 8.4vw, 2.5rem); }
+  .cine-hero .lead { font-size: 1rem; margin-top: 14px; }
+  .cine-hero .needs { display: none; }
+  .cine-hero .cluster { margin-top: 18px; }
+  .cine-cap { left: 20px; right: 20px; bottom: 16vh; }
+  .cine-still { object-position: 50% 30%; }
+  .cine-cue { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-canvas { transition: none; }
+  .cine-cue::after { animation: none; }
+}
