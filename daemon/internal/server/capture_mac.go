@@ -59,23 +59,28 @@ func macClip(ctx context.Context, seconds int) ([]byte, error) {
 
 	tctx, cancel2 := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel2()
+	var tried []string
 	for _, conv := range macConverters(mov, mp4) {
 		if _, err := exec.LookPath(conv[0]); err != nil {
 			continue
 		}
-		if out, err := exec.CommandContext(tctx, conv[0], conv[1:]...).CombinedOutput(); err == nil {
-			if b, err := os.ReadFile(mp4); err == nil && len(b) > 0 {
-				return b, nil
-			}
-		} else {
-			_ = out // the next converter gets its turn; the raw movie is the last resort
+		out, err := exec.CommandContext(tctx, conv[0], conv[1:]...).CombinedOutput()
+		if b, rerr := os.ReadFile(mp4); err == nil && rerr == nil && len(b) > 0 {
+			macClipVia = conv[0]
+			return b, nil
 		}
+		// The next converter gets its turn; the raw movie is the last resort.
+		tried = append(tried, conv[0]+": "+firstLine(out, err))
 		_ = os.Remove(mp4)
 	}
-	// Nothing to convert with. A short QuickTime movie of H.264 plays on Android as it
-	// is; the caller refuses it if it is too large to send.
+	// Nothing converted it. A short QuickTime movie of H.264 plays on Android as it is;
+	// the caller refuses it if it is too large to send.
+	macClipVia = "the movie as recorded (" + strings.Join(tried, "; ") + ")"
 	return os.ReadFile(mov)
 }
+
+// macClipVia says what made the last clip, for the capture test on a Mac.
+var macClipVia string
 
 // macConverters are the commands that turn the movie into a small MP4, best first.
 func macConverters(mov, mp4 string) [][]string {

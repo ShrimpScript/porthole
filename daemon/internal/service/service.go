@@ -36,7 +36,31 @@ func Binary() (string, error) {
 	if r, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = r
 	}
-	return exe, nil
+	return stablePath(exe, exists), nil
+}
+
+func exists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
+
+// stablePath trades a Homebrew keg path for the one that survives upgrades. brew links
+// portholed from Cellar/porthole/<version>/bin, and deletes that directory after an
+// upgrade; a service pointed there would stop starting. opt/porthole always points at
+// the current version.
+func stablePath(exe string, exists func(string) bool) string {
+	parts := strings.Split(exe, string(filepath.Separator))
+	for i := len(parts) - 4; i >= 1; i-- {
+		if parts[i] == "Cellar" && parts[i+3] == "bin" {
+			prefix := strings.Join(parts[:i], string(filepath.Separator))
+			opt := filepath.Join(append([]string{prefix, "opt", parts[i+1]}, parts[i+3:]...)...)
+			if exists(opt) {
+				return opt
+			}
+			break
+		}
+	}
+	return exe
 }
 
 // RestartCommand is the shell command that restarts the service on this computer, for
@@ -47,7 +71,17 @@ func RestartCommand() string {
 	if err != nil {
 		return ""
 	}
-	return shellQuote(bin) + " service restart"
+	return restartCommandFor(bin)
+}
+
+// restartCommandFor restarts the service and, if the service manager will not (launchd
+// can refuse an SSH login that is not the one at the screen), starts the daemon on its
+// own, detached, so the phone can reconnect and the service can be fixed from there.
+// It runs under sh whatever the login shell is: SSH hands the command to the user's
+// shell, and fish or zsh would read the braces differently.
+func restartCommandFor(bin string) string {
+	b := shellQuote(bin)
+	return "sh -c " + shellQuote(b+" service restart || { nohup "+b+" serve >/dev/null 2>&1 & }")
 }
 
 // File is where the service definition lives on this OS.

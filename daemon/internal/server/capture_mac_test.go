@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -41,5 +42,10 @@ func TestMacCapture(t *testing.T) {
 	if len(b) < 12 || string(b[4:8]) != "ftyp" {
 		t.Fatalf("clip is not an ISO media file: % x", b[:min(12, len(b))])
 	}
-	t.Logf("clip: %d bytes, brand %q", len(b), b[8:12])
+	t.Logf("clip: %d bytes, brand %q, made by %s", len(b), b[8:12], macClipVia)
+	if strings.HasPrefix(macClipVia, "the movie") {
+		// What this macOS's avconvert accepts, to fix its arguments from.
+		out, _ := exec.Command("avconvert", "--help").CombinedOutput()
+		t.Logf("avconvert --help:\n%s", out)
+	}
 }

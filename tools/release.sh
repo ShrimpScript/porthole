@@ -3,7 +3,8 @@
 # daemon binaries, commit and tag, and (optionally) push and publish a GitHub release.
 #
 #   tools/release.sh 0.26.0                    # everything up to the tag, artefacts in dist/
-#   tools/release.sh 0.26.0 --push             # also push, and publish the GitHub release
+#   tools/release.sh 0.26.0 --push             # also push, publish the GitHub release and
+#                                              # update the Homebrew formula
 #   tools/release.sh 0.26.0 --deploy           # also install the new daemon locally
 #   tools/release.sh 0.26.0 --dry-run          # print every step, change nothing
 #
@@ -116,7 +117,7 @@ run env TZ=UTC git -c user.name='ShrimpScript' -c user.email='shrimpscript@users
 if [ "$DEPLOY" = 1 ]; then
     run install -m 0755 "$DIST/portholed-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')" "$HOME/.local/bin/portholed.new"
     run mv -f "$HOME/.local/bin/portholed.new" "$HOME/.local/bin/portholed"
-    run systemctl --user restart portholed
+    run "$HOME/.local/bin/portholed" service restart
 fi
 
 # 10. Optional: push, and publish the release installed apps update from. The notes are
@@ -139,10 +140,32 @@ for sec in re.findall(r'<section class="rel">(.*?)</section>', page, re.S):
         break
 else:
     print("See the changelog: https://porthole-one.vercel.app/changelog")
-print("\nInstall: download porthole.apk on the phone; run the daemon from tools/install.sh.")
+print("\nInstall: download porthole.apk on the phone. On the computer, brew install shrimpscript/tap/porthole "
+      "then portholed setup, or run tools/install.sh from a clone.")
 PY
     run gh release create "v$VERSION" --title "Porthole $VERSION" --notes-file "$NOTES" \
         "$DIST/porthole.apk" "$DIST/portholed-linux-amd64" "$DIST/portholed-linux-arm64" "$DIST/portholed-darwin-amd64" "$DIST/portholed-darwin-arm64" \
         "$DIST/THIRD_PARTY.txt" "$DIST/SHA256SUMS"
 fi
+# 11. Optional, with --push: the Homebrew formula, in its own tap repository, pointing at
+# the binaries and checksums just published.
+TAP="${PORTHOLE_TAP:-ShrimpScript/homebrew-tap}"
+if [ "$PUSH" = 1 ]; then
+    if [ "$DRY" = 1 ]; then
+        echo "+ update Formula/porthole.rb in $TAP"
+    elif gh repo view "$TAP" >/dev/null 2>&1; then
+        TAPDIR=$(mktemp -d)
+        gh repo clone "$TAP" "$TAPDIR" -- -q
+        mkdir -p "$TAPDIR/Formula"
+        ./tools/homebrew-formula.sh "$VERSION" "$DIST/SHA256SUMS" > "$TAPDIR/Formula/porthole.rb"
+        git -C "$TAPDIR" add Formula/porthole.rb
+        TZ=UTC git -C "$TAPDIR" -c user.name='ShrimpScript' -c user.email='shrimpscript@users.noreply.github.com' commit -q -m "porthole $VERSION"
+        git -C "$TAPDIR" push -q origin HEAD
+        rm -rf "$TAPDIR"
+        echo "+ $TAP: Formula/porthole.rb -> $VERSION"
+    else
+        echo "note: $TAP does not exist; the Homebrew formula was not updated" >&2
+    fi
+fi
+
 echo "released $VERSION: $DIST (porthole.apk, porthole-$VERSION-store.aab, daemon binaries, THIRD_PARTY.txt, SHA256SUMS), tag v$VERSION"

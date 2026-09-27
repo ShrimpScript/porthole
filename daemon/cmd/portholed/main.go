@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -83,6 +84,11 @@ func main() {
 		err = cmdPublish(os.Args[2:])
 	case "service":
 		err = cmdService(os.Args[2:])
+	case "setup":
+		err = cmdSetup(os.Args[2:])
+	case "version", "--version", "-v":
+		fmt.Println("portholed " + server.Version)
+		return
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -106,7 +112,10 @@ func usage() {
   portholed pair         print a 6-digit code and a QR to pair a phone (-png FILE, -no-qr)
   portholed devices      list paired devices
   portholed revoke ID    remove a device, dropping its live connections
+  portholed setup        install the background service and the approval hook, once
+                         (-no-hooks skips the hook); what install.sh runs
   portholed status       show daemon status
+  portholed version      print the version
   portholed doctor       check everything a phone needs on this computer, one line each
   portholed sessions     list Claude Code sessions on this machine
   portholed replay FILE  map a transcript to feed rows (-json, -feed)
@@ -569,7 +578,8 @@ func cmdHook() error {
 }
 
 func cmdInstallHooks() error {
-	self, err := os.Executable()
+	// The path that survives upgrades: under Homebrew, opt/ rather than the versioned keg.
+	self, err := service.Binary()
 	if err != nil {
 		return err
 	}
@@ -608,6 +618,40 @@ func cmdStatus() error {
 	} else {
 		fmt.Println("permission hook: not registered (run `portholed install-hooks`)")
 	}
+	return nil
+}
+
+// cmdSetup is everything after the binary is in place, in one command: the background
+// service and the Claude Code hook. A package manager installs the binary; this is the
+// line that follows it.
+func cmdSetup(args []string) error {
+	fs := flag.NewFlagSet("setup", flag.ExitOnError)
+	noHooks := fs.Bool("no-hooks", false, "leave ~/.claude/settings.json alone (no approvals from the phone)")
+	_ = fs.Parse(args)
+
+	fmt.Println("Background service")
+	if err := cmdService([]string{"install"}); err != nil {
+		return err
+	}
+	fmt.Println()
+	fmt.Println("Claude Code hook")
+	if *noHooks {
+		fmt.Println("skipped: approvals stay at the desk until you run portholed install-hooks")
+	} else if err := cmdInstallHooks(); err != nil {
+		return err
+	}
+	fmt.Println()
+	if runtime.GOOS == "darwin" {
+		fmt.Println("On a Mac: turn on Remote Login (System Settings > General > Sharing) so the phone")
+		fmt.Println("has a way back in if the daemon ever stops. portholed keeps the Mac awake while a")
+		fmt.Println("session works or a phone is connected, on the power adapter.")
+	} else if out, err := probe("loginctl", "show-user", os.Getenv("USER"), "-p", "Linger", "--value"); err == nil && strings.TrimSpace(string(out)) != "yes" {
+		fmt.Println("So the daemon keeps running after you log out - which is when you are away - run:")
+		fmt.Println("    loginctl enable-linger " + os.Getenv("USER") + "      (with sudo if it asks)")
+	}
+	fmt.Println()
+	fmt.Println("Next: portholed doctor, then portholed pair for the phone.")
+	fmt.Println("Start Claude Code with porthole instead of claude, in your project's folder.")
 	return nil
 }
 
