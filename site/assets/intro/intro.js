@@ -34,6 +34,8 @@ async function start() {
   if (Q.has('intro')) seen = false;          // ?intro plays it again
   if (Q.has('settled')) seen = true;         // ?settled starts at the end (for stills)
 
+  // Whether the title card is already showing, put up by the page while this loaded.
+  const titleUp = document.documentElement.classList.contains('cine-pending');
   const canvas = root.querySelector('.cine-canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // Sharp enough, and no sharper: bloom at 2x costs a mid laptop its frame rate.
@@ -288,6 +290,7 @@ async function start() {
     caps: [...root.querySelectorAll('.cine-cap')],
     hero: root.querySelector('.cine-hero'),
     cue: root.querySelector('.cine-cue'),
+    title: root.querySelector('.cine-title'),
   };
   const cap = (i, at, tl, hold = 1.4) => {
     const el = ui.caps[i];
@@ -321,6 +324,12 @@ async function start() {
     .set(screenMat.color, { r: 0, g: 0, b: 0 }, 0)
     .set(nextMat, { opacity: 0 }, 0)
     .set([ui.hero, ui.cue], { autoAlpha: 0 }, 0)
+    // The film has the screen to itself; the site's header comes back with the words.
+    .set(document.querySelector('.site-h'), { autoAlpha: 0 }, 0)
+    // The title card, in the dark, before anything else.
+    .fromTo(ui.title, titleUp ? { autoAlpha: 1, scale: 1, filter: 'blur(0px)' } : { autoAlpha: 0, scale: 1.06, filter: 'blur(10px)' },
+      { autoAlpha: 1, scale: 1, filter: 'blur(0px)', duration: titleUp ? 0.01 : 1.3, ease: 'power3.out' }, 0.15)
+    .to(ui.title, { autoAlpha: 0, y: -24, filter: 'blur(6px)', duration: 0.8, ease: 'power2.in' }, 1.9)
     // The light comes on, with a stutter, as a real lamp does.
     .to(spot, { intensity: 1.1, duration: 0.12, ease: 'none' }, 0.25)
     .to(spot, { intensity: 0.35, duration: 0.08, ease: 'none' }, 0.37)
@@ -372,6 +381,7 @@ async function start() {
     .to(camera.position, { x: R.cam.x, y: R.cam.y, z: R.cam.z, duration: 1.6, ease: 'power3.inOut' }, 11.7)
     .to(look, { x: R.look.x, y: R.look.y, z: R.look.z, duration: 1.6, ease: 'power3.inOut' }, 11.7)
     .fromTo(ui.hero, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 1.0, ease: 'power3.out' }, 12.4)
+    .to(document.querySelector('.site-h'), { autoAlpha: 1, duration: 0.8 }, 12.6)
     .fromTo(ui.cue, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8 }, 13.2)
     .set(ui.skip, { autoAlpha: 0 }, 13.3)
     .set(ui.replay, { autoAlpha: 1 }, 13.3);

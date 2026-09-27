@@ -154,3 +154,73 @@ main .pk-cap { min-height: 2.9em; }
 /* After the inline-code rule above on purpose: a step's command is its own line, not code
    inside a sentence, and needs its line height back or its background collapses. */
 .steps li > code { line-height: 1.5; }
+
+/* ------------------------------------------------- the finished page --- */
+/*
+ * Below the opening shot the page keeps its quiet: larger type, more room, and one device
+ * carried down from the film - the small mono label over each part, named after the part
+ * of the app it shows (the same labels the opening's captions used).
+ */
+
+.kick {
+  margin: 0 0 14px;
+  font: 500 .74rem/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* More room between parts, and no rules: the space does the separating. */
+main > .section { padding-block: clamp(88px, 11vw, 168px); }
+main > .section + .section { border-top: 0; }
+
+.head { max-width: 50rem; }
+.head h2 {
+  font-size: clamp(2.3rem, 1.4rem + 2.9vw, 3.7rem); line-height: 1.02; letter-spacing: -.034em; font-weight: 600;
+}
+.head .lead { font-size: clamp(1.08rem, 1rem + .35vw, 1.3rem); line-height: 1.55; max-width: 48ch; margin-top: 20px; }
+.head + * { margin-top: clamp(48px, 6vw, 80px); }
+
+.feat-copy h3 { font-size: clamp(1.7rem, 1.25rem + 1.5vw, 2.55rem); line-height: 1.08; letter-spacing: -.028em; font-weight: 600; }
+.feat-copy > p { font-size: 1.06rem; line-height: 1.65; color: var(--muted); margin-top: 18px; }
+.feat-copy > .kick + h3 { margin-top: 0; }
+.features > .feat, .features > .pair { margin-top: clamp(104px, 12vw, 184px); }
+.pair .feat-copy h3 { font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem); }
+
+.steps h3 { font-size: 1.2rem; }
+.also { margin-top: clamp(104px, 12vw, 184px); }
+.also h3 { font-size: clamp(1.3rem, 1.1rem + .6vw, 1.6rem); letter-spacing: -.02em; }
+
+/* The close: the phone under the opening's light, the words beside it, dark in any theme. */
+.closing {
+  position: relative; overflow: hidden; isolation: isolate;
+  background: #030807; color: #E8F0EE;
+  padding-block: clamp(120px, 16vw, 220px);
+}
+.closing-img {
+  position: absolute; inset: 0; z-index: -1;
+  width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%;
+  opacity: .92;
+}
+@media (min-width: 900px) {
+  .closing-img { object-position: 20% 45%; left: 18%; width: 82%;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%); mask-image: linear-gradient(90deg, transparent, #000 30%); }
+}
+.closing::after {
+  /* The words need the dark side of the frame. */
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(90deg, #030807 0%, rgb(3 8 7 / .85) 38%, rgb(3 8 7 / 0) 70%);
+}
+@media (max-width: 899px) {
+  .closing::after { background: linear-gradient(0deg, #030807 20%, rgb(3 8 7 / .6) 60%, rgb(3 8 7 / .2)); }
+  .closing { padding-top: clamp(280px, 70vw, 420px); }
+}
+.closing-in { position: relative; }
+.closing h2 {
+  max-width: 14ch;
+  font-size: clamp(2.3rem, 1.4rem + 3vw, 3.9rem); line-height: 1.02; letter-spacing: -.034em; font-weight: 600; color: #F2F7F6;
+}
+.closing .lead { max-width: 40ch; margin-top: 20px; color: #A9BAB6; font-size: clamp(1.05rem, 1rem + .3vw, 1.25rem); }
+.closing .cluster { margin-top: 32px; }
+.closing .kick { color: #3FD4C0; }
+.closing .btn:not(.btn-primary) { color: #E8F0EE; border-color: rgb(232 240 238 / .28); background: rgb(255 255 255 / .03); }
+.closing .btn:not(.btn-primary):hover { background: rgb(255 255 255 / .08); }
+.closing + * { margin-top: 0; }
