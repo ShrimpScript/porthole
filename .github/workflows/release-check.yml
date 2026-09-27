@@ -1,0 +1,45 @@
+name: release-check
+
+# The published release as a person gets it: Homebrew from the tap on macOS and Linux, and
+# the release binary with its checksum. Run by hand after tools/release.sh --push.
+on:
+  workflow_dispatch:
+
+jobs:
+  homebrew:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - name: Homebrew on Linux
+        if: runner.os == 'Linux'
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+      - name: install from the tap
+        run: brew install shrimpscript/tap/porthole
+      - name: the formula's own test
+        run: brew test shrimpscript/tap/porthole
+      - name: it is the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          want=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          got=$(portholed version)
+          echo "$got (latest release $want)"
+          [ "$got" = "portholed ${want#v}" ]
+          [ -L "$(brew --prefix)/bin/porthole" ]
+
+  checksums:
+    runs-on: ubuntu-latest
+    steps:
+      - name: every published binary matches SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern 'portholed-*' --pattern SHA256SUMS
+          grep portholed- SHA256SUMS | sha256sum -c -
