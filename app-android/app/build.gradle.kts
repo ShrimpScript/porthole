@@ -35,8 +35,8 @@ android {
         applicationId = "dev.shrimpscript.porthole"
         minSdk = 29          // Android 10
         targetSdk = 36
-        versionCode = 43
-        versionName = "0.25.1"
+        versionCode = 44
+        versionName = "0.26.0"
         buildConfigField("String", "RELEASES_API", "\"https://api.github.com/repos/ShrimpScript/porthole/releases/latest\"")
         buildConfigField("String", "RELEASES_PAGE", "\"https://github.com/ShrimpScript/porthole/releases\"")
         buildConfigField("boolean", "SELF_UPDATE", (!storeBuild).toString())

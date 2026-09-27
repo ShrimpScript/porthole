@@ -32,7 +32,7 @@ type sessionListFrame struct {
 	Sessions []session.Info `json:"sessions"`
 }
 
-const Version = "0.25.1"
+const Version = "0.26.0"
 
 type Server struct {
 	res  tailnet.Resolver
