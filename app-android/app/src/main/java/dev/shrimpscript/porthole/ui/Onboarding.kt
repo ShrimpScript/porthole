@@ -4,6 +4,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -155,10 +158,55 @@ fun WelcomeScreen(onStart: () -> Unit, onHowItWorks: () -> Unit) = Screen {
 
 /* ------------------------------------------------------------- what you need --- */
 
+/**
+ * The two computers portholed runs on. They install and stay reachable differently, so
+ * the setup screens show one or the other, never a mix.
+ */
+enum class ComputerOs(val label: String, val detail: String, val pref: String) {
+    Mac("Mac", "macOS 13 or later", "mac"),
+    Linux("Linux", "with systemd", "linux");
+
+    companion object {
+        fun fromPref(s: String?): ComputerOs? = entries.firstOrNull { it.pref == s }
+        /** From the daemon's hello, once one is connected. */
+        fun fromDaemon(os: String): ComputerOs? = when (os) { "darwin" -> Mac; "linux" -> Linux; else -> null }
+    }
+}
+
+/** Mac or Linux, as a switch at the top of a screen that depends on it. */
 @Composable
-fun NeedsScreen(onContinue: () -> Unit, onBack: () -> Unit) = OnboardingFrame(
+fun ComputerSwitch(os: ComputerOs, onOs: (ComputerOs) -> Unit) {
+    SegmentedToggle(
+        ComputerOs.Mac.label to ComputerOs.Linux.label,
+        selected = if (os == ComputerOs.Linux) 1 else 0,
+        onSelect = { onOs(if (it == 1) ComputerOs.Linux else ComputerOs.Mac) },
+    )
+}
+
+@Composable
+private fun ComputerCard(os: ComputerOs, chosen: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val c = Porthole.colors
+    Column(
+        modifier
+            .background(if (chosen) c.raised else c.surface, PortholeShape.card)
+            .border(if (chosen) 2.dp else 1.dp, if (chosen) c.accent else c.edge, PortholeShape.card)
+            .selectable(selected = chosen, role = Role.RadioButton, onClick = onClick)
+            .padding(14.dp),
+    ) {
+        Text(os.label, style = PortholeType.rowTitle, color = c.text)
+        Text(os.detail, style = PortholeType.secondary, color = c.muted)
+    }
+}
+
+@Composable
+fun NeedsScreen(
+    os: ComputerOs?,
+    onOs: (ComputerOs) -> Unit,
+    onContinue: () -> Unit,
+    onBack: () -> Unit,
+) = OnboardingFrame(
     step = 1, onBack = onBack,
-    bottom = { PrimaryButton("Continue", onContinue) },
+    bottom = { PrimaryButton(if (os == null) "Choose the computer" else "Continue", onContinue, enabled = os != null) },
 ) {
     val c = Porthole.colors
     Text("What you'll need", style = Porthole.type.display, color = c.text)
@@ -168,7 +216,13 @@ fun NeedsScreen(onContinue: () -> Unit, onBack: () -> Unit) = OnboardingFrame(
             "no service to sign into.",
         style = PortholeType.body, color = c.muted,
     )
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(20.dp))
+    Text("Which computer runs Claude Code?", style = PortholeType.secondary, color = c.muted)
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        ComputerOs.entries.forEach { o -> ComputerCard(o, os == o, { onOs(o) }, Modifier.weight(1f)) }
+    }
+    Spacer(Modifier.height(20.dp))
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Appear(delayMs = 0) {
             ToolRow(
@@ -185,7 +239,11 @@ fun NeedsScreen(onContinue: () -> Unit, onBack: () -> Unit) = OnboardingFrame(
         Appear(delayMs = PortholeMotion.STAGGER_MS * 2) {
             ToolRow(
                 Brand.tmux, "portholed",
-                "The small companion service for the computer. It listens on your tailnet only, never the internet.",
+                when (os) {
+                    ComputerOs.Mac -> "The small companion service for the Mac, from Homebrew. It listens on your tailnet only, never the internet."
+                    ComputerOs.Linux -> "The small companion service for the computer, a systemd user service. It listens on your tailnet only, never the internet."
+                    null -> "The small companion service for the computer. It listens on your tailnet only, never the internet."
+                },
             )
         }
     }
@@ -242,15 +300,8 @@ fun TailscaleScreen(
         style = PortholeType.body, color = c.muted,
     )
     Spacer(Modifier.height(20.dp))
-    Text("On the computer", style = PortholeType.secondary, color = c.muted)
-    Spacer(Modifier.height(8.dp))
-    CommandBlock("tailscale up --ssh", "Install Tailscale there too. On Linux, then:")
-    Spacer(Modifier.height(8.dp))
     Text(
-        "--ssh turns on Tailscale SSH, which is what Porthole falls back to if its own " +
-            "daemon ever stops answering. On a Mac, sign in to the Tailscale app and turn on " +
-            "Remote Login instead (System Settings > General > Sharing); this phone then " +
-            "adds its own key from Settings.",
+        "The computer needs Tailscale too, on the same account. The next screen shows how, for a Mac or for Linux.",
         style = PortholeType.secondary, color = c.faint,
     )
 }
@@ -258,7 +309,13 @@ fun TailscaleScreen(
 /* ------------------------------------------------------------ computer setup --- */
 
 @Composable
-fun SetupScreen(onContinue: () -> Unit, onBack: () -> Unit, fromSettings: Boolean = false) = OnboardingFrame(
+fun SetupScreen(
+    os: ComputerOs,
+    onOs: (ComputerOs) -> Unit,
+    onContinue: () -> Unit,
+    onBack: () -> Unit,
+    fromSettings: Boolean = false,
+) = OnboardingFrame(
     step = if (fromSettings) null else 3, onBack = onBack,
     bottom = {
         PrimaryButton(if (fromSettings) "Done" else "Continue", onContinue)
@@ -272,32 +329,84 @@ fun SetupScreen(onContinue: () -> Unit, onBack: () -> Unit, fromSettings: Boolea
     Text("Set up the computer", style = Porthole.type.display, color = c.text)
     Spacer(Modifier.height(12.dp))
     Text(
-        "Three steps at the keyboard, once. Everything here is copyable.",
+        "Four steps at the keyboard, once. Everything here is copyable.",
         style = PortholeType.body, color = c.muted,
     )
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(16.dp))
+    ComputerSwitch(os, onOs)
+    Spacer(Modifier.height(16.dp))
 
-    SetupStep(1, Brand.github, "Install portholed") {
-        Text(
-            "It installs a background service that can run commands as you, and a Claude " +
-                "Code hook for remote approvals. On a Mac, or anywhere with Homebrew:",
-            style = PortholeType.secondary, color = c.muted,
-        )
-        Spacer(Modifier.height(10.dp))
-        CommandBlock("brew install shrimpscript/tap/porthole")
-        Spacer(Modifier.height(8.dp))
-        CommandBlock("portholed setup")
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Or clone the repository, read the installer, and run it:",
-            style = PortholeType.secondary, color = c.muted,
-        )
-        Spacer(Modifier.height(10.dp))
-        CommandBlock("git clone https://github.com/ShrimpScript/porthole")
-        Spacer(Modifier.height(8.dp))
-        CommandBlock("cd porthole && ./tools/install.sh")
+    SetupStep(1, Brand.tailscale, "Tailscale on the computer") {
+        when (os) {
+            ComputerOs.Mac -> {
+                Text(
+                    "Install the Tailscale app from the Mac App Store or tailscale.com, and sign in to " +
+                        "the same account as this phone.",
+                    style = PortholeType.secondary, color = c.muted,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Turn on Remote Login in System Settings > General > Sharing. It is this phone's way " +
+                        "back in if the daemon ever stops; once paired, the phone adds its own key for it.",
+                    style = PortholeType.secondary, color = c.faint,
+                )
+            }
+            ComputerOs.Linux -> {
+                Text(
+                    "Install Tailscale, then sign in with Tailscale SSH on. SSH is this phone's way back in " +
+                        "if the daemon ever stops.",
+                    style = PortholeType.secondary, color = c.muted,
+                )
+                Spacer(Modifier.height(10.dp))
+                CommandBlock("sudo tailscale up --ssh")
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Already signed in? sudo tailscale set --ssh",
+                    style = PortholeType.secondary, color = c.faint,
+                )
+            }
+        }
     }
-    SetupStep(2, Brand.claudeCode, "Start Claude Code with porthole") {
+    SetupStep(2, Brand.github, "Install portholed") {
+        when (os) {
+            ComputerOs.Mac -> {
+                Text(
+                    "With Homebrew. portholed setup starts it at every login, where it can run " +
+                        "commands as you, and adds a Claude Code hook for remote approvals.",
+                    style = PortholeType.secondary, color = c.muted,
+                )
+                Spacer(Modifier.height(10.dp))
+                CommandBlock("brew install shrimpscript/tap/porthole")
+                Spacer(Modifier.height(8.dp))
+                CommandBlock("portholed setup")
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "It keeps the Mac awake while a session works or this phone is connected, on the " +
+                        "power adapter. Allow it to record the screen when macOS asks, for screenshots.",
+                    style = PortholeType.secondary, color = c.faint,
+                )
+            }
+            ComputerOs.Linux -> {
+                Text(
+                    "Clone the repository and run the installer. Read it first: it installs a user " +
+                        "service that can run commands as you, and a Claude Code hook for remote approvals.",
+                    style = PortholeType.secondary, color = c.muted,
+                )
+                Spacer(Modifier.height(10.dp))
+                CommandBlock("git clone https://github.com/ShrimpScript/porthole")
+                Spacer(Modifier.height(8.dp))
+                CommandBlock("cd porthole && ./tools/install.sh")
+                Spacer(Modifier.height(8.dp))
+                CommandBlock("sudo loginctl enable-linger \$USER", "So it keeps running after you log out:")
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Homebrew works on Linux too: brew install shrimpscript/tap/porthole, then portholed setup.",
+                    style = PortholeType.secondary, color = c.faint,
+                )
+            }
+        }
+    }
+    SetupStep(3, Brand.claudeCode, "Start Claude Code with porthole") {
         Text(
             "In your project's folder, run porthole where you would run claude. It starts " +
                 "Claude Code inside tmux, so the terminal on your phone is the same screen as " +
@@ -308,7 +417,7 @@ fun SetupScreen(onContinue: () -> Unit, onBack: () -> Unit, fromSettings: Boolea
         Spacer(Modifier.height(10.dp))
         CommandBlock("porthole")
     }
-    SetupStep(3, Brand.tmux, "Get a pairing code") {
+    SetupStep(4, Brand.tmux, "Get a pairing code") {
         Text(
             "It prints a 6-digit code that is good for five minutes. The next screens ask for it.",
             style = PortholeType.secondary, color = c.muted,

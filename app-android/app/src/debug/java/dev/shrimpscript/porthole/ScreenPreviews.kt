@@ -14,6 +14,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.shrimpscript.porthole.net.Failure
 import dev.shrimpscript.porthole.net.SessionInfo
+import dev.shrimpscript.porthole.ui.ComputerOs
 import dev.shrimpscript.porthole.ui.ConnectScreen
 import dev.shrimpscript.porthole.ui.ConsentScreen
 import dev.shrimpscript.porthole.ui.FailureScreen
@@ -53,7 +54,7 @@ fun PreviewWelcome() = PortholeTheme { WelcomeScreen({}, {}) }
 
 @Preview(name = "02 needs", device = PIXEL)
 @Composable
-fun PreviewNeeds() = PortholeTheme { NeedsScreen({}, {}) }
+fun PreviewNeeds() = PortholeTheme { NeedsScreen(ComputerOs.Mac, {}, {}, {}) }
 
 @Preview(name = "03 tailscale missing", device = PIXEL)
 @Composable
@@ -61,7 +62,7 @@ fun PreviewTailscale() = PortholeTheme { TailscaleScreen(false, {}, {}, {}, {}, 
 
 @Preview(name = "04 setup", device = PIXEL)
 @Composable
-fun PreviewSetup() = PortholeTheme { SetupScreen({}, {}) }
+fun PreviewSetup() = PortholeTheme { SetupScreen(ComputerOs.Mac, {}, {}, {}) }
 
 @Preview(name = "05 connect", device = PIXEL)
 @Composable
@@ -142,7 +143,7 @@ fun PreviewSessions360() = PortholeTheme {
 
 @Preview(name = "21 setup 360dp", device = SMALL)
 @Composable
-fun PreviewSetup360() = PortholeTheme { SetupScreen({}, {}) }
+fun PreviewSetup360() = PortholeTheme { SetupScreen(ComputerOs.Linux, {}, {}, {}) }
 
 @Preview(name = "22 pair 360dp", device = SMALL)
 @Composable

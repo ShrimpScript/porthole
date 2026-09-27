@@ -54,6 +54,7 @@ import dev.shrimpscript.porthole.ui.ApprovalOverlay
 import dev.shrimpscript.porthole.ui.CLI_COMMANDS
 import dev.shrimpscript.porthole.ui.ConnectScreen
 import dev.shrimpscript.porthole.ui.ConsentScreen
+import dev.shrimpscript.porthole.ui.ComputerOs
 import dev.shrimpscript.porthole.ui.NewSessionSheet
 import dev.shrimpscript.porthole.ui.projectsOf
 import kotlinx.coroutines.flow.first
@@ -421,6 +422,9 @@ private fun PortholeApp(
     // How to restart the daemon on this computer, learned the same way: systemd on Linux,
     // launchd on a Mac.
     var restartCmd by remember { mutableStateOf(prefs.getString("restart_cmd", "") ?: "") }
+    // Mac or Linux: chosen on "What you'll need", it decides which setup steps are shown.
+    var computerOs by remember { mutableStateOf(ComputerOs.fromPref(prefs.getString("computer_os", null))) }
+    fun chooseOs(o: ComputerOs) { computerOs = o; prefs.edit().putString("computer_os", o.pref).apply() }
     var keyNote by remember { mutableStateOf<String?>(null) }
     var fontSp by remember { mutableFloatStateOf(prefs.getFloat("term_font", 13f)) }
     var fit by remember { mutableStateOf(prefs.getBoolean("term_fit", true)) }
@@ -979,6 +983,8 @@ private fun PortholeApp(
                 )
 
                 Route.Needs -> NeedsScreen(
+                    os = computerOs,
+                    onOs = { chooseOs(it) },
                     onContinue = { route = if (tsInstalled) Route.Setup else Route.Tailscale },
                     onBack = { route = Route.Welcome },
                 )
@@ -1011,6 +1017,8 @@ private fun PortholeApp(
                 )
 
                 Route.Setup -> SetupScreen(
+                    os = computerOs ?: ComputerOs.Mac,
+                    onOs = { chooseOs(it) },
                     onContinue = { route = Route.Connect },
                     onBack = { route = if (tsInstalled) Route.Needs else Route.Tailscale },
                 )
@@ -1274,6 +1282,9 @@ private fun PortholeApp(
                 )
 
                 Route.SettingsSetup -> SetupScreen(
+                    // A connected computer says what it is; setting up another starts from the last choice.
+                    os = computerOs ?: daemon?.os?.let { ComputerOs.fromDaemon(it) } ?: ComputerOs.Mac,
+                    onOs = { chooseOs(it) },
                     onContinue = { route = Route.Settings },
                     onBack = { route = Route.Settings },
                     fromSettings = true,

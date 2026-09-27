@@ -46,9 +46,19 @@ class RenderDocsTest {
 
     @Test
     fun needs() {
-        rule.setContent { PortholeTheme { NeedsScreen(onContinue = {}, onBack = {}) } }
+        rule.setContent { PortholeTheme { NeedsScreen(os = null, onOs = {}, onContinue = {}, onBack = {}) } }
         rule.onNodeWithText("What you'll need").assertIsDisplayed()
+        // Nothing is assumed: the computer is chosen before anything else is shown for it.
+        rule.onNodeWithText("Which computer runs Claude Code?").assertIsDisplayed()
+        rule.onNodeWithText("Choose the computer").assertIsDisplayed()
         save("needs")
+    }
+
+    @Test
+    fun needsWithAMac() {
+        rule.setContent { PortholeTheme { NeedsScreen(os = ComputerOs.Mac, onOs = {}, onContinue = {}, onBack = {}) } }
+        rule.onNodeWithText("Continue").assertIsDisplayed()
+        save("needs-mac")
     }
 
     @Test
@@ -157,8 +167,21 @@ class RenderDocsTest {
 
     @Test
     fun setupStep() {
-        rule.setContent { PortholeTheme { SetupScreen(onContinue = {}, onBack = {}) } }
+        rule.setContent { PortholeTheme { SetupScreen(os = ComputerOs.Mac, onOs = {}, onContinue = {}, onBack = {}) } }
+        rule.onNodeWithText("brew install shrimpscript/tap/porthole").assertExists()
+        rule.onNodeWithText("Turn on Remote Login", substring = true).assertExists()
+        rule.onNodeWithText("sudo tailscale up --ssh").assertDoesNotExist()
         save("setup")
+    }
+
+    @Test
+    fun setupStepLinux() {
+        rule.setContent { PortholeTheme { SetupScreen(os = ComputerOs.Linux, onOs = {}, onContinue = {}, onBack = {}) } }
+        rule.onNodeWithText("sudo tailscale up --ssh").assertExists()
+        rule.onNodeWithText("cd porthole && ./tools/install.sh").assertExists()
+        rule.onNodeWithText("sudo loginctl enable-linger \$USER").assertExists()
+        rule.onNodeWithText("Turn on Remote Login", substring = true).assertDoesNotExist()
+        save("setup-linux")
     }
 
     @Test
