@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -25,9 +26,12 @@ import (
 func cmdClaude(args []string) error {
 	tmux, err := exec.LookPath("tmux")
 	if err != nil {
-		return errors.New("Porthole runs Claude Code inside tmux so the phone can type to it, and tmux is not installed.\n" +
-			"Install it with your package manager (for example: sudo apt install tmux, sudo dnf install tmux,\n" +
-			"sudo pacman -S tmux), then run this again")
+		how := "Install it with your package manager (for example: sudo apt install tmux, sudo dnf install tmux,\n" +
+			"sudo pacman -S tmux), then run this again"
+		if runtime.GOOS == "darwin" {
+			how = "Install it with Homebrew (brew install tmux), then run this again"
+		}
+		return errors.New("Porthole runs Claude Code inside tmux so the phone can type to it, and tmux is not installed.\n" + how)
 	}
 	if os.Getenv("TMUX") != "" {
 		claude, err := exec.LookPath("claude")

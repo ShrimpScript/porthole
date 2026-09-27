@@ -57,7 +57,11 @@ func runDoctor() []check {
 	if v, err := probe("tmux", "-V"); err == nil {
 		add("ok", "tmux", strings.TrimSpace(string(v)))
 	} else {
-		add("fail", "tmux", "not on PATH; Claude Code must run inside tmux for the phone to type to it")
+		fix := "(install it with your package manager: apt, dnf or pacman)"
+		if runtime.GOOS == "darwin" {
+			fix = "(brew install tmux)"
+		}
+		add("fail", "tmux", "not on PATH; Claude Code must run inside tmux for the phone to type to it "+fix)
 	}
 
 	// Tailscale is the only network the daemon binds.
