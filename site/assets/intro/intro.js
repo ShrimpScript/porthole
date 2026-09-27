@@ -13,6 +13,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { word, MONO } from './kinetype.js';
 
 const root = document.querySelector('.cine');
 const gsap = window.gsap;
@@ -156,6 +157,13 @@ async function start() {
     t.anisotropy = renderer.capabilities.getMaxAnisotropy(); res(t);
   }, undefined, rej));
   const base = '/assets/intro/';
+  // One word for each beat of the film, drawn while the model loads: in the site's own
+  // faces, the terminal's in its monospace, and lit by the stage like everything else on it.
+  const ink = { height: 0.05, weight: 650, fill: '#A7B7B3', lit: true };
+  const wordsReady = Promise.all([
+    word('Sessions', ink), word('Questions', ink), word('Approvals', ink),
+    word('Terminal', { ...ink, weight: 700, face: MONO, tracking: 0 }),
+  ]);
   const [gltf, manifest, ...maps] = await Promise.all([
     new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(base + 'phone.glb'),
     fetch(base + 'tex/manifest.json').then(r => r.json()),
@@ -254,6 +262,33 @@ async function start() {
   halo.renderOrder = 7;
   spin.add(tap, halo);
 
+  // The words stand behind the phone, above it: its top edge passes in front of them.
+  const words = await wordsReady;
+  const [wSessions, wQuestions, wApprovals, wTerminal] = words;
+  for (const g of words) {
+    for (const l of g.userData.letters) l.renderOrder = -1;   // under the light's haze
+    scene.add(g);
+  }
+  // The terminal's cursor: a block, one letter wide, that the word is typed behind.
+  const adv = wTerminal.userData.width / wTerminal.userData.letters.length;
+  const cursor = new THREE.Mesh(new THREE.PlaneGeometry(adv * 0.62, wTerminal.userData.height * 1.1),
+    new THREE.MeshStandardMaterial({ color: '#2E9C8D', emissive: TEAL, emissiveIntensity: 0.08, roughness: 0.8, transparent: true, opacity: 0, depthWrite: false }));
+  cursor.renderOrder = -1;
+  wTerminal.add(cursor);
+  const WZ = -0.12;
+  // As large as the frame allows at their depth, and no larger than they were drawn.
+  function layoutWords() {
+    const visW = 2 * (0.55 - WZ) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+    for (const g of words) {
+      // The terminal's word carries its cursor after it, one letter further.
+      const extra = g === wTerminal ? adv : 0;
+      const k = Math.min(1, (small() ? 0.74 : 0.56) * visW / (g.userData.width + extra));
+      g.scale.setScalar(k);
+      // A narrow frame has the room above the phone rather than beside it.
+      g.position.set(-extra / 2 * k, small() ? 0.142 : 0.104, WZ);
+    }
+  }
+
   // ------------------------------------------------------------ composition ---
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
@@ -279,6 +314,7 @@ async function start() {
     camera.fov = w / h < 0.8 ? 34 : 26;
     camera.updateProjectionMatrix();
     dust.material.uniforms.uScale.value = renderer.getPixelRatio();
+    layoutWords();
   }
   addEventListener('resize', resize);
   resize();
@@ -314,77 +350,241 @@ async function start() {
       .set(face.material, { opacity: 0 }, at + hold + 0.6);
   };
 
+  // ------------------------------------------------------------ the opening ---
+  // The film opens on the title, and the ring in "Porthole" is a window onto the stage with
+  // the phone's lens in it: pulling back out of the lens is the way into the film.
+  const titleRing = ui.title.querySelector('svg');
+  const titleLetters = [...ui.title.querySelectorAll('span')];
+  const SVG = 'http://www.w3.org/2000/svg';
+  const iris = document.createElementNS(SVG, 'svg');
+  iris.setAttribute('class', 'cine-iris');
+  iris.setAttribute('aria-hidden', 'true');
+  const irisRing = document.createElementNS(SVG, 'circle');
+  iris.append(irisRing);
+  ui.title.after(iris);
+  // The title's ring on the stage, in pixels: its box is 16 units across, the circle 6.95
+  // round with a stroke 2.1 wide. Measured once, when the film first needs it.
+  // The title may still be easing in from a little larger, about its own centre: measure
+  // where the ring will be once it has.
+  let ringBox = null;
+  const ring = () => {
+    if (ringBox) return ringBox;
+    const s = stage.getBoundingClientRect(), t = ui.title.getBoundingClientRect(), b = titleRing.getBoundingClientRect();
+    const k = t.width / ui.title.offsetWidth, u = b.width / k / 16;
+    const tx = t.left + t.width / 2, ty = t.top + t.height / 2;
+    const x = tx - s.left + (b.left + b.width / 2 - tx) / k, y = ty - s.top + (b.top + b.height / 2 - ty) / k;
+    const far = Math.hypot(Math.max(x, s.width - x), Math.max(y, s.height - y)) + 3 * u;
+    return (ringBox = { x, y, r: 6.95 * u, sw: 2.1 * u, inner: 5.9 * u, far, w: s.width, h: s.height });
+  };
+  const circle = r => `circle(${r}px at ${ring().x}px ${ring().y}px)`;
+  // Where the camera starts: square on to the middle lens, at the distance that makes its
+  // metal ring sit just inside the drawn one, wherever the title put it on the screen.
+  const OPEN_Y = Math.PI - 0.3;           // its back to you, turned a little
+  const lensObj = gltf.scene.getObjectByName('LensRing0');
+  let opening = null;
+  const shot0 = () => opening ??= (() => {
+    const r = ring();
+    phone.position.set(0, 0, 0);
+    spin.rotation.set(0, OPEN_Y, 0);
+    phone.updateMatrixWorld(true);
+    const lens = new THREE.Box3().setFromObject(lensObj).getCenter(new THREE.Vector3());
+    const out = new THREE.Vector3(0, 0, -1).transformDirection(spin.matrixWorld);
+    const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const d = 0.005 * r.h / (2 * tan * r.inner);
+    const nx = r.x / r.w * 2 - 1, ny = 1 - r.y / r.h * 2;
+    const fwd = out.clone().negate();
+    const right = new THREE.Vector3().crossVectors(fwd, camera.up).normalize();
+    const up = new THREE.Vector3().crossVectors(right, fwd);
+    const cam = lens.clone().addScaledVector(out, d)
+      .addScaledVector(right, -nx * d * tan * camera.aspect).addScaledVector(up, -ny * d * tan);
+    // A light passing between the camera and the lens, for a glint across its glass.
+    const glint = x => lens.clone().addScaledVector(out, d * 0.45).addScaledVector(right, x).addScaledVector(up, d * 0.2);
+    return { cam, look: cam.clone().addScaledVector(fwd, d), glintA: glint(-d * 0.5), glintB: glint(d * 0.5) };
+  })();
+
+  const breath = { v: 1 };
   const intro = gsap.timeline({ paused: true, defaults: { ease: 'power2.inOut' } });
-  // Start: dark, the phone low and turned away.
-  intro.set(phone.position, { x: 0, y: -0.03, z: 0 }, 0)
-    .set(spin.rotation, { y: Math.PI + 0.75, x: 0.02 }, 0)
-    .set(camera.position, { x: 0, y: 0.035, z: 0.76 }, 0)
-    .set(look, { x: 0, y: 0, z: 0 }, 0)
+  // A camera move: where the phone turns to, and where the camera goes and looks. Sideways
+  // moves are smaller on a narrow screen, where the phone has no room to the sides.
+  const K = small() ? 0.35 : 1;
+  const shot = (at, dur, { rot, cam, aim }, ease = 'power3.out') => {
+    if (rot) intro.to(spin.rotation, { ...rot, duration: dur, ease }, at);
+    if (cam) intro.to(camera.position, { x: cam[0] * K, y: cam[1], z: cam[2], duration: dur, ease }, at);
+    if (aim) intro.to(look, { x: aim[0] * K, y: aim[1], z: aim[2], duration: dur, ease }, at);
+  };
+
+  // The words: each comes in its own way and goes again with its beat.
+  const P = g => g.userData.letters.map(l => l.position);
+  const M = g => g.userData.letters.map(l => l.material);
+  const home = (g, k, by = 0) => i => g.userData.letters[i].userData.home[k] + by / g.scale.y;
+  // Down behind the phone: just under its top edge, in the word's own units.
+  const behind = g => () => (0.03 - g.position.y) / g.scale.y;
+  const wordIn = {
+    // Up from behind the phone, spreading out from its middle.
+    emerge(g, at) {
+      const st = { each: 0.045, from: 'center' };
+      intro.fromTo(P(g), { x: i => home(g, 'x')(i) * 0.15, y: behind(g) },
+        { x: home(g, 'x'), y: home(g, 'y'), duration: 1.25, ease: 'expo.out', stagger: st }, at)
+        .fromTo(M(g), { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'none', stagger: st }, at);
+    },
+    // Flipping up into place, one after another.
+    rise(g, at) {
+      const st = { each: 0.04 };
+      intro.fromTo(P(g), { y: home(g, 'y', -0.022) }, { y: home(g, 'y'), duration: 0.95, ease: 'power4.out', stagger: st }, at)
+        .fromTo(g.userData.letters.map(l => l.rotation), { x: 1.35 }, { x: 0, duration: 0.95, ease: 'power4.out', stagger: st }, at)
+        .fromTo(M(g), { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'none', stagger: st }, at);
+    },
+    // Closing in from wide tracking, from beyond the edges of the frame.
+    track(g, at) {
+      intro.fromTo(P(g), { x: i => home(g, 'x')(i) * 2.1 }, { x: home(g, 'x'), duration: 1.4, ease: 'expo.out' }, at)
+        .fromTo(M(g), { opacity: 0 }, { opacity: 1, duration: 0.7, ease: 'power1.out' }, at);
+    },
+    // Typed, a letter at a time, behind a blinking cursor.
+    type(g, at, until) {
+      const L = g.userData.letters, step = 0.07;
+      intro.set(cursor.position, { x: L[0].userData.home.x }, at).set(cursor.material, { opacity: 1 }, at);
+      L.forEach((l, i) => intro.set(l.material, { opacity: 1 }, at + (i + 1) * step)
+        .set(cursor.position, { x: l.userData.home.x + adv }, at + (i + 1) * step));
+      for (let t = at + (L.length + 1) * step + 0.3; t + 0.25 < until; t += 0.5)
+        intro.set(cursor.material, { opacity: 0 }, t).set(cursor.material, { opacity: 1 }, t + 0.25);
+    },
+  };
+  const wordOut = {
+    // Back down behind the phone, the ends first.
+    sink(g, at) {
+      const st = { each: 0.035, from: 'edges' };
+      intro.to(P(g), { x: i => home(g, 'x')(i) * 0.15, y: behind(g), duration: 0.65, ease: 'power3.in', stagger: st }, at)
+        .to(M(g), { opacity: 0, duration: 0.3, ease: 'none', stagger: st }, at + 0.12);
+    },
+    // Up and away.
+    up(g, at) {
+      intro.to(P(g), { y: home(g, 'y', 0.014), duration: 0.5, ease: 'power2.in', stagger: 0.025 }, at)
+        .to(M(g), { opacity: 0, duration: 0.4, ease: 'power1.in', stagger: 0.025 }, at + 0.08);
+    },
+  };
+
+  const R = rest();
+  // Start: the dark, the title, and the phone's lens in its ring.
+  intro.set(phone.position, { x: 0, y: 0, z: 0 }, 0)
+    .set(spin.rotation, { x: 0, y: OPEN_Y, z: 0 }, 0)
+    .set(camera.position, { x: () => shot0().cam.x, y: () => shot0().cam.y, z: () => shot0().cam.z }, 0)
+    .set(look, { x: () => shot0().look.x, y: () => shot0().look.y, z: () => shot0().look.z }, 0)
     .set(screenMat, { map: S.welcome }, 0)
     .set(screenMat.color, { r: 0, g: 0, b: 0 }, 0)
     .set(nextMat, { opacity: 0 }, 0)
+    .set([...words.flatMap(M), cursor.material], { opacity: 0 }, 0)
     .set([ui.hero, ui.cue], { autoAlpha: 0 }, 0)
     // The film has the screen to itself; the site's header comes back with the words.
     .set(document.querySelector('.site-h'), { autoAlpha: 0 }, 0)
-    // The title card, in the dark, before anything else.
+    // Until the ring opens, the stage is only seen through it.
+    .set(canvas, { clipPath: () => circle(ring().r) }, 0)
+    .set(iris, { autoAlpha: 0 }, 0)
+    .set(titleRing, { autoAlpha: 1 }, 0)
     .fromTo(ui.title, titleUp ? { autoAlpha: 1, scale: 1, filter: 'blur(0px)' } : { autoAlpha: 0, scale: 1.06, filter: 'blur(10px)' },
       { autoAlpha: 1, scale: 1, filter: 'blur(0px)', duration: titleUp ? 0.01 : 1.3, ease: 'power3.out' }, 0.15)
-    .to(ui.title, { autoAlpha: 0, y: -24, filter: 'blur(6px)', duration: 0.8, ease: 'power2.in' }, 1.9)
-    // The light comes on, with a stutter, as a real lamp does.
+    // The light comes on, with a stutter, as a real lamp does: the lens catches it.
     .to(spot, { intensity: 1.1, duration: 0.12, ease: 'none' }, 0.25)
     .to(spot, { intensity: 0.35, duration: 0.08, ease: 'none' }, 0.37)
     .to(spot, { intensity: 2.6, duration: 0.9, ease: 'power2.out' }, 0.5)
     .to(beam.material.uniforms.uOpacity, { value: 1, duration: 1.2, ease: 'power2.out' }, 0.45)
     .to(pool.material, { opacity: 1, duration: 1.2 }, 0.5)
     .to(dust.material.uniforms.uOpacity, { value: 1, duration: 2 }, 0.8)
+    .set(sweep.position, { x: () => shot0().glintA.x, y: () => shot0().glintA.y, z: () => shot0().glintA.z }, 0)
+    .to(sweep.position, { x: () => shot0().glintB.x, y: () => shot0().glintB.y, z: () => shot0().glintB.z, duration: 1.1, ease: 'power1.inOut' }, 0.45)
+    .fromTo(sweep, { intensity: 0 }, { intensity: 0.12, duration: 0.3, yoyo: true, repeat: 1, repeatDelay: 0.5, immediateRender: false }, 0.45)
     .to(rim, { intensity: 2.2, duration: 1.6 }, 1.0)
     .to(rim2, { intensity: 1.2, duration: 1.6 }, 1.2)
-    .to(key, { intensity: 0.5, duration: 1.4 }, 3.4)
-    // The phone rises and turns, back first; a light slides across the camera bar.
-    .to(phone.position, { y: 0, duration: 2.6, ease: 'power3.out' }, 0.7)
-    .to(spin.rotation, { y: Math.PI - 0.4, duration: 2.6, ease: 'power2.inOut' }, 0.7)
-    .to(camera.position, { z: 0.64, y: 0.02, duration: 3.4, ease: 'power2.inOut' }, 0.5)
-    .fromTo(sweep.position, { x: -0.32 }, { x: 0.32, duration: 1.8, ease: 'power1.inOut' }, 1.5)
-    .fromTo(sweep, { intensity: 0 }, { intensity: 0.9, duration: 0.4, yoyo: true, repeat: 1, repeatDelay: 1.0 }, 1.5)
-    // It faces you, and the screen wakes on the Porthole ring.
-    .to(spin.rotation, { y: 0.14, duration: 1.3, ease: 'power3.inOut' }, 3.3)
-    .to(screenMat.color, { r: 1, g: 1, b: 1, duration: 0.7, ease: 'power2.out' }, 4.25)
-    .fromTo(halo.scale, { x: 1, y: 1 }, { x: 2.6, y: 2.6, duration: 1.4, ease: 'power2.out' }, 4.4)
-    .fromTo(halo.material, { opacity: 0.9 }, { opacity: 0, duration: 1.3, ease: 'power2.out' }, 4.4)
-    .to(camera.position, { z: 0.56, duration: 2.4 }, 5.0);
-  swapTo(intro, S.sessions, 5.1);
+    .to(key, { intensity: 0.5, duration: 1.4 }, 3.8)
+    // The ring opens out past the edges of the screen, and the letters scatter ahead of it,
+    // as if the camera went through the word.
+    .set(irisRing, { attr: { cx: () => ring().x, cy: () => ring().y, r: () => ring().r, 'stroke-width': () => ring().sw } }, 1.55)
+    .set(iris, { autoAlpha: 1 }, 1.55)
+    .set(titleRing, { autoAlpha: 0 }, 1.55)
+    .to(titleLetters, {
+      x: (i, el) => { const b = el.getBoundingClientRect(), s = stage.getBoundingClientRect(); return (b.left - s.left + b.width / 2 - ring().x) * 0.9; },
+      scale: 1.3, autoAlpha: 0, filter: 'blur(8px)', duration: 0.7, ease: 'power2.in',
+      stagger: (i, el) => { const b = el.getBoundingClientRect(), s = stage.getBoundingClientRect(); return Math.abs(b.left - s.left + b.width / 2 - ring().x) / s.width * 0.5; },
+    }, 1.5)
+    .fromTo(irisRing, { attr: { r: () => ring().r, 'stroke-width': () => ring().sw } },
+      { attr: { r: () => ring().far, 'stroke-width': 1.5 }, duration: 1.15, ease: 'power3.in', immediateRender: false }, 1.6)
+    .fromTo(canvas, { clipPath: () => circle(ring().r) },
+      { clipPath: () => circle(ring().far), duration: 1.15, ease: 'power3.in', immediateRender: false }, 1.6)
+    .set([iris, ui.title], { autoAlpha: 0 }, 2.75)
+    .set(canvas, { clipPath: 'none' }, 2.75)
+    // Out of the lens: the camera pulls back to the whole phone as it turns; a light slides
+    // across the camera bar.
+    .to(spin.rotation, { y: Math.PI + 0.45, duration: 2.3, ease: 'power2.inOut' }, 1.55)
+    .fromTo(sweep.position, { x: -0.32, y: 0.1, z: -0.22 }, { x: 0.32, duration: 1.8, ease: 'power1.inOut', immediateRender: false }, 2.2)
+    .fromTo(sweep, { intensity: 0 }, { intensity: 0.9, duration: 0.4, yoyo: true, repeat: 1, repeatDelay: 1.0, immediateRender: false }, 2.2)
+    // Held still in the ring; alive once out in the room.
+    .fromTo(breath, { v: 0 }, { v: 1, duration: 1.5 }, 1.8);
+  shot(1.55, 2.25, { cam: [-0.035, 0.03, 0.66], aim: [0, 0.01, 0] }, 'power2.inOut');
+  // It turns to face you - quick through the middle, slow at each end - leaning into the turn.
+  // Onwards rather than back, so the back glass turns away from the teal light as it goes;
+  // a whole turn on, it is the same angle as 0.16.
+  intro.to(spin.rotation, { y: Math.PI * 2 + 0.16, duration: 1.25, ease: 'expo.inOut' }, 3.85)
+    .set(spin.rotation, { y: 0.16 }, 5.1)
+    .to(spin.rotation, { z: -0.06, duration: 0.6, ease: 'sine.out' }, 3.85)
+    .to(spin.rotation, { z: 0, duration: 0.8, ease: 'sine.inOut' }, 4.45);
+  shot(3.8, 1.4, { cam: [0.01, 0.015, 0.6], aim: [0, 0.008, 0] }, 'power2.inOut');
+  // Dark, the screen shows only the Porthole ring, as a phone's always-on display does; then
+  // it wakes, and the ring opens off it.
+  intro.set(halo.scale, { x: 1, y: 1 }, 0).set(halo.material, { opacity: 0.9 }, 0)
+    .to(screenMat.color, { r: 1, g: 1, b: 1, duration: 0.7, ease: 'power2.out' }, 4.85)
+    .fromTo(halo.scale, { x: 1, y: 1 }, { x: 2.6, y: 2.6, duration: 1.4, ease: 'power2.out' }, 5.0)
+    .fromTo(halo.material, { opacity: 0.9 }, { opacity: 0, duration: 1.3, ease: 'power2.out' }, 5.0);
+
+  // Sessions: the camera settles low, looking up; the word rises out from behind the phone.
+  swapTo(intro, S.sessions, 5.55);
+  shot(5.4, 1.2, { rot: { x: 0.06, y: -0.08 }, cam: [-0.012, 0.004, 0.55], aim: [0, 0.014, 0] });
+  wordIn.emerge(wSessions, 5.6);
+  cap(0, 5.75, intro, 0.95);
+  wordOut.sink(wSessions, 6.7);
+
   // Claude asks; the question lifts out, and a finger taps an answer.
-  swapTo(intro, S.question, 5.9);
-  cap(0, 5.1, intro, 0.7);
-  lift(qCard, { x: -0.062, y: 0.004, z: 0.035, s: 1.22, ry: 0.32 }, 6.25, intro, 1.55);
+  swapTo(intro, S.question, 6.6);
+  shot(6.85, 1.2, { rot: { x: 0.03, y: 0.17 }, cam: [-0.04, 0.012, 0.53], aim: [-0.022, 0.012, 0] });
+  lift(qCard, { x: -0.062, y: 0.004, z: 0.035, s: 1.22, ry: 0.32 }, 6.95, intro, 1.55);
   // Where option 2 sits on the lifted card: the tap lands there.
   const opt2 = small()
     ? { x: -0.062 * 0.28, y: 0.004 - 0.017, z: qCard.userData.home.z + 0.047 }
     : { x: -0.062, y: 0.004 - 0.018, z: qCard.userData.home.z + 0.036 };
-  intro.set(tap.position, opt2, 7.15)
-    .fromTo(tap.scale, { x: 0.4, y: 0.4 }, { x: 3, y: 3, duration: 0.55, ease: 'power2.out' }, 7.15)
-    .fromTo(tap.material, { opacity: 0.9 }, { opacity: 0, duration: 0.55 }, 7.15);
-  cap(1, 6.3, intro, 1.4);
+  intro.set(tap.position, opt2, 7.85)
+    .fromTo(tap.scale, { x: 0.4, y: 0.4 }, { x: 3, y: 3, duration: 0.55, ease: 'power2.out' }, 7.85)
+    .fromTo(tap.material, { opacity: 0.9 }, { opacity: 0, duration: 0.55 }, 7.85);
+  wordIn.rise(wQuestions, 7.35);
+  cap(1, 7.25, intro, 1.3);
+  wordOut.up(wQuestions, 8.5);
+
   // A command needs approval; it lifts out the other side, and is allowed.
-  swapTo(intro, S.approval, 8.2);
-  lift(aCard, { x: 0.064, y: -0.006, z: 0.03, s: 1.25, ry: -0.32 }, 8.45, intro, 1.35);
-  cap(2, 8.5, intro, 1.2);
-  // The terminal at the desk: the same session, floating beside the phone.
-  swapTo(intro, S.terminal, 10.1);
-  lift(tCard, { x: -0.078, y: 0.012, z: -0.03, s: 0.95, ry: 0.42 }, 10.2, intro, 1.35);
-  cap(3, 10.25, intro, 1.2);
-  // Settle: the phone steps aside for the words.
-  const R = rest();
-  swapTo(intro, S.sessions, 11.7, 0.4);
-  intro.to(phone.position, { x: R.x, y: R.y, duration: 1.6, ease: 'power3.inOut' }, 11.7)
-    .to(spin.rotation, { y: R.rotY, x: R.rotX, duration: 1.6, ease: 'power3.inOut' }, 11.7)
-    .to(camera.position, { x: R.cam.x, y: R.cam.y, z: R.cam.z, duration: 1.6, ease: 'power3.inOut' }, 11.7)
-    .to(look, { x: R.look.x, y: R.look.y, z: R.look.z, duration: 1.6, ease: 'power3.inOut' }, 11.7)
-    .fromTo(ui.hero, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 1.0, ease: 'power3.out' }, 12.4)
-    .to(document.querySelector('.site-h'), { autoAlpha: 1, duration: 0.8 }, 12.6)
-    .fromTo(ui.cue, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8 }, 13.2)
-    .set(ui.skip, { autoAlpha: 0 }, 13.3)
-    .set(ui.replay, { autoAlpha: 1 }, 13.3);
+  swapTo(intro, S.approval, 8.85);
+  shot(8.85, 1.2, { rot: { x: 0.02, y: -0.19 }, cam: [0.04, 0.008, 0.53], aim: [0.022, 0.012, 0] });
+  lift(aCard, { x: 0.064, y: -0.006, z: 0.03, s: 1.25, ry: -0.32 }, 9.1, intro, 1.35);
+  wordIn.track(wApprovals, 9.3);
+  cap(2, 9.25, intro, 1.15);
+  wordOut.up(wApprovals, 10.4);
+
+  // The terminal at the desk: the same session, floating beside the phone as the camera
+  // swings round to it.
+  swapTo(intro, S.terminal, 10.7);
+  shot(10.65, 1.3, { rot: { x: 0, y: 0.2 }, cam: [0.1, -0.006, 0.52], aim: [-0.02, 0.01, 0] });
+  lift(tCard, { x: -0.078, y: 0.012, z: -0.03, s: 0.95, ry: 0.42 }, 10.8, intro, 1.35);
+  wordIn.type(wTerminal, 10.9, 12.2);
+  cap(3, 10.95, intro, 1.2);
+  wordOut.up(wTerminal, 12.2);
+  intro.to(cursor.material, { opacity: 0, duration: 0.2 }, 12.2);
+
+  // Settle: the phone steps aside for the words, and holds.
+  swapTo(intro, S.sessions, 12.35, 0.4);
+  intro.to(spin.rotation, { y: R.rotY, x: R.rotX, duration: 1.6, ease: 'power3.inOut' }, 12.35)
+    .to(phone.position, { x: R.x, y: R.y, duration: 1.6, ease: 'power3.inOut' }, 12.35)
+    .to(camera.position, { x: R.cam.x, y: R.cam.y, z: R.cam.z, duration: 1.6, ease: 'power3.inOut' }, 12.35)
+    .to(look, { x: R.look.x, y: R.look.y, z: R.look.z, duration: 1.6, ease: 'power3.inOut' }, 12.35)
+    .fromTo(ui.hero, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 1.0, ease: 'power3.out' }, 13.1)
+    .to(document.querySelector('.site-h'), { autoAlpha: 1, duration: 0.8 }, 13.3)
+    .fromTo(ui.cue, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8 }, 13.9)
+    .set(ui.skip, { autoAlpha: 0 }, 14.0)
+    .set(ui.replay, { autoAlpha: 1 }, 14.0);
   const END = intro.duration();
 
   // ---------------------------------------------------------------- scroll ---
@@ -433,6 +633,8 @@ async function start() {
     introDone = false;
     gsap.set(ui.replay, { autoAlpha: 0 });
     gsap.set(ui.skip, { autoAlpha: 1 });
+    // The opening is seen through the title's ring at first: nothing else may show around it.
+    gsap.set(root.querySelector('.cine-still'), { autoAlpha: 0 });
     intro.restart();
   });
 
@@ -458,7 +660,9 @@ async function start() {
     beam.material.uniforms.uTime.value = t;
     dust.material.uniforms.uTime.value = t;
     // Breathing: a phone held in the light is never quite still.
-    spin.position.y = Math.sin(t * 0.8) * 0.0012;
+    spin.position.y = Math.sin(t * 0.8) * 0.0012 * breath.v;
+    for (const g of words) g.visible = g.userData.letters.some(l => l.material.opacity > 0.002);
+    wTerminal.visible ||= cursor.material.opacity > 0.002;
     camera.lookAt(look);
     if (useBloom()) composer.render(); else renderer.render(scene, camera);
   }
@@ -484,5 +688,5 @@ async function start() {
   if (Q.has('t')) { intro.pause(); intro.seek(Math.min(+Q.get('t'), END), false); }
   frame();
   // For stills and checks: the scene's clock and position, from outside.
-  window.__porthole = { intro, scroll, END, renderer, phone, spin, camera, look };
+  window.__porthole = { intro, scroll, END, renderer, phone, spin, camera, look, words };
 }
