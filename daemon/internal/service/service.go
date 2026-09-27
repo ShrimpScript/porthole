@@ -107,17 +107,31 @@ func Render(bin string) (string, error) {
 	}
 	switch runtime.GOOS {
 	case "darwin":
-		return renderPlist(bin, home, launchdPath(os.Getenv("PATH"), home)), nil
+		return renderPlist(bin, home, launchdPath(os.Getenv("PATH"), home), utf8Locale(os.Getenv)), nil
 	case "linux":
 		return strings.ReplaceAll(unitTemplate, "@BIN@", systemdQuote(bin)), nil
 	}
 	return "", fmt.Errorf("no service support on %s", runtime.GOOS)
 }
 
-func renderPlist(bin, home, path string) string {
+func renderPlist(bin, home, path, lang string) string {
 	r := strings.NewReplacer("@LABEL@", xmlEscape(Label), "@BIN@", xmlEscape(bin),
-		"@PATH@", xmlEscape(path), "@LOG@", xmlEscape(filepath.Join(home, "Library", "Logs", "portholed.log")))
+		"@PATH@", xmlEscape(path), "@LANG@", xmlEscape(lang),
+		"@LOG@", xmlEscape(filepath.Join(home, "Library", "Logs", "portholed.log")))
 	return r.Replace(plistTemplate)
+}
+
+// utf8Locale is the installing shell's UTF-8 locale, or en_US.UTF-8. launchd starts an
+// agent with no locale at all, and everything it runs inherits that: the shells in the
+// tmux sessions it starts, git, and any tmux client, which then draws every character
+// outside ASCII - all of Claude Code's frame - as an underscore.
+func utf8Locale(getenv func(string) string) string {
+	for _, k := range []string{"LC_ALL", "LC_CTYPE", "LANG"} {
+		if v := getenv(k); strings.Contains(strings.ToUpper(strings.ReplaceAll(v, "-", "")), "UTF8") {
+			return v
+		}
+	}
+	return "en_US.UTF-8"
 }
 
 // launchdPath is the PATH the agent runs with. launchd starts agents with only the

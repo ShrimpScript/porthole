@@ -137,7 +137,10 @@ func Open(ctx context.Context, target, window, owner string, cols, rows int) (*B
 
 	// -d on attach detaches other clients of THIS mirror session only, so a stale phone
 	// connection never fights a fresh one. The desktop's own client is untouched.
-	cmd := exec.CommandContext(ctx, "tmux", "attach-session", "-d", "-t", mirror)
+	// -u: the client sends UTF-8 whatever the daemon's locale. tmux decides that per
+	// client from LC_ALL/LC_CTYPE/LANG, and a launchd agent has none, so on a Mac every
+	// character of Claude Code's frame arrived on the phone as an underscore.
+	cmd := exec.CommandContext(ctx, "tmux", "-u", "attach-session", "-d", "-t", mirror)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})

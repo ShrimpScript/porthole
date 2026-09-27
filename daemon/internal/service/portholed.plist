@@ -21,6 +21,8 @@
 	<dict>
 		<key>PATH</key>
 		<string>@PATH@</string>
+		<key>LANG</key>
+		<string>@LANG@</string>
 	</dict>
 	<key>RunAtLoad</key>
 	<true/>

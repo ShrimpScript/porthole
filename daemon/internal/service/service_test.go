@@ -12,7 +12,7 @@ import (
 
 func TestPlistIsWellFormedAndCarriesThePaths(t *testing.T) {
 	text := renderPlist("/Users/dev/Library/Application Support/bin/portholed", "/Users/dev",
-		launchdPath("/usr/bin:/bin:/Users/dev/.local/bin", "/Users/dev"))
+		launchdPath("/usr/bin:/bin:/Users/dev/.local/bin", "/Users/dev"), "en_GB.UTF-8")
 	var probe struct{ XMLName xml.Name }
 	if err := xml.Unmarshal([]byte(text), &probe); err != nil || probe.XMLName.Local != "plist" {
 		t.Fatalf("not a plist: %v", err)
@@ -21,6 +21,8 @@ func TestPlistIsWellFormedAndCarriesThePaths(t *testing.T) {
 		"<string>dev.shrimpscript.portholed</string>",
 		"<string>/Users/dev/Library/Application Support/bin/portholed</string>",
 		"<string>/Users/dev/Library/Logs/portholed.log</string>",
+		"<key>LANG</key>",
+		"<string>en_GB.UTF-8</string>",
 		"/opt/homebrew/bin",
 	} {
 		if !strings.Contains(text, want) {
@@ -99,6 +101,26 @@ func TestRestartCommandFallsBackInAnyShell(t *testing.T) {
 		}
 		if string(calls) != "restart\nserve\n" {
 			t.Errorf("%s: calls = %q", sh, calls)
+		}
+	}
+}
+
+func TestUTF8Locale(t *testing.T) {
+	env := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
+	cases := []struct {
+		env  map[string]string
+		want string
+	}{
+		{map[string]string{"LANG": "de_DE.UTF-8"}, "de_DE.UTF-8"},
+		{map[string]string{"LC_ALL": "fr_FR.utf8", "LANG": "C"}, "fr_FR.utf8"},
+		{map[string]string{"LC_CTYPE": "UTF-8", "LANG": "C"}, "UTF-8"},
+		// Not UTF-8, or nothing: a UTF-8 default rather than the C locale's ASCII.
+		{map[string]string{"LANG": "C"}, "en_US.UTF-8"},
+		{map[string]string{}, "en_US.UTF-8"},
+	}
+	for _, c := range cases {
+		if got := utf8Locale(env(c.env)); got != c.want {
+			t.Errorf("utf8Locale(%v) = %q, want %q", c.env, got, c.want)
 		}
 	}
 }
