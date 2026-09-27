@@ -26,7 +26,7 @@ func (s *Server) failsafe(ctx context.Context, nodeID string) string {
 			return "tailscale"
 		}
 	}
-	if sshkeys.Has(sshkeys.Path(), nodeID) {
+	if sshkeys.Has(s.authorizedKeys, nodeID) {
 		return "key"
 	}
 	return ""
@@ -50,7 +50,7 @@ func sshListening() bool {
 // stopping - which is the whole point of a failsafe - so it is tied to this phone's own
 // tailnet addresses and goes when the phone is revoked.
 func (s *Server) sshKey(ctx context.Context, w *writer, peer *tailnet.Peer, key, deviceName string) {
-	path := sshkeys.Path()
+	path := s.authorizedKeys
 	var err error
 	if key == "" {
 		var removed bool

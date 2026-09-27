@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -53,14 +54,14 @@ LogLevel VERBOSE
 	if err := os.WriteFile(cfg, []byte(conf), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var log bytes.Buffer
+	log := &lockedBuffer{}
 	d := exec.Command(sshd, "-D", "-e", "-f", cfg)
-	d.Stdout, d.Stderr = &log, &log
+	d.Stdout, d.Stderr = log, log
 	if err := d.Start(); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = d.Process.Kill(); _ = d.Wait() })
-	waitPort(t, port, &log)
+	waitPort(t, port, log)
 
 	ssh := func(extra ...string) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -82,6 +83,10 @@ LogLevel VERBOSE
 	}
 	if out, err := ssh("127.0.0.1", "echo in"); err == nil {
 		t.Fatalf("signed in from an address the key is not tied to: %q", out)
+	}
+	// sshd logs the reason as it refuses; the pipe may hand it over a moment later.
+	for i := 0; i < 40 && !strings.Contains(log.String(), "not from a permitted host"); i++ {
+		time.Sleep(50 * time.Millisecond)
 	}
 	if !strings.Contains(log.String(), "not from a permitted host") {
 		t.Fatalf("refused, but not by from=:\n%s", log.String())
@@ -132,7 +137,25 @@ func freePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-func waitPort(t *testing.T, port int, log *bytes.Buffer) {
+// lockedBuffer collects sshd's output, which arrives on its own goroutine.
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *lockedBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
+}
+
+func waitPort(t *testing.T, port int, log *lockedBuffer) {
 	t.Helper()
 	for i := 0; i < 50; i++ {
 		if c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port)); err == nil {

@@ -239,16 +239,25 @@ func TestParseShellPane(t *testing.T) {
 }
 
 func TestHasChildren(t *testing.T) {
-	// This test process has no children of its own until it starts one.
-	if hasChildren(os.Getpid()) {
-		t.Fatal("no children expected before starting one")
+	// Processes made for the test, not the test binary itself: other tests may leave it
+	// with children of its own for a moment.
+	start := func(args ...string) *exec.Cmd {
+		cmd := exec.Command(args[0], args[1:]...)
+		if err := cmd.Start(); err != nil {
+			t.Skip("cannot start", args[0], err)
+		}
+		t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+		return cmd
 	}
-	cmd := exec.Command("sleep", "5")
-	if err := cmd.Start(); err != nil {
-		t.Skip("cannot start sleep:", err)
+	lone := start("sleep", "30")
+	if hasChildren(lone.Process.Pid) {
+		t.Fatal("a process with no children was said to have some")
 	}
-	defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
-	if !hasChildren(os.Getpid()) {
+	parent := start("sh", "-c", "sleep 30 & wait")
+	for i := 0; i < 50 && !hasChildren(parent.Process.Pid); i++ {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !hasChildren(parent.Process.Pid) {
 		t.Fatal("a running child was not seen")
 	}
 }

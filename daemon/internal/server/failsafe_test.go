@@ -51,13 +51,11 @@ func readType(t *testing.T, ctx context.Context, c *websocket.Conn, typ string) 
 // A paired phone adds its failsafe key, tied to its tailnet addresses; it can take it
 // out again, and revoking the phone takes it out too.
 func TestFailsafeKeyFollowsThePairing(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	keys := filepath.Join(home, ".ssh", "authorized_keys")
-
 	p := peer()
 	p.Addrs = []string{"100.99.0.1", "fd7a:115c:a1e0::99"}
 	s, hs, st := newTestServer(t, fakeResolver{peer: p})
+	keys := filepath.Join(t.TempDir(), ".ssh", "authorized_keys")
+	s.authorizedKeys = keys
 	if err := st.Add(&store.Device{NodeID: testNode, Name: "pixel-test"}); err != nil {
 		t.Fatal(err)
 	}

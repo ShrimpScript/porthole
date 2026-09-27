@@ -44,10 +44,12 @@ type Server struct {
 	log  *slog.Logger
 	caps []string
 
-	mu      sync.Mutex
-	conns   map[string]map[*websocket.Conn]struct{} // nodeID -> live sockets
-	awake   *keepAwake
-	writers map[*websocket.Conn]*writer // serialised writer per socket
+	mu    sync.Mutex
+	conns map[string]map[*websocket.Conn]struct{} // nodeID -> live sockets
+	awake *keepAwake
+	// authorizedKeys is the file failsafe keys go in; tests point it elsewhere.
+	authorizedKeys string
+	writers        map[*websocket.Conn]*writer // serialised writer per socket
 
 	approvals *approvals
 
@@ -117,12 +119,13 @@ func New(res tailnet.Resolver, st *store.Store, log *slog.Logger) *Server {
 		st:  st,
 		log: log,
 		// Only what the daemon can actually honour - the app reveals UI from this.
-		caps:      detectCaps(),
-		conns:     map[string]map[*websocket.Conn]struct{}{},
-		awake:     newKeepAwake(),
-		writers:   map[*websocket.Conn]*writer{},
-		approvals: newApprovals(),
-		previews:  map[int]*previewProxy{},
+		caps:           detectCaps(),
+		conns:          map[string]map[*websocket.Conn]struct{}{},
+		awake:          newKeepAwake(),
+		authorizedKeys: sshkeys.Path(),
+		writers:        map[*websocket.Conn]*writer{},
+		approvals:      newApprovals(),
+		previews:       map[int]*previewProxy{},
 	}
 }
 
@@ -153,7 +156,7 @@ func (s *Server) Revoke(nodeID string) (bool, error) {
 	previewIdentity.reset()
 	// The failsafe key goes first and whatever the store says: a key must never outlive
 	// the pairing it came with.
-	if removed, err := sshkeys.Remove(sshkeys.Path(), nodeID); err != nil {
+	if removed, err := sshkeys.Remove(s.authorizedKeys, nodeID); err != nil {
 		s.log.Warn("could not remove the failsafe key", "node", nodeID, "err", err)
 	} else if removed {
 		s.log.Info("failsafe key removed", "node", nodeID)

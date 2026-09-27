@@ -45,6 +45,9 @@ func newTestServer(t *testing.T, res tailnet.Resolver) (*Server, *httptest.Serve
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	s := New(res, st, log)
+	// No test touches the machine's own authorized_keys, or keeps a real Mac awake.
+	s.authorizedKeys = filepath.Join(t.TempDir(), "authorized_keys")
+	s.awake = nil
 	hs := httptest.NewServer(s.Handler())
 	t.Cleanup(hs.Close)
 	return s, hs, st
@@ -240,15 +243,21 @@ func TestRevokeClosesLiveSocket(t *testing.T) {
 	}
 
 	// The app is told why, so it can show the "revoked" card instead of a bare drop.
+	// The session list sent after hello may still be ahead of it on the wire.
 	reasonCtx, reasonCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	_, data, readErr := c.Read(reasonCtx)
-	reasonCancel()
-	if readErr != nil {
-		t.Fatalf("no revocation reason sent: %v", readErr)
-	}
 	var e proto.Error
-	if err := json.Unmarshal(data, &e); err != nil || e.Code != proto.ErrRevoked {
-		t.Fatalf("want a %q error frame, got %s (%v)", proto.ErrRevoked, data, err)
+	for e.Code == "" {
+		_, data, readErr := c.Read(reasonCtx)
+		if readErr != nil {
+			t.Fatalf("no revocation reason sent: %v", readErr)
+		}
+		if json.Unmarshal(data, &e) != nil || e.Type != proto.TypeError {
+			e = proto.Error{}
+		}
+	}
+	reasonCancel()
+	if e.Code != proto.ErrRevoked {
+		t.Fatalf("want a %q error frame, got %+v", proto.ErrRevoked, e)
 	}
 
 	// The client's pending read must now fail, without waiting for a reconnect.
