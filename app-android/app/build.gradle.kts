@@ -40,6 +40,7 @@ android {
         buildConfigField("String", "RELEASES_API", "\"https://api.github.com/repos/ShrimpScript/porthole/releases/latest\"")
         buildConfigField("String", "RELEASES_PAGE", "\"https://github.com/ShrimpScript/porthole/releases\"")
         buildConfigField("boolean", "SELF_UPDATE", (!storeBuild).toString())
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -151,4 +152,7 @@ dependencies {
     testImplementation("androidx.test:core:1.7.0")
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    // On a device or emulator: what only real Android has, such as the Keystore.
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
 }

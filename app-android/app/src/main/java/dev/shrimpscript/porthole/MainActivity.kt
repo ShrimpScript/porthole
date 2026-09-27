@@ -415,11 +415,17 @@ private fun PortholeApp(
     // Learned from the daemon while it was reachable and remembered, so the failsafe
     // knows who to log in as at the moment the daemon is gone.
     var sshUser by remember { mutableStateOf(prefs.getString("ssh_user", "") ?: "") }
+    // How to restart the daemon on this computer, learned the same way: systemd on Linux,
+    // launchd on a Mac.
+    var restartCmd by remember { mutableStateOf(prefs.getString("restart_cmd", "") ?: "") }
+    var keyNote by remember { mutableStateOf<String?>(null) }
     var fontSp by remember { mutableFloatStateOf(prefs.getFloat("term_font", 13f)) }
     var fit by remember { mutableStateOf(prefs.getBoolean("term_fit", true)) }
     var sessionView by remember { mutableStateOf(SessionView.Feed) }
 
     val connection by client.connection.collectAsState()
+    val failsafe by client.failsafe.collectAsState()
+    val failsafeKeyError by client.failsafeKeyError.collectAsState()
     val sessions by vm.fleet.sessions.collectAsState()
     val machines by vm.fleet.machines.collectAsState()
     val fleetConns by vm.fleet.connections.collectAsState()
@@ -742,6 +748,10 @@ private fun PortholeApp(
                 if (c.daemon.sshUser.isNotBlank() && c.daemon.sshUser != sshUser) {
                     sshUser = c.daemon.sshUser
                     prefs.edit().putString("ssh_user", sshUser).apply()
+                }
+                if (c.daemon.restart.isNotBlank() && c.daemon.restart != restartCmd) {
+                    restartCmd = c.daemon.restart
+                    prefs.edit().putString("restart_cmd", restartCmd).apply()
                 }
                 if (adding == null) {
                     prefs.edit().putString("host", host).putBoolean("paired", true).apply()
@@ -1151,6 +1161,20 @@ private fun PortholeApp(
                     onUnmuteAll = { Mutes.clear(context); mutedIds = emptySet() },
                     onOpenShell = { openFailsafeShell(Route.Settings) },
                     sshNote = failsafeNote,
+                    failsafe = failsafe,
+                    canAddKey = daemon?.caps?.contains("ssh_key") == true,
+                    daemonOs = daemon?.os ?: "",
+                    keyNote = keyNote ?: failsafeKeyError,
+                    onAddKey = {
+                        keyNote = null
+                        scope.launch {
+                            // The first key is made in the Keystore, which can take a moment.
+                            runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { vm.failsafeKey.publicLine() } }
+                                .onSuccess { client.setFailsafeKey(it) }
+                                .onFailure { keyNote = "Could not make a key on this phone: ${it.message}" }
+                        }
+                    },
+                    onRemoveKey = { keyNote = null; client.setFailsafeKey(null) },
                     deviceName = daemon?.deviceName ?: "",
                     daemonVersion = daemon?.version ?: "",
                     appVersion = BuildConfig.VERSION_NAME,
@@ -1220,7 +1244,8 @@ private fun PortholeApp(
                             scope.launch {
                                 val res = vm.ssh.runCommand(
                                     host, sshUser,
-                                    "systemctl --user restart portholed || portholed serve >/dev/null 2>&1 &",
+                                    // A daemon too old to say how falls back to the systemd way.
+                                    restartCmd.ifBlank { "systemctl --user restart portholed || portholed serve >/dev/null 2>&1 &" },
                                 )
                                 failsafeNote = if (res.isSuccess) {
                                     client.connect(host)

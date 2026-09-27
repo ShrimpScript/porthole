@@ -549,7 +549,8 @@ fun FailureScreen(
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                "Both go over Tailscale SSH, which does not depend on Porthole running.",
+                "Both go over SSH - Tailscale SSH, or on a Mac this phone's own key - which does " +
+                    "not depend on Porthole running.",
                 style = PortholeType.secondary, color = c.faint,
             )
         }

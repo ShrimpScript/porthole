@@ -221,7 +221,19 @@ data class DaemonInfo(
     val latestBuild: BuildInfo? = null,
     /** The newest build of every app published on the computer. */
     val builds: List<BuildInfo> = emptyList(),
+    /** The shell command that restarts the daemon, for the failsafe to run over SSH. */
+    val restart: String = "",
+    /**
+     * How the failsafe signs in from this phone: "tailscale", "key" (this phone's own key
+     * is on the computer) or "" (neither yet).
+     */
+    val failsafe: String = "",
+    /** Something answers for SSH on the computer; on a Mac, Remote Login is on. */
+    val sshServer: Boolean = false,
 )
+
+/** How the failsafe would sign in: see [DaemonInfo.failsafe] and [DaemonInfo.sshServer]. */
+data class FailsafeState(val via: String, val sshServer: Boolean)
 
 /**
  * Why the connection dropped. The app shows a specific card per case, because "couldn't
@@ -594,6 +606,22 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     fun previewOpen(port: Int) = send(JSONObject().put("type", "preview.open").put("port", port).toString())
     fun previewClose(port: Int) = send(JSONObject().put("type", "preview.close").put("port", port).toString())
 
+    /**
+     * Put this phone's failsafe key on the computer, or take it off with null. The answer
+     * updates [DaemonInfo.failsafe] and, on failure, [failsafeKeyError].
+     */
+    fun setFailsafeKey(publicKey: String?) {
+        _failsafeKeyError.value = null
+        send(JSONObject().put("type", "ssh.key").put("public_key", publicKey ?: "").toString())
+    }
+
+    private val _failsafe = MutableStateFlow<FailsafeState?>(null)
+    /** The failsafe as the daemon last described it: at hello, and after [setFailsafeKey]. */
+    val failsafe: StateFlow<FailsafeState?> = _failsafe
+
+    private val _failsafeKeyError = MutableStateFlow<String?>(null)
+    val failsafeKeyError: StateFlow<String?> = _failsafeKeyError
+
     fun captureStill() = send("""{"type":"capture.still"}""")
     /** One frame for the watch view; lands under the single key "live", never as a row. */
     fun captureLive() = send("""{"type":"capture.still","live":true}""")
@@ -759,6 +787,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                         return
                     }
                     val caps = obj.optJSONArray("caps")
+                    _failsafe.value = FailsafeState(obj.optString("failsafe"), obj.optBoolean("ssh_server"))
                     _connection.value = Connection.Live(
                         DaemonInfo(
                             version = obj.optString("daemon_version"),
@@ -769,6 +798,9 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                             },
                             deviceName = obj.optString("device_name"),
                             sshUser = obj.optString("ssh_user"),
+                            restart = obj.optString("restart"),
+                            failsafe = obj.optString("failsafe"),
+                            sshServer = obj.optBoolean("ssh_server"),
                             autoContinue = obj.optBoolean("auto_continue", true),
                             latestBuild = obj.optJSONObject("latest_build")?.let {
                                 BuildInfo(it.optString("app").ifBlank { "porthole" }, it.optString("version"), it.optString("path"), it.optLong("size"), it.optInt("code"))
@@ -925,6 +957,12 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                             }
                         },
                     )
+                }
+                "ssh.key.state" -> {
+                    // Its own flow, not a new Connection.Live: that would count as a
+                    // reconnect to everything keyed on the connection.
+                    _failsafe.value = FailsafeState(obj.optString("failsafe"), obj.optBoolean("ssh_server"))
+                    _failsafeKeyError.value = obj.optString("error").ifBlank { null }
                 }
                 "preview.state" -> {
                     val share = PreviewShare(obj.optInt("upstream"), obj.optInt("port"))

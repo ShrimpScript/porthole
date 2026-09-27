@@ -488,6 +488,50 @@ index 4cb29ea..8b1d0e1 100644
         save("licences-open")
     }
 
+    /**
+     * A Mac has no Tailscale SSH, so the failsafe offers to add this phone's own key -
+     * and says so when Remote Login is off, since the key is no use without it.
+     */
+    @Test
+    fun settingsOffersAKeyOnAMac() {
+        rule.setContent {
+            PortholeTheme {
+                SettingsScreen(
+                    host = "studio", deviceName = "pixel", daemonVersion = "0.27.0",
+                    appVersion = "0.27.0", fontSp = 13f, onFontSp = {},
+                    onGuide = {}, onSetup = {}, onUnpair = {}, onBack = {},
+                    failsafe = dev.shrimpscript.porthole.net.FailsafeState("", sshServer = false),
+                    canAddKey = true, daemonOs = "darwin",
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Add this phone's key").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Remote Login is off", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Open a shell over SSH").assertDoesNotExist()
+        save("settings-failsafe-mac")
+    }
+
+    @Test
+    fun settingsWithTheKeyAdded() {
+        rule.setContent {
+            PortholeTheme {
+                SettingsScreen(
+                    host = "studio", deviceName = "pixel", daemonVersion = "0.27.0",
+                    appVersion = "0.27.0", fontSp = 13f, onFontSp = {},
+                    onGuide = {}, onSetup = {}, onUnpair = {}, onBack = {},
+                    failsafe = dev.shrimpscript.porthole.net.FailsafeState("key", sshServer = true),
+                    canAddKey = true, daemonOs = "darwin",
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Remove this phone's key").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Open a shell over SSH").assertIsDisplayed()
+        rule.onNodeWithText("Remote Login is off", substring = true).assertDoesNotExist()
+        save("settings-failsafe-key")
+    }
+
     @Test
     fun settingsLinksToTheLicences() {
         rule.setContent {

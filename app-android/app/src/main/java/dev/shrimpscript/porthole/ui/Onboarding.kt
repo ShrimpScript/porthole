@@ -244,11 +244,13 @@ fun TailscaleScreen(
     Spacer(Modifier.height(20.dp))
     Text("On the computer", style = PortholeType.secondary, color = c.muted)
     Spacer(Modifier.height(8.dp))
-    CommandBlock("tailscale up --ssh", "Install Tailscale there too, then:")
+    CommandBlock("tailscale up --ssh", "Install Tailscale there too. On Linux, then:")
     Spacer(Modifier.height(8.dp))
     Text(
         "--ssh turns on Tailscale SSH, which is what Porthole falls back to if its own " +
-            "daemon ever stops answering.",
+            "daemon ever stops answering. On a Mac, sign in to the Tailscale app and turn on " +
+            "Remote Login instead (System Settings > General > Sharing); this phone then " +
+            "adds its own key from Settings.",
         style = PortholeType.secondary, color = c.faint,
     )
 }
@@ -277,9 +279,17 @@ fun SetupScreen(onContinue: () -> Unit, onBack: () -> Unit, fromSettings: Boolea
 
     SetupStep(1, Brand.github, "Install portholed") {
         Text(
-            "Clone the Porthole repository and run the installer. Read it first: it installs " +
-                "a user service that can run commands as you, and a Claude Code hook for " +
-                "remote approvals.",
+            "It installs a background service that can run commands as you, and a Claude " +
+                "Code hook for remote approvals. On a Mac, or anywhere with Homebrew:",
+            style = PortholeType.secondary, color = c.muted,
+        )
+        Spacer(Modifier.height(10.dp))
+        CommandBlock("brew install shrimpscript/tap/porthole")
+        Spacer(Modifier.height(8.dp))
+        CommandBlock("portholed setup")
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Or clone the repository, read the installer, and run it:",
             style = PortholeType.secondary, color = c.muted,
         )
         Spacer(Modifier.height(10.dp))

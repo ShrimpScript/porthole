@@ -113,6 +113,15 @@ fun SettingsScreen(
     onForgetMachine: (String) -> Unit = {},
     onOpenShell: () -> Unit = {},
     sshNote: String? = null,
+    /** The failsafe as the computer last described it; null before it has. */
+    failsafe: dev.shrimpscript.porthole.net.FailsafeState? = null,
+    /** The computer can take this phone's key (and the app is connected to it). */
+    canAddKey: Boolean = false,
+    /** "darwin" or "linux", for where to send people for the SSH server. */
+    daemonOs: String = "",
+    onAddKey: () -> Unit = {},
+    onRemoveKey: () -> Unit = {},
+    keyNote: String? = null,
     /** Sessions silenced one at a time from their details sheet. */
     mutedCount: Int = 0,
     onUnmuteAll: () -> Unit = {},
@@ -424,15 +433,45 @@ fun SettingsScreen(
             }
 
             Section("If Porthole cannot connect") {
+                val where = host.ifBlank { "the computer" }
+                val mac = daemonOs == "darwin"
+                val via = failsafe?.via
+                val bypass = "It does not go through portholed, so it still works when the daemon is " +
+                    "stopped \u2014 that is how you restart it from here."
                 Text(
-                    "Open a shell on " + host.ifBlank { "the computer" } + " over Tailscale SSH. It does not go " +
-                        "through portholed, so it still works when the daemon is stopped \u2014 that is how you " +
-                        "restart it from here.",
+                    when {
+                        via == "key" -> "Open a shell on $where over SSH, signed in with this phone's own key. $bypass"
+                        via == "" && canAddKey -> (
+                            if (mac) "The Tailscale app on a Mac has no SSH server, so the failsafe signs in " +
+                                "through Remote Login with a key made on this phone."
+                            else "Tailscale SSH is off on $where, so the failsafe signs in through its own SSH " +
+                                "server with a key made on this phone."
+                            ) + " Porthole adds it to ~/.ssh/authorized_keys there, usable only from this " +
+                            "phone's tailnet address, and takes it out if you revoke this phone."
+                        else -> "Open a shell on $where over Tailscale SSH. $bypass"
+                    },
                     style = PortholeType.meta, color = c.faint,
                 )
+                if (failsafe != null && via != "tailscale" && !failsafe.sshServer) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        if (mac) "Remote Login is off on $where. Turn it on in System Settings > General > Sharing."
+                        else "Nothing answers for SSH on $where. Start its SSH server, or turn on Tailscale SSH " +
+                            "there with: tailscale set --ssh",
+                        style = PortholeType.secondary, color = c.warn,
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
-                GhostButton("Open a shell over SSH", onClick = onOpenShell)
-                sshNote?.let {
+                if (via == "" && canAddKey) {
+                    PrimaryButton("Add this phone's key", onClick = onAddKey)
+                } else {
+                    GhostButton("Open a shell over SSH", onClick = onOpenShell)
+                    if (via == "key" && canAddKey) {
+                        Spacer(Modifier.height(8.dp))
+                        GhostButton("Remove this phone's key", onClick = onRemoveKey)
+                    }
+                }
+                (keyNote ?: sshNote)?.let {
                     Spacer(Modifier.height(8.dp))
                     Text(it, style = PortholeType.secondary, color = c.warn)
                 }

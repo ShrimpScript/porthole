@@ -10,7 +10,11 @@ import net.schmizz.sshj.AndroidConfig
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.connection.channel.direct.Session
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
+import net.schmizz.sshj.userauth.UserAuthException
+import net.schmizz.sshj.userauth.keyprovider.KeyProvider
+import net.schmizz.sshj.userauth.method.AuthMethod
 import net.schmizz.sshj.userauth.method.AuthNone
+import net.schmizz.sshj.userauth.method.AuthPublickey
 import net.schmizz.sshj.userauth.method.AuthPassword
 import net.schmizz.sshj.userauth.password.PasswordUtils
 import java.util.concurrent.atomic.AtomicBoolean
@@ -31,15 +35,21 @@ private sealed interface Op {
  * app still opens a terminal over Tailscale SSH and can restart the daemon from it - an
  * app whose recovery story is "walk back to your computer" is not a product.
  *
- * Authentication is the tailnet's, not ours. Tailscale SSH sets NoClientAuth and
- * identifies the peer by its WireGuard identity, so the client offers the `none` method
- * (verified against Tailscale SSH). Where a client mishandles that, Tailscale accepts a username
- * suffixed `+password`, which is the documented escape hatch and the fallback here.
+ * Where Tailscale SSH serves the computer, authentication is the tailnet's: it sets
+ * NoClientAuth and identifies the peer by its WireGuard identity, so the client offers the
+ * `none` method (verified against Tailscale SSH). Where a client mishandles that, Tailscale
+ * accepts a username suffixed `+password`, which is the documented escape hatch.
+ *
+ * Elsewhere - a Mac running the Tailscale app, which has no SSH server, or Linux with its
+ * own sshd - the phone signs in with its own key ([FailsafeKey]), which the daemon added to
+ * authorized_keys while it was up.
  */
 class SshFailsafe(
     private val emulator: TerminalEmulator,
     private val onRevision: () -> Unit,
     private val onClosed: (String?) -> Unit,
+    /** This phone's failsafe key, when it has one. */
+    private val key: () -> KeyProvider? = { null },
 ) {
     /**
      * Debug-only SSH port override, for reaching a stand-in NoClientAuth server.
@@ -58,6 +68,37 @@ class SshFailsafe(
          * SSHClient is constructed.
          */
         private var providerReady = false
+
+        /**
+         * Signs in: `none` for Tailscale SSH, then this phone's key if it has one. Without
+         * a key, Tailscale's `+password` form is the last try; with one, the server is an
+         * ordinary sshd, where that name means nothing.
+         */
+        fun authenticate(ssh: SSHClient, user: String, key: KeyProvider?) {
+            val methods = buildList<AuthMethod> {
+                add(AuthNone())
+                if (key != null) add(AuthPublickey(key))
+            }
+            try {
+                ssh.auth(user, methods)
+            } catch (e: UserAuthException) {
+                if (key != null) throw UserAuthException(
+                    "the computer did not accept this phone's key - add it again from Settings while Porthole is connected",
+                    e,
+                )
+                try {
+                    ssh.auth("$user+password", AuthPassword(PasswordUtils.createOneOff("porthole".toCharArray())))
+                } catch (e2: Exception) {
+                    // Not Tailscale SSH, and no key to offer: an ordinary sshd, most likely
+                    // a Mac's Remote Login.
+                    throw UserAuthException(
+                        "the computer did not let this phone in over SSH - if it is not using Tailscale SSH " +
+                            "(a Mac never is), add this phone's key in Settings while Porthole is connected",
+                        e2,
+                    )
+                }
+            }
+        }
 
         @Synchronized
         fun installCrypto() {
@@ -126,14 +167,7 @@ class SshFailsafe(
             ssh.addHostKeyVerifier(PromiscuousVerifier())
             ssh.connectTimeout = 10_000
             ssh.connect(hostOnly, port)
-
-            try {
-                ssh.auth(user, AuthNone())
-            } catch (_: Exception) {
-                // Tailscale's documented workaround for clients that mishandle a
-                // successful `none`: any password is accepted for user+password.
-                ssh.auth("$user+password", AuthPassword(PasswordUtils.createOneOff("porthole".toCharArray())))
-            }
+            authenticate(ssh, user, key())
 
             val s = ssh.startSession()
             s.allocatePTY("xterm-256color", cols, rows, 0, 0, emptyMap())
@@ -208,11 +242,7 @@ class SshFailsafe(
                 ssh.addHostKeyVerifier(PromiscuousVerifier())
                 ssh.connectTimeout = 10_000
                 ssh.connect(hostOnly, port)
-                try {
-                    ssh.auth(user, AuthNone())
-                } catch (_: Exception) {
-                    ssh.auth("$user+password", AuthPassword(PasswordUtils.createOneOff("porthole".toCharArray())))
-                }
+                authenticate(ssh, user, key())
                 val s = ssh.startSession()
                 val cmd = s.exec(command)
                 val out = cmd.inputStream.readBytes().toString(Charsets.UTF_8)

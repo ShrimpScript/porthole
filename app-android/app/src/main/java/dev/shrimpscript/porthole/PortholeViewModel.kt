@@ -34,10 +34,13 @@ class PortholeViewModel(app: Application) : AndroidViewModel(app) {
     val sshTerminal = dev.shrimpscript.porthole.terminal.TerminalEmulator(80, 24)
     val sshRevision = kotlinx.coroutines.flow.MutableStateFlow(0)
     val sshClosed = kotlinx.coroutines.flow.MutableStateFlow(false)
+    /** This phone's own SSH key, for computers where Tailscale SSH is not the way in. */
+    val failsafeKey = dev.shrimpscript.porthole.net.FailsafeKey(app.getSharedPreferences("porthole", Context.MODE_PRIVATE))
     val ssh = SshFailsafe(
         emulator = sshTerminal,
         onRevision = { sshRevision.value = sshRevision.value + 1 },
         onClosed = { sshClosed.value = true },
+        key = { failsafeKey.provider() },
     )
 
     /** The session the phone is attached to, for notifications. Changing it re-primes. */
