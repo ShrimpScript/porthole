@@ -57,6 +57,7 @@ import dev.shrimpscript.porthole.ui.ConsentScreen
 import dev.shrimpscript.porthole.ui.ComputerOs
 import dev.shrimpscript.porthole.ui.NewSessionSheet
 import dev.shrimpscript.porthole.ui.projectsOf
+import dev.shrimpscript.porthole.ui.shortPath
 import kotlinx.coroutines.flow.first
 import dev.shrimpscript.porthole.ui.FailsafeScreen
 import dev.shrimpscript.porthole.ui.FailureScreen
@@ -504,6 +505,8 @@ private fun PortholeApp(
     var showNewSession by remember { mutableStateOf(false) }
     var newStart by remember { mutableStateOf<String?>(null) }
     var newNote by remember { mutableStateOf<String?>(null) }
+    // Claude Code's "do you trust this folder", when the new session stopped on it.
+    var newTrust by remember { mutableStateOf<dev.shrimpscript.porthole.net.TrustAsk?>(null) }
     // A session we asked the computer to start: poll the list until it is live, then re-attach.
     var startingId by remember { mutableStateOf("") }
     // The pane the daemon typed "claude" into; the new session registers there. Matching
@@ -569,6 +572,10 @@ private fun PortholeApp(
         val listen = launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
             ev = sc.started.first { it.mode == "new" && it.sessionId.isBlank() }
         }
+        var asked: dev.shrimpscript.porthole.net.TrustAsk? = null
+        val trustListen = launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            sc.trustAsks.collect { asked = it }
+        }
         sc.newSession(req.substringAfter('|'))
         val answerBy = System.currentTimeMillis() + 15_000
         while (ev == null && sc.notice.value == null && System.currentTimeMillis() < answerBy) delay(100)
@@ -579,17 +586,32 @@ private fun PortholeApp(
             newStart = null
             return@LaunchedEffect
         }
-        val readyBy = System.currentTimeMillis() + 40_000
-        while (System.currentTimeMillis() < readyBy) {
-            sc.refreshSessions()
-            delay(1500)
-            val s = vm.fleet.sessions.value.firstOrNull { it.machineId == machineId && it.pane == started.pane && it.live }
-            if (s != null) {
-                showNewSession = false
-                newStart = null
-                openSession(s)
-                return@LaunchedEffect
+        var readyBy = System.currentTimeMillis() + 40_000
+        try {
+            while (System.currentTimeMillis() < readyBy) {
+                // A folder Claude Code has not been used in asks first, before the session
+                // shows up anywhere; while that question is on the phone, nothing times out.
+                asked?.takeIf { it.pane == started.pane }?.let { a ->
+                    asked = null
+                    newTrust = a
+                }
+                if (newTrust != null) {
+                    delay(300)
+                    readyBy = System.currentTimeMillis() + 40_000
+                    continue
+                }
+                sc.refreshSessions()
+                delay(1500)
+                val s = vm.fleet.sessions.value.firstOrNull { it.machineId == machineId && it.pane == started.pane && it.live }
+                if (s != null) {
+                    showNewSession = false
+                    newStart = null
+                    openSession(s)
+                    return@LaunchedEffect
+                }
             }
+        } finally {
+            trustListen.cancel()
         }
         newNote = "Claude Code has not started in tmux session ${started.tmux} yet. It may be asking something " +
             "there first; at the desk: tmux attach -t ${started.tmux}"
@@ -1106,7 +1128,25 @@ private fun PortholeApp(
                     starting = newStart,
                     note = newNote,
                     onStart = { machineId, cwd -> newNote = null; newStart = "$machineId|$cwd" },
-                    onDismiss = { showNewSession = false; newNote = null },
+                    onDismiss = {
+                        showNewSession = false
+                        newNote = null
+                        // Closed while Claude Code asks about the folder: stop waiting; the
+                        // question stays on the computer, for the desk.
+                        if (newTrust != null) { newTrust = null; newStart = null }
+                    },
+                    trust = newTrust,
+                    onTrust = { yes ->
+                        val ask = newTrust
+                        val machineId = newStart?.substringBefore('|').orEmpty()
+                        newTrust = null
+                        if (ask != null) clientOf(machineId).answerTrust(ask.pane, yes)
+                        if (!yes) {
+                            // Stops the wait; the computer quits Claude Code and removes the session.
+                            newStart = null
+                            newNote = "Cancelled. Nothing was started in ${shortPath(ask?.cwd.orEmpty())}."
+                        }
+                    },
                 )
                 SessionsScreen(
                     machine = if (machines.size > 1) "${machines.size} computers" else daemon?.host?.ifBlank { null } ?: host.ifBlank { "your computer" },

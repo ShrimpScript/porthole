@@ -49,7 +49,9 @@ type Server struct {
 	awake *keepAwake
 	// authorizedKeys is the file failsafe keys go in; tests point it elsewhere.
 	authorizedKeys string
-	writers        map[*websocket.Conn]*writer // serialised writer per socket
+	// newPanes are the panes started for a phone that are waiting on the trust prompt.
+	newPanes startedPanes
+	writers  map[*websocket.Conn]*writer // serialised writer per socket
 
 	approvals *approvals
 

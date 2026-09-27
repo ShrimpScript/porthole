@@ -41,6 +41,9 @@ func (s *Server) newClaude(ctx context.Context, w *writer, dir, device string) {
 	s.log.Info("new claude session from the phone", "dir", cwd, "tmux", name, "pane", pane, "from", device)
 	_ = w.send(ctx, startedFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeSessionStarted},
 		Tmux: name, Pane: pane, Mode: "new", Cwd: cwd})
+	// A folder Claude Code has not been used in asks first whether to trust it, before
+	// the session registers; the phone that asked for it is the one to answer.
+	go s.watchTrust(ctx, w, pane, name, cwd)
 }
 
 // typeLine types a line into a pane and presses Enter.

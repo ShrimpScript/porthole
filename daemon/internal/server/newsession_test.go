@@ -25,7 +25,7 @@ func TestNewSessionStartsClaudeInItsOwnTmuxSession(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not installed")
 	}
-	tmuxtest.Require(t)
+	tmuxtest.Fresh(t)
 	t.Setenv("INVOCATION_ID", "") // not under systemd: tmux is started directly
 	t.Setenv("SHELL", "/bin/sh")
 

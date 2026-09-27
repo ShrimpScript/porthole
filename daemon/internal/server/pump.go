@@ -95,6 +95,8 @@ type clientFrame struct {
 	Attachments []promptImage `json:"attachments"`
 	PublicKey   string        `json:"public_key"` // ssh.key: the phone's failsafe key; empty removes it
 	Cwd         string        `json:"cwd"`        // session.new: the folder to start Claude Code in
+	Pane        string        `json:"pane"`       // session.trust: the pane asking
+	Trust       bool          `json:"trust"`      // session.trust: trust the folder, or quit
 }
 
 type promptImage struct {
@@ -245,6 +247,8 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 			s.startClaude(ctx, w, f.SessionID, f.Mode, deviceName)
 		case proto.TypeSessionNew:
 			s.newClaude(ctx, w, f.Cwd, deviceName)
+		case proto.TypeSessionTrust:
+			go s.answerTrust(ctx, w, f.Pane, f.Trust, deviceName) // it waits on the screen
 		case proto.TypeSessionInterrupt:
 			s.interrupt(ctx, w, f.SessionID, deviceName)
 		case proto.TypeSessionKey:

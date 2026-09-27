@@ -90,6 +90,9 @@ fun NewSessionSheet(
     note: String?,
     onStart: (machineId: String, cwd: String) -> Unit,
     onDismiss: () -> Unit,
+    /** The new session is asking whether to trust its folder. */
+    trust: dev.shrimpscript.porthole.net.TrustAsk? = null,
+    onTrust: (Boolean) -> Unit = {},
 ) {
     val c = Porthole.colors
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -118,6 +121,10 @@ fun NewSessionSheet(
                 .navigationBarsPadding()
                 .imePadding(),
         ) {
+            if (trust != null) {
+                TrustCard(trust, onTrust)
+                return@Column
+            }
             Text("New session", style = PortholeType.title, color = c.text)
             Spacer(Modifier.height(4.dp))
             Text(
@@ -181,4 +188,41 @@ fun NewSessionSheet(
             }
         }
     }
+}
+
+/**
+ * Claude Code's first question in a folder it has not been used in, asked on the phone
+ * because the session cannot be seen until it is answered.
+ */
+@Composable
+private fun TrustCard(ask: dev.shrimpscript.porthole.net.TrustAsk, onTrust: (Boolean) -> Unit) {
+    val c = Porthole.colors
+    Text("Trust this folder?", style = PortholeType.title, color = c.text)
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "Claude Code has not been used in this folder before, and asks first. Once trusted, it " +
+            "can read, edit and run the files in it.",
+        style = PortholeType.secondary, color = c.muted,
+    )
+    Spacer(Modifier.height(12.dp))
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(c.raised, PortholeShape.card)
+            .padding(14.dp),
+    ) {
+        // The folder it was started in: what the prompt names, without the screen's line wrapping.
+        val folder = ask.cwd.ifBlank { ask.folder }
+        Text(folder.trimEnd('/').substringAfterLast('/'), style = PortholeType.rowTitle, color = c.text)
+        Text(shortPath(folder), style = PortholeType.meta, color = c.faint)
+    }
+    Spacer(Modifier.height(16.dp))
+    PrimaryButton("Trust this folder", onClick = { onTrust(true) })
+    Spacer(Modifier.height(10.dp))
+    GhostButton("Cancel", onClick = { onTrust(false) })
+    Spacer(Modifier.height(8.dp))
+    Text(
+        "Cancel quits Claude Code there and removes the tmux session it was started in.",
+        style = PortholeType.meta, color = c.faint,
+    )
 }

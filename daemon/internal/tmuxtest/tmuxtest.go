@@ -48,3 +48,11 @@ func Require(t *testing.T) {
 		t.Fatal("tmux is not isolated for this test: the package needs TestMain(m) { tmuxtest.Main(m) }")
 	}
 }
+
+// Fresh stops the private server, so the next tmux command starts one with this test's
+// environment: a server keeps the PATH it was started with, and hands it to every pane.
+func Fresh(t *testing.T) {
+	t.Helper()
+	Require(t)
+	_ = exec.Command("tmux", "-S", Socket(), "kill-server").Run()
+}

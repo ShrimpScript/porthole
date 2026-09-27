@@ -91,6 +91,9 @@ data class TurnEvent(val sessionId: String, val title: String, val text: String)
 /** The daemon started (or found already running) Claude Code for a session. */
 data class StartedEvent(val sessionId: String, val tmux: String, val mode: String, val pane: String = "", val cwd: String = "")
 
+/** A session started from the phone stopped at Claude Code's "do you trust this folder". */
+data class TrustAsk(val pane: String, val tmux: String, val cwd: String, val folder: String)
+
 /** A session started or stopped working, or moved on to another tool. */
 data class WorkingEvent(val sessionId: String, val title: String, val working: Boolean, val sinceMs: Long, val doing: String, val asking: String = "")
 
@@ -380,6 +383,10 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     /** Answers to [startSession]. */
     val started: kotlinx.coroutines.flow.SharedFlow<StartedEvent> = _started
 
+    private val _trustAsks = kotlinx.coroutines.flow.MutableSharedFlow<TrustAsk>(extraBufferCapacity = 4)
+    /** New sessions asking whether to trust their folder; see [answerTrust]. */
+    val trustAsks: kotlinx.coroutines.flow.SharedFlow<TrustAsk> = _trustAsks
+
     private val _working = kotlinx.coroutines.flow.MutableSharedFlow<WorkingEvent>(extraBufferCapacity = 16)
     /** Working-state changes in every live session, as the daemon sees them. */
     val working: kotlinx.coroutines.flow.SharedFlow<WorkingEvent> = _working
@@ -597,6 +604,12 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     fun newSession(cwd: String) {
         _notice.value = null
         send(JSONObject().put("type", "session.new").put("cwd", cwd).toString())
+    }
+
+    /** Trust the folder a new session asks about, or quit Claude Code and remove the session. */
+    fun answerTrust(pane: String, trust: Boolean) {
+        _notice.value = null
+        send(JSONObject().put("type", "session.trust").put("pane", pane).put("trust", trust).toString())
     }
 
     /** Ask for the page of history before what the feed holds. */
@@ -877,6 +890,9 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     if (incoming.isNotEmpty()) _rows.value = _rows.value + incoming
                     parseState(obj.optJSONObject("state"))?.let { _state.value = it }
                 }
+                "session.trust" -> _trustAsks.tryEmit(
+                    TrustAsk(obj.optString("pane"), obj.optString("tmux"), obj.optString("cwd"), obj.optString("folder"))
+                )
                 "session.started" -> _started.tryEmit(
                     StartedEvent(obj.optString("session_id"), obj.optString("tmux"), obj.optString("mode"), obj.optString("pane"), obj.optString("cwd"))
                 )
