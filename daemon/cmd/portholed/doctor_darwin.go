@@ -3,10 +3,8 @@
 package main
 
 import (
-	"net"
 	"regexp"
 	"strings"
-	"time"
 )
 
 // macAwayChecks is doctor's "will it still be there tomorrow" section on a Mac: whether
@@ -28,14 +26,6 @@ func macAwayChecks(add func(state, name, detail string)) {
 		case mins > 0:
 			add("info", "sleep", "the Mac sleeps after "+itoa(mins)+" idle minutes; portholed keeps it awake while a session works or a phone is connected, on the power adapter")
 		}
-	}
-	// The failsafe logs in over SSH. Tailscale SSH needs the open-source tailscaled on a
-	// Mac; Remote Login (the system sshd) is what the Tailscale app leaves.
-	if c, err := net.DialTimeout("tcp", "127.0.0.1:22", 500*time.Millisecond); err == nil {
-		c.Close()
-		add("ok", "ssh failsafe", "Remote Login is on; the phone can open a shell and restart this daemon once its key is enrolled")
-	} else {
-		add("warn", "ssh failsafe", "Remote Login is off: turn it on in System Settings > General > Sharing, or the phone has no way back in if the daemon stops")
 	}
 }
 

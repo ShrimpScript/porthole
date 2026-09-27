@@ -127,6 +127,11 @@ func Install() (string, error) {
 	if err := os.MkdirAll(filepath.Join(home, ".config", "porthole"), 0o700); err != nil {
 		return "", err
 	}
+	// Where the failsafe key goes. The unit may write here only if it exists when the
+	// service starts, and sshd wants it private.
+	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		return "", err
 	}

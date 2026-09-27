@@ -51,6 +51,8 @@ const (
 	TypePreviewOpen      = "preview.open"  // share localhost:<port> with this device
 	TypePreviewClose     = "preview.close" // stop sharing it
 	TypePreviewState     = "preview.state" // the daemon's answer to open/close
+	TypeSSHKey           = "ssh.key"       // add this phone's failsafe key (public_key set) or remove it (empty)
+	TypeSSHKeyState      = "ssh.key.state" // the daemon's answer: how the failsafe would sign in now
 )
 
 // Capabilities advertised in Hello. The app shows an optional feature only when the
@@ -67,6 +69,7 @@ const (
 	CapPreview   = "preview" // share a local dev server with the phone over the tailnet
 	CapStart     = "start"   // start or resume Claude Code in a project directory from the phone
 	CapChanges   = "changes" // the working tree's diff, from git, for a session's directory
+	CapSSHKey    = "ssh_key" // can put the phone's own key in authorized_keys, for the failsafe
 )
 
 type Frame struct {
@@ -91,12 +94,27 @@ type Hello struct {
 	// Restart is the shell command that restarts the daemon on this computer, for the
 	// failsafe to run over SSH when the daemon is down: learned while it was up.
 	Restart string `json:"restart,omitempty"`
+	// Failsafe is how the failsafe shell signs in from this phone: "tailscale" (Tailscale
+	// SSH serves this machine), "key" (the phone's own key is in authorized_keys) or ""
+	// (neither yet; the app offers to add a key where the daemon has CapSSHKey).
+	Failsafe string `json:"failsafe,omitempty"`
+	// SSHServer is true when something answers on port 22 here - on a Mac, Remote Login.
+	// A key is no use without it.
+	SSHServer bool `json:"ssh_server,omitempty"`
 	// LatestBuild is the newest Porthole APK published on this computer, if any. Only
 	// older apps read it; current ones ignore it and update from GitHub releases.
 	LatestBuild *BuildInfo `json:"latest_build,omitempty"`
 	// Builds is the newest published APK of every app being worked on at this computer,
 	// so the phone can offer to install them.
 	Builds []BuildInfo `json:"builds,omitempty"`
+}
+
+// SSHKeyState answers ssh.key with the failsafe as it stands after the change.
+type SSHKeyState struct {
+	Frame
+	Failsafe  string `json:"failsafe"`
+	SSHServer bool   `json:"ssh_server"`
+	Error     string `json:"error,omitempty"`
 }
 
 // BuildInfo names a published APK; Path is relative to the daemon's HTTP root.

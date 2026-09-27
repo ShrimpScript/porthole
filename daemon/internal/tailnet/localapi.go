@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/exec"
 	"runtime"
@@ -41,6 +42,7 @@ type Peer struct {
 	NodeID    string // StableID - survives IP changes, so this is what the allowlist keys on
 	Name      string // MagicDNS name, e.g. phone-1.tailnet-name.ts.net.
 	Addr      string
+	Addrs     []string // the node's tailnet addresses, both families
 	UserLogin string
 	UserID    int64
 }
@@ -226,9 +228,10 @@ func (c *Client) Status(ctx context.Context) (*Status, error) {
 func (c *Client) WhoIs(ctx context.Context, remoteAddr string) (*Peer, error) {
 	var raw struct {
 		Node struct {
-			StableID string
-			Name     string
-			User     int64
+			StableID  string
+			Name      string
+			User      int64
+			Addresses []string // "100.x.y.z/32", "fd7a:.../128"
 		}
 		UserProfile struct {
 			ID          int64
@@ -242,13 +245,29 @@ func (c *Client) WhoIs(ctx context.Context, remoteAddr string) (*Peer, error) {
 	if raw.Node.StableID == "" {
 		return nil, fmt.Errorf("whois returned no node for %s", remoteAddr)
 	}
+	var addrs []string
+	for _, a := range raw.Node.Addresses {
+		if p, err := netip.ParsePrefix(a); err == nil {
+			addrs = append(addrs, p.Addr().String())
+		}
+	}
 	return &Peer{
 		NodeID:    raw.Node.StableID,
 		Name:      raw.Node.Name,
 		Addr:      remoteAddr,
+		Addrs:     addrs,
 		UserLogin: raw.UserProfile.LoginName,
 		UserID:    raw.UserProfile.ID,
 	}, nil
+}
+
+// RunSSH reports whether Tailscale SSH serves this machine.
+func (c *Client) RunSSH(ctx context.Context) (bool, error) {
+	var prefs struct{ RunSSH bool }
+	if err := c.get(ctx, "/localapi/v0/prefs", &prefs); err != nil {
+		return false, err
+	}
+	return prefs.RunSSH, nil
 }
 
 // Resolver is the identity lookup the server depends on. Production uses *Client;

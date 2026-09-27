@@ -24,6 +24,7 @@ import (
 	"github.com/shrimpscript/porthole/daemon/internal/proto"
 	"github.com/shrimpscript/porthole/daemon/internal/service"
 	"github.com/shrimpscript/porthole/daemon/internal/session"
+	"github.com/shrimpscript/porthole/daemon/internal/sshkeys"
 	"github.com/shrimpscript/porthole/daemon/internal/store"
 	"github.com/shrimpscript/porthole/daemon/internal/tailnet"
 )
@@ -150,6 +151,13 @@ func (s *Server) Revoke(nodeID string) (bool, error) {
 	// The preview gate consults the allowlist on every request, so revocation bites at
 	// once; forgetting cached identities as well is belt and braces.
 	previewIdentity.reset()
+	// The failsafe key goes first and whatever the store says: a key must never outlive
+	// the pairing it came with.
+	if removed, err := sshkeys.Remove(sshkeys.Path(), nodeID); err != nil {
+		s.log.Warn("could not remove the failsafe key", "node", nodeID, "err", err)
+	} else if removed {
+		s.log.Info("failsafe key removed", "node", nodeID)
+	}
 	ok, err := s.st.Revoke(nodeID)
 	if err != nil || !ok {
 		return ok, err
@@ -293,6 +301,8 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	hello := proto.NewHello(Version, host, runtime.GOOS, dev.Name, sshUser, s.caps)
 	hello.Restart = service.RestartCommand()
+	hello.Failsafe = s.failsafe(r.Context(), peer.NodeID)
+	hello.SSHServer = sshListening()
 	hello.AutoContinue = autoContinueSetting()
 	if b := latestBuild(BuildsDir(), DefaultApp); b != nil {
 		hello.LatestBuild = &proto.BuildInfo{App: b.App, Version: b.Version, Path: "/builds/" + b.File, Size: b.Size, Code: b.Code}
@@ -310,7 +320,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.serveClient(r.Context(), wr, dev.Name)
+	s.serveClient(r.Context(), wr, dev.Name, peer)
 }
 
 // writeSessionList is only called before the pump starts, or from the pump's own
@@ -335,14 +345,21 @@ func (s *Server) writeSessionList(ctx context.Context, c *websocket.Conn) error 
 }
 
 // detectCaps advertises only what the machine can do. Capture needs grim (Wayland
-// stills); recording needs wf-recorder. Uploads need nothing beyond a writable home.
+// stills) and recording wf-recorder, or on a Mac the built-in screencapture. Uploads need nothing beyond a writable home.
 func detectCaps() []string {
-	caps := []string{proto.CapSessions, proto.CapPrompt, proto.CapApprovals, proto.CapUpload}
-	if _, err := exec.LookPath("grim"); err == nil {
-		caps = append(caps, proto.CapCapture)
-	}
-	if _, err := exec.LookPath("wf-recorder"); err == nil {
-		caps = append(caps, proto.CapRecord)
+	caps := []string{proto.CapSessions, proto.CapPrompt, proto.CapApprovals, proto.CapUpload, proto.CapSSHKey}
+	if runtime.GOOS == "darwin" {
+		// screencapture ships with macOS and does both.
+		if _, err := exec.LookPath("screencapture"); err == nil {
+			caps = append(caps, proto.CapCapture, proto.CapRecord)
+		}
+	} else {
+		if _, err := exec.LookPath("grim"); err == nil {
+			caps = append(caps, proto.CapCapture)
+		}
+		if _, err := exec.LookPath("wf-recorder"); err == nil {
+			caps = append(caps, proto.CapRecord)
+		}
 	}
 	if platform.CanListListeners() {
 		caps = append(caps, proto.CapPreview) // finding dev servers maps sockets to processes

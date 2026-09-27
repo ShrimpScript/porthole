@@ -46,8 +46,12 @@ RestrictRealtime=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 # It must be able to write its device allowlist. The leading "-" matters: without it a
 # missing directory fails the whole unit at namespace setup (status 226/NAMESPACE), so a
-# fresh install would never start at all. tools/install.sh creates it.
+# fresh install would never start at all. `portholed service install` creates it.
 ReadWritePaths=-%h/.config/porthole
+# And the phone's failsafe key, when Tailscale SSH is not what the failsafe uses: the one
+# file outside its own directory the daemon writes. `portholed service install` creates
+# the directory.
+ReadWritePaths=-%h/.ssh
 
 [Install]
 WantedBy=default.target

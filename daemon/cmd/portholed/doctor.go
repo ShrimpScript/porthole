@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/shrimpscript/porthole/daemon/internal/server"
 	"github.com/shrimpscript/porthole/daemon/internal/service"
 	"github.com/shrimpscript/porthole/daemon/internal/session"
+	"github.com/shrimpscript/porthole/daemon/internal/sshkeys"
 	"github.com/shrimpscript/porthole/daemon/internal/transcript"
 )
 
@@ -117,20 +119,35 @@ func runDoctor() []check {
 		add("fail", "tailscale", "not on PATH; the daemon binds tailnet addresses only")
 	}
 
-	// Tailscale SSH is the way back in when the daemon itself is the problem.
+	// The failsafe is the way back in when the daemon itself is the problem: Tailscale
+	// SSH, or an ordinary SSH server (Remote Login, on a Mac) with the phone's own key.
+	runSSH := false
 	if b, err := probe(tailscaleCLI(), "debug", "prefs"); err == nil {
 		var prefs struct {
 			RunSSH bool `json:"RunSSH"`
 		}
-		if json.Unmarshal(b, &prefs) == nil {
-			if prefs.RunSSH {
-				add("ok", "ssh failsafe", "Tailscale SSH is on; the phone can open a shell and restart this daemon")
-			} else if runtime.GOOS != "darwin" {
-				// On a Mac the Tailscale app has no SSH server to turn on; Remote Login is
-				// checked below instead.
-				add("warn", "ssh failsafe", "Tailscale SSH is off: if the daemon stops, the phone has no way back in (tailscale set --ssh)")
-			}
-		}
+		runSSH = json.Unmarshal(b, &prefs) == nil && prefs.RunSSH
+	}
+	sshd := false
+	if c, err := net.DialTimeout("tcp", "127.0.0.1:22", 500*time.Millisecond); err == nil {
+		c.Close()
+		sshd = true
+	}
+	sshServer := "an SSH server"
+	if runtime.GOOS == "darwin" {
+		sshServer = "Remote Login"
+	}
+	switch keys := sshkeys.Count(sshkeys.Path()); {
+	case runSSH:
+		add("ok", "ssh failsafe", "Tailscale SSH is on; the phone can open a shell and restart this daemon")
+	case !sshd && runtime.GOOS == "darwin":
+		add("warn", "ssh failsafe", "Remote Login is off: if the daemon stops, the phone has no way back in (System Settings > General > Sharing > Remote Login)")
+	case !sshd:
+		add("warn", "ssh failsafe", "Tailscale SSH is off: if the daemon stops, the phone has no way back in (tailscale set --ssh)")
+	case keys == 0:
+		add("warn", "ssh failsafe", sshServer+" is on, but no phone has added its key yet (in the app: Settings > If Porthole cannot connect)")
+	default:
+		add("ok", "ssh failsafe", fmt.Sprintf("%s is on and %d phone key(s) can sign in, from their tailnet addresses only", sshServer, keys))
 	}
 
 	// Away from the keyboard, these decide whether the computer is still there tomorrow.
@@ -199,16 +216,24 @@ func runDoctor() []check {
 	} else {
 		add("warn", "changes", "git not on PATH; the phone cannot show what changed")
 	}
-	cap := []string{}
-	for _, tool := range []string{"grim", "wf-recorder"} {
-		if _, err := exec.LookPath(tool); err == nil {
-			cap = append(cap, tool)
+	if runtime.GOOS == "darwin" {
+		shrink := "no ffmpeg, so clips are sent as avconvert leaves them"
+		if _, err := exec.LookPath("ffmpeg"); err == nil {
+			shrink = "ffmpeg shrinks clips"
 		}
-	}
-	if len(cap) == 0 {
-		add("info", "capture", "neither grim nor wf-recorder: no screenshots or clips of the desktop")
+		add("ok", "capture", "screencapture, built in ("+shrink+"); macOS asks at the Mac for Screen Recording permission the first time the phone takes one")
 	} else {
-		add("ok", "capture", strings.Join(cap, ", "))
+		cap := []string{}
+		for _, tool := range []string{"grim", "wf-recorder"} {
+			if _, err := exec.LookPath(tool); err == nil {
+				cap = append(cap, tool)
+			}
+		}
+		if len(cap) == 0 {
+			add("info", "capture", "neither grim nor wf-recorder: no screenshots or clips of the desktop")
+		} else {
+			add("ok", "capture", strings.Join(cap, ", "))
+		}
 	}
 
 	// The daemon and its service.

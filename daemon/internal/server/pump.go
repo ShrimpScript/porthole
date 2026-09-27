@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +23,7 @@ import (
 	"github.com/shrimpscript/porthole/daemon/internal/platform"
 	"github.com/shrimpscript/porthole/daemon/internal/proto"
 	"github.com/shrimpscript/porthole/daemon/internal/session"
+	"github.com/shrimpscript/porthole/daemon/internal/tailnet"
 	"github.com/shrimpscript/porthole/daemon/internal/termbridge"
 	"github.com/shrimpscript/porthole/daemon/internal/transcript"
 )
@@ -90,6 +93,7 @@ type clientFrame struct {
 	// Images attached to a prompt from the phone. Saved beside the daemon's state and
 	// named in the prompt, so Claude can Read them.
 	Attachments []promptImage `json:"attachments"`
+	PublicKey   string        `json:"public_key"` // ssh.key: the phone's failsafe key; empty removes it
 }
 
 type promptImage struct {
@@ -170,7 +174,7 @@ func (w *writer) send(ctx context.Context, v any) error {
 }
 
 // serveClient reads client frames until the socket closes.
-func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string) {
+func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, peer *tailnet.Peer) {
 	att := &attachment{}
 	defer att.stop()
 	go keepalive(ctx, w.c)
@@ -261,6 +265,8 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string) 
 			s.previewOpen(ctx, w, f.Port, deviceName)
 		case proto.TypePreviewClose:
 			s.previewClose(ctx, w, f.Port, deviceName)
+		case proto.TypeSSHKey:
+			s.sshKey(ctx, w, peer, f.PublicKey, deviceName)
 		}
 	}
 }
@@ -1190,21 +1196,9 @@ func (s *Server) captureStill(ctx context.Context, w *writer, device string, liv
 		return
 	}
 	sweepCaptures()
-	path := filepath.Join(captureDir(), fmt.Sprintf("still-%d.png", time.Now().UnixMilli()))
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	args := []string{"-t", "png", "-l", "6"}
-	if o := focusedOutput(); o != "" {
-		args = append(args, "-o", o)
-	}
-	cmd := exec.CommandContext(cctx, "grim", append(args, path)...)
-	cmd.Env = captureEnv()
-	if out, err := cmd.CombinedOutput(); err != nil {
-		_ = w.send(ctx, proto.NewError("capture_failed", "grim: "+strings.TrimSpace(string(out))))
-		return
-	}
-	b, err := os.ReadFile(path)
-	_ = os.Remove(path)
+	b, media, err := still(cctx)
 	if err != nil {
 		_ = w.send(ctx, proto.NewError("capture_failed", err.Error()))
 		return
@@ -1216,7 +1210,28 @@ func (s *Server) captureStill(ctx context.Context, w *writer, device string, liv
 		s.log.Info("screenshot sent", "from", device, "bytes", len(b))
 	}
 	_ = w.send(ctx, imageFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeImageData},
-		Ref: ref, Media: "image/png", Data: base64.StdEncoding.EncodeToString(b), Text: "Screen"})
+		Ref: ref, Media: media, Data: base64.StdEncoding.EncodeToString(b), Text: "Screen"})
+}
+
+// still is one screenshot and its media type: screencapture on a Mac, grim on Wayland.
+func still(ctx context.Context) ([]byte, string, error) {
+	if runtime.GOOS == "darwin" {
+		b, err := macStill(ctx)
+		return b, "image/jpeg", err
+	}
+	path := filepath.Join(captureDir(), fmt.Sprintf("still-%d.png", time.Now().UnixMilli()))
+	defer os.Remove(path)
+	args := []string{"-t", "png", "-l", "6"}
+	if o := focusedOutput(); o != "" {
+		args = append(args, "-o", o)
+	}
+	cmd := exec.CommandContext(ctx, "grim", append(args, path)...)
+	cmd.Env = captureEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, "", errors.New("grim: " + strings.TrimSpace(string(out)))
+	}
+	b, err := os.ReadFile(path)
+	return b, "image/png", err
 }
 
 // captureClip records the desktop for a few seconds with wf-recorder and sends the mp4.
@@ -1231,7 +1246,33 @@ func (s *Server) captureClip(ctx context.Context, w *writer, seconds int, device
 	if seconds > 15 {
 		seconds = 15
 	}
+	b, err := clip(ctx, seconds)
+	if err != nil || len(b) == 0 {
+		msg := "the recording produced no file"
+		if err != nil {
+			msg = err.Error()
+		}
+		_ = w.send(ctx, proto.NewError("capture_failed", msg))
+		return
+	}
+	if len(b) > 12<<20 {
+		_ = w.send(ctx, proto.NewError("capture_failed", "the clip is too large to send - try fewer seconds"))
+		return
+	}
+	s.log.Info("clip sent", "from", device, "seconds", seconds, "bytes", len(b))
+	_ = w.send(ctx, imageFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeClipData},
+		Ref: fmt.Sprintf("clip:%d", time.Now().UnixMilli()), Media: "video/mp4",
+		Data: base64.StdEncoding.EncodeToString(b), Text: fmt.Sprintf("Screen, %ds", seconds)})
+}
+
+// clip records the screen for a few seconds: screencapture on a Mac, wf-recorder on
+// Wayland.
+func clip(ctx context.Context, seconds int) ([]byte, error) {
+	if runtime.GOOS == "darwin" {
+		return macClip(ctx, seconds)
+	}
 	path := filepath.Join(captureDir(), fmt.Sprintf("clip-%d.mp4", time.Now().UnixMilli()))
+	defer os.Remove(path)
 	args := []string{"-f", path, "-c", "libx264", "-r", "20", "-p", "crf=30", "-p", "preset=veryfast"}
 	if o := focusedOutput(); o != "" {
 		args = append(args, "-o", o)
@@ -1240,8 +1281,7 @@ func (s *Server) captureClip(ctx context.Context, w *writer, seconds int, device
 	cmd.Env = captureEnv()
 	cmd.Stdin = nil // never let it wait on a question
 	if err := cmd.Start(); err != nil {
-		_ = w.send(ctx, proto.NewError("capture_failed", "wf-recorder: "+err.Error()))
-		return
+		return nil, errors.New("wf-recorder: " + err.Error())
 	}
 	select {
 	case <-time.After(time.Duration(seconds) * time.Second):
@@ -1255,20 +1295,7 @@ func (s *Server) captureClip(ctx context.Context, w *writer, seconds int, device
 	case <-time.After(8 * time.Second):
 		_ = cmd.Process.Kill()
 	}
-	b, err := os.ReadFile(path)
-	_ = os.Remove(path)
-	if err != nil || len(b) == 0 {
-		_ = w.send(ctx, proto.NewError("capture_failed", "the recording produced no file"))
-		return
-	}
-	if len(b) > 12<<20 {
-		_ = w.send(ctx, proto.NewError("capture_failed", "the clip is too large to send - try fewer seconds"))
-		return
-	}
-	s.log.Info("clip sent", "from", device, "seconds", seconds, "bytes", len(b))
-	_ = w.send(ctx, imageFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeClipData},
-		Ref: fmt.Sprintf("clip:%d", time.Now().UnixMilli()), Media: "video/mp4",
-		Data: base64.StdEncoding.EncodeToString(b), Text: fmt.Sprintf("Screen, %ds", seconds)})
+	return os.ReadFile(path)
 }
 
 // sweepCaptures drops capture files older than an hour, in case a send failed midway.

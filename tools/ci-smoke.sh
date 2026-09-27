@@ -89,6 +89,12 @@ if [ "$OS" = Darwin ]; then
     [ -f "$PLIST" ] || fail "no launchd agent written"
     plutil -lint "$PLIST" || fail "the agent is not a valid plist"
     launchctl print "gui/$(id -u)/dev.shrimpscript.portholed" >/dev/null || fail "launchd did not load the agent"
+    # launchd ran the binary if it wrote to its log, whatever it then said.
+    LOG="$HOME/Library/Logs/portholed.log"
+    for _ in $(seq 1 50); do [ -s "$LOG" ] && break; sleep 0.2; done
+    [ -s "$LOG" ] || fail "launchd never started portholed (no $LOG)"
+    tail -3 "$LOG"
+    pass "launchd started portholed"
     portholed service status || true
     portholed service uninstall
     [ ! -f "$PLIST" ] || fail "uninstall left the agent behind"
