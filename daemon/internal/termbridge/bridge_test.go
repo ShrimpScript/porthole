@@ -280,3 +280,40 @@ func TestMirrorsAreOnePerWindowAndDevice(t *testing.T) {
 		t.Fatalf("got %q", a)
 	}
 }
+
+// With no one at the desk, the phone is the window's only client. Its PTY is the
+// window's size, so a status bar on the mirror would leave one row short: tmux shrank
+// the window to fit, the daemon followed the window, and the grid lost a row every
+// round - the phone watched the terminal creep upwards. The mirror has no status bar.
+func TestPhoneAloneKeepsTheWindowSize(t *testing.T) {
+	tmuxAvailable(t)
+	const name = "porthole-alone-test"
+	startSession(t, name, 100, 30)
+	_ = exec.Command("tmux", "set-option", "-w", "-t", "="+name+":", "window-size", "largest").Run()
+	cols, rows := WindowSize(context.Background(), name)
+	if cols != 100 || rows != 30 {
+		t.Skipf("tmux did not make a 100x30 window: %dx%d", cols, rows)
+	}
+	b, err := Open(context.Background(), name, "", "", 60, 20)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer b.Close()
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			if _, e := b.Read(buf); e != nil {
+				return
+			}
+		}
+	}()
+	// Round after round, as the daemon's follower does: size the PTY to the window.
+	for i := 0; i < 4; i++ {
+		time.Sleep(400 * time.Millisecond)
+		wc, wr := WindowSize(context.Background(), b.Window())
+		if wc != 100 || wr != 30 {
+			t.Fatalf("round %d: the window is %dx%d, not 100x30", i, wc, wr)
+		}
+		_ = b.SetSize(wc, wr)
+	}
+}

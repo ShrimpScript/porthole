@@ -19,7 +19,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.drop
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -124,6 +130,24 @@ fun TerminalView(
     }
     val fitsHeight = !constraints.hasBoundedHeight || cellH * emulator.rows <= viewH + 1f
     val dragsHistory = onScrollLines != null && (fitsHeight || onGridSize != null)
+    val pansVertically = onGridSize == null && !dragsHistory
+    // A terminal's live line is its last one, so the grid's bottom row belongs at the
+    // bottom of the view, just above the keys - whether the grid is shorter than the view
+    // (fit) or taller (zoomed in, where it pans). Panned, it stays pinned to the bottom as
+    // the size changes, until a drag moves it up to read; dragging back down pins it again.
+    var pinned by remember { mutableStateOf(true) }
+    if (pansVertically) {
+        // Decided when a scroll ends, never at the start: before the first layout the
+        // extent is not known, and reading it then would unpin a view no one has moved.
+        LaunchedEffect(vScroll) {
+            snapshotFlow { vScroll.isScrollInProgress }.drop(1).collect { moving ->
+                if (!moving) pinned = vScroll.value >= vScroll.maxValue - 8
+            }
+        }
+        LaunchedEffect(vScroll.maxValue, pinned) {
+            if (pinned && vScroll.maxValue < Int.MAX_VALUE) vScroll.scrollTo(vScroll.maxValue)
+        }
+    }
     Box(
         Modifier
             .fillMaxSize()
@@ -171,7 +195,8 @@ fun TerminalView(
             // the phone. Scroll rather than reflow: reflowing a TUI corrupts it. A grid
             // sized to the view never needs either.
             .then(if (onGridSize == null) Modifier.horizontalScroll(hScroll) else Modifier)
-            .then(if (onGridSize == null && !dragsHistory) Modifier.verticalScroll(vScroll) else Modifier)
+            .then(if (pansVertically) Modifier.verticalScroll(vScroll) else Modifier),
+        contentAlignment = Alignment.BottomStart,
     ) {
         val gridW = with(density) { (cellW * emulator.cols).toDp() }
         val gridH = with(density) { (cellH * emulator.rows).toDp() }

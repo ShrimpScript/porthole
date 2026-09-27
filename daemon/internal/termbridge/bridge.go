@@ -122,6 +122,14 @@ func Open(ctx context.Context, target, window, owner string, cols, rows int) (*B
 			return nil, fmt.Errorf("could not mirror %s: %s", target, strings.TrimSpace(string(out)))
 		}
 	}
+	// No status bar on the phone's side. The PTY is sized to the window, and a status line
+	// would leave the client a row short: tmux then shrank the window to the phone when no
+	// one was at the desk (and the daemon, following the window, shrank the phone again -
+	// a row lost every two seconds), or panned it by a row as the cursor moved when someone
+	// was. The app has its own header; the desk keeps its status bar.
+	// set-option takes the exact-match form only with the trailing colon ("=name:").
+	_ = exec.CommandContext(ctx, "tmux", "set-option", "-t", "="+mirror+":", "status", "off").Run()
+
 	// A grouped session has its own current window: point the mirror at Claude's
 	// window without moving the desktop's view. (The active pane is shared, so that is
 	// left alone; the whole window is shown.)
