@@ -132,6 +132,10 @@ PK.view('details-switches', { phone: ['details', { scroll: 314 }] });
 PK.view('session-since', { phone: ['details', { sheet: 0, top: 1 }] });
 PK.view('settings-update', { phone: ['settings', { rel: '0.27.0' }] });
 PK.view('settings-away', { phone: ['settings', { scroll: 358 }] });
+// The two setups, as the app shows them once a computer is chosen.
+PK.view('needs-mac', { phone: ['needs', { os: 'mac' }] });
+PK.view('setup-mac', { phone: ['setup', { os: 'mac' }] });
+PK.view('setup-linux', { phone: ['setup', { os: 'linux' }] });
 PK.view('banner-update', { phone: ['sessions', { ban: BAN_U }] });
 PK.view('banner-build', { phone: ['sessions', { ban: BAN_B }] });
 PK.view('install', { phone: ['sessions', { ban: BAN_B }], over: ['ainst'] });

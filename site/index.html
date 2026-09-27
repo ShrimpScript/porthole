@@ -25,6 +25,10 @@
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="stylesheet" href="/assets/kit.css">
 <link rel="stylesheet" href="/assets/landing.css">
+<script>
+// Mac or Linux, before the page paints: this visitor's last choice, else their own system.
+(function(){var o;try{o=localStorage.getItem('porthole-os')}catch(e){}if(o!=='mac'&&o!=='linux')o=/Linux|X11/.test(navigator.userAgent)&&!/Android|CrOS/.test(navigator.userAgent)?'linux':'mac';var h=document.documentElement;h.classList.add('os-js');h.dataset.os=o})();
+</script>
 <script src="/assets/kit.js" defer></script>
 <script src="/assets/kit-more.js" defer></script>
 </head>
@@ -73,8 +77,9 @@
           <li>
             <span class="n" aria-hidden="true">1</span>
             <h3>Install the daemon</h3>
-            <p>With Homebrew, or from a clone with the installer. <code>portholed</code> runs as a background service (launchd on a Mac, systemd on Linux) and adds a Claude Code hook for approvals.</p>
-            <code>brew install shrimpscript/tap/porthole</code>
+            <p>On a Mac with Homebrew, on Linux with the installer from the repository. <code>portholed</code> runs as a background service (launchd on a Mac, systemd on Linux) and adds a Claude Code hook for approvals.</p>
+            <code data-os-only="mac">brew install shrimpscript/tap/porthole</code>
+            <code data-os-only="linux">./tools/install.sh</code>
           </li>
           <li>
             <span class="n" aria-hidden="true">2</span>
@@ -246,18 +251,28 @@
         </div>
         <div>
           <h3>On the computer</h3>
-          <p>A Mac (macOS 13 or later) or Linux with systemd user services, with tmux, Tailscale and Claude Code. With Homebrew:</p>
+          <p>A Mac with macOS 13 or later, or Linux with systemd user services; either with Tailscale and Claude Code.</p>
+          <div class="os-pick" role="group" aria-label="Your computer"><button type="button" data-os="mac" aria-pressed="true">Mac</button><button type="button" data-os="linux" aria-pressed="false">Linux</button></div>
+          <div data-os-only="mac">
+            <p class="os-h">On a Mac</p>
+            <p>Install the Tailscale app and sign in, and turn on Remote Login (System Settings &gt; General &gt; Sharing) for the failsafe. Then, with Homebrew:</p>
 <pre><code><span class="p">$ </span>brew install shrimpscript/tap/porthole
 <span class="p">$ </span>portholed setup                 <span class="c"># the service and the approval hook</span>
 <span class="p">$ </span>portholed doctor
 <span class="p">$ </span>portholed pair</code></pre>
-          <p>Or from a clone, on either:</p>
+          </div>
+          <div data-os-only="linux">
+            <p class="os-h">On Linux</p>
+            <p>With tmux from your package manager and Tailscale signed in with Tailscale SSH on (<code>sudo tailscale up --ssh</code>):</p>
 <pre><code><span class="p">$ </span>git clone https://github.com/ShrimpScript/porthole
 <span class="p">$ </span>cd porthole
 <span class="p">$ </span>./tools/install.sh --dry-run    <span class="c"># read what it will do</span>
 <span class="p">$ </span>./tools/install.sh
-<span class="p">$ </span>sudo loginctl enable-linger $USER   <span class="c"># Linux: keep running after logout</span></code></pre>
-          <p class="note">Deliberately not a <code>curl | sh</code> one-liner: the installer sets up a service that runs commands as you. Read it first. It builds with Go if you have it; otherwise, or with <code>--prebuilt</code>, it downloads the release binary and checks it against <code>SHA256SUMS</code>.</p>
+<span class="p">$ </span>sudo loginctl enable-linger $USER
+<span class="p">$ </span>portholed doctor
+<span class="p">$ </span>portholed pair</code></pre>
+          </div>
+          <p class="note">Deliberately not a <code>curl | sh</code> one-liner: either way installs a service that runs commands as you. The installer builds with Go if you have it; otherwise, or with <code>--prebuilt</code>, it downloads the release binary and checks it against <code>SHA256SUMS</code>, as Homebrew does.</p>
           <p><a href="/docs#install">Every step, in the docs</a></p>
         </div>
       </div>

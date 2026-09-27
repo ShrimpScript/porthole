@@ -68,29 +68,52 @@ Android 10+ phone with Tailscale on the same tailnet.
 [`porthole.apk`](https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk)
 from the latest release and open it; Android asks once to allow installs from your browser.
 
-**The computer**, with [Homebrew](https://brew.sh) (a Mac, or Linux):
+### On a Mac
 
-```sh
-brew install shrimpscript/tap/porthole
-portholed setup                 # the background service and the approval hook
-portholed doctor                # checks everything the phone will depend on
-portholed pair                  # prints a code and a QR code for the phone
-```
+1. Install the [Tailscale app](https://tailscale.com/download/mac) and sign in. Turn on
+   **Remote Login** (System Settings > General > Sharing): the Tailscale app has no SSH
+   server, so this is the phone's way back in if the daemon stops. Once paired, the phone
+   adds its own key for it from Settings.
+2. With [Homebrew](https://brew.sh), which also brings tmux:
 
-Or from a clone, on either:
+   ```sh
+   brew install shrimpscript/tap/porthole
+   portholed setup                 # the launchd agent and the approval hook
+   portholed doctor                # checks everything the phone will depend on
+   portholed pair                  # prints a code and a QR code for the phone
+   ```
 
-```sh
-git clone https://github.com/ShrimpScript/porthole
-cd porthole
-./tools/install.sh --dry-run    # read what it will do
-./tools/install.sh              # builds with Go if you have it; --prebuilt uses the release binary
-sudo loginctl enable-linger $USER   # Linux: keep running after you log out
-```
+The daemon is a launchd agent: it starts when you log in (after an unattended reboot, only
+once someone logs in, unless the Mac logs in by itself) and keeps the Mac awake while a
+session works or a phone is connected, on the power adapter. Allow portholed to record the
+screen when macOS asks, for screenshots. Log: `~/Library/Logs/portholed.log`. No Homebrew?
+The installer below works on a Mac too.
 
-On a Mac the daemon is a launchd agent that starts when you log in, and keeps the Mac awake
-while a session works or a phone is connected (on the power adapter). Turn on Remote Login
-(System Settings > General > Sharing) for the failsafe, and allow portholed to record the
-screen when macOS asks, for screenshots. On Linux it is a systemd user service.
+### On Linux
+
+1. Install Tailscale and sign in with Tailscale SSH on - the phone's way back in if the
+   daemon stops - and install tmux from your package manager:
+
+   ```sh
+   sudo tailscale up --ssh          # already signed in: sudo tailscale set --ssh
+   ```
+2. Clone the repository, read the installer, run it:
+
+   ```sh
+   git clone https://github.com/ShrimpScript/porthole
+   cd porthole
+   ./tools/install.sh --dry-run    # read what it will do
+   ./tools/install.sh              # builds with Go if you have it; --prebuilt uses the release binary
+   sudo loginctl enable-linger $USER   # keep it running after you log out
+   portholed doctor
+   portholed pair
+   ```
+
+The daemon is a systemd user service, `portholed.service`. Log: `journalctl --user -u
+portholed -f`. Homebrew works on Linux too: `brew install shrimpscript/tap/porthole`, then
+`portholed setup`.
+
+### Then
 
 Then start Claude Code with `porthole` instead of `claude`, in your project's folder. It
 runs Claude Code inside tmux - which is what lets the phone see its terminal and type to it -
@@ -98,9 +121,10 @@ and running it again in the same folder brings that session back instead of star
 second one. Arguments go straight to `claude` (`porthole --resume`). Already inside tmux?
 Plain `claude` works there too. The phone can also start or resume a session itself.
 
-Neither is a `curl | sh` one-liner, deliberately: they install a background service that can
-run commands as you, plus a hook into your Claude Code settings. `--no-hooks` (on
-`portholed setup` or `install.sh`) skips the settings change, at the cost of remote approval.
+Neither setup is a `curl | sh` one-liner, deliberately: both install a background service
+that can run commands as you, plus a hook into your Claude Code settings. `--no-hooks` (on
+`install.sh`) or `-no-hooks` (on `portholed setup`) skips the settings change, at the cost
+of remote approval.
 
 | Command | |
 |---|---|

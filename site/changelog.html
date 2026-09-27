@@ -117,6 +117,19 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.29.0" class="v">0.29.0</span>
+        <h2>A Mac or a Linux computer, from the first screen</h2>
+        <div class="rel-date"><span>27 September 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>Set up a Mac or a Linux computer.</b> What you'll need now asks which computer runs Claude Code, and Set up the computer shows that computer's steps only, with a switch between the two: the Tailscale app and Remote Login, Homebrew and <code>portholed setup</code> on a Mac; Tailscale SSH, the installer and linger on Linux. Tailscale on the computer is part of the setup now, so it is not skipped when Tailscale is already on the phone. The docs, this site and the README split the same way.</li>
+            <li><b>Fix: the terminal crept upwards.</b> With no one at the desk, the phone's tmux client lost a row to tmux's status bar, tmux shrank the window to it, and the daemon followed - a row every two seconds. With someone at the desk, tmux panned the window by a row instead. The phone's side has no status bar now; the desk keeps its own.</li>
+            <li><b>The terminal's last row sits at the bottom</b>, just above the keys: in fit mode the grid is drawn from the bottom of the view, and zoomed in it opens at the bottom and stays there until you drag up to read.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
         <span id="v0.28.0" class="v">0.28.0</span>
         <h2>A new session from the phone</h2>
         <div class="rel-date"><span>26 September 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>

@@ -298,3 +298,23 @@ pre .p { color: var(--faint); user-select: none; }   /* a prompt, not copied */
 table { border-collapse: collapse; width: 100%; font-size: .95rem; }
 th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--edge); }
 th { font-weight: 600; color: var(--text); }
+
+/* ------------------------------------------------------------ Mac or Linux --- */
+/* Install steps differ by computer. One choice, made on any .os-pick, shows the matching
+   [data-os-only] blocks across the page. Without JavaScript both show, each labelled. */
+.os-pick { display: none; }
+html.os-js .os-pick {
+  display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--r-control);
+  background: var(--raised); border: 1px solid var(--edge);
+}
+.os-pick button {
+  font: 500 .9rem/1 var(--sans); color: var(--muted); background: none; border: 0;
+  padding: 8px 18px; border-radius: var(--r-key); cursor: pointer; min-height: 36px;
+}
+.os-pick button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.os-pick button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+html[data-os="mac"] [data-os-only="linux"], html[data-os="linux"] [data-os-only="mac"] { display: none !important; }
+.os-h { font: 600 .8rem/1.2 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--faint); margin: 0 0 8px; }
+html.os-js .os-h { display: none; }
+[data-os-only] > * + * { margin-top: 14px; }
+[data-os-only] > .cmd + .cmd { margin-top: 8px; }

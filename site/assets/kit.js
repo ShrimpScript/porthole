@@ -128,23 +128,43 @@ S.welcome = () => `<div class="center">${ring('mark', 96, 5, 1)}${sp(28)}${ap(30
   ap(440, `<p class="ty-b k-mu">Over your own Tailscale network. Nothing passes through anyone else's server.</p>`, 'width:100%') + sp(40) +
   ap(520, pri('Get started', 'go') + sp(12) + gh('How it works'), 'width:100%') + `</div>`;
 
-S.needs = () => frame(1, `<p class="ty-d">What you'll need</p>${sp(12)}<p class="ty-b k-mu">Three things, all on your side. There is no account to create, because there is no service to sign into.</p>${sp(24)}<div class="col" style="gap:10px">` +
+// Mac or Linux: chosen on "What you'll need"; the setup screen shows that computer's steps only.
+const OS = { mac: ['Mac', 'macOS 13 or later'], linux: ['Linux', 'with systemd'] };
+const osCard = (k, on) => `<div class="oscard${on ? ' on' : ''}" data-k="${k}"><p class="ty-r">${OS[k][0]}</p><p class="ty-s k-mu">${OS[k][1]}</p></div>`;
+const osSwitch = os => `<div class="seg os${os === 'linux' ? ' t' : ''}"><span${os === 'linux' ? '' : ' class="on"'}>Mac</span><span${os === 'linux' ? ' class="on"' : ''}>Linux</span></div>`;
+const DAEMON = {
+  mac: 'The small companion service for the Mac, from Homebrew. It listens on your tailnet only, never the internet.',
+  linux: 'The small companion service for the computer, a systemd user service. It listens on your tailnet only, never the internet.',
+  '': 'The small companion service for the computer. It listens on your tailnet only, never the internet.',
+};
+S.needs = (p = {}) => frame(1, `<p class="ty-d">What you'll need</p>${sp(12)}<p class="ty-b k-mu">Three things, all on your side. There is no account to create, because there is no service to sign into.</p>${sp(20)}` +
+  `<p class="ty-s k-mu">Which computer runs Claude Code?</p>${sp(8)}<div class="oscards">${osCard('mac', p.os === 'mac')}${osCard('linux', p.os === 'linux')}</div>${sp(20)}<div class="col" style="gap:10px">` +
   toolRow('tailscale', 'Tailscale', 'On this phone and on the computer, signed into the same tailnet. Free for personal use.', 0) +
   toolRow('claude', 'Claude Code, inside tmux', 'Running on the computer. Start it with porthole and it lands in tmux for you; Porthole reads its transcript and attaches to that window.', 40) +
-  toolRow('tmux', 'portholed', 'The small companion service for the computer. It listens on your tailnet only, never the internet.', 80) + `</div>`,
-  pri('Continue', 'go'));
+  toolRow('tmux', 'portholed', DAEMON[p.os || ''], 80) + `</div>`,
+  pri(p.os ? 'Continue' : 'Choose the computer', 'go', !p.os));
 
 S.tailscale = () => frame(2, `<div class="row" style="gap:14px">${mark('tailscale', 56)}<div class="row k-ok" style="gap:6px">${ic('check', 18)}<p class="ty-s">Installed on this phone</p></div></div>${sp(20)}` +
   `<p class="ty-d">Tailscale is installed</p>${sp(12)}<p class="ty-b k-mu">Porthole reaches your computer through Tailscale's private network. Make sure it is connected and signed into the same account as the computer, then continue.</p>${sp(20)}` +
-  `<p class="ty-s k-mu">On the computer</p>${sp(8)}${cmd('tailscale up --ssh', 'Install Tailscale there too. On Linux, then:')}${sp(8)}<p class="ty-s k-fa">--ssh turns on Tailscale SSH, which is what Porthole falls back to if its own daemon ever stops answering. On a Mac, sign in to the Tailscale app and turn on Remote Login instead (System Settings > General > Sharing); this phone then adds its own key from Settings.</p>`,
+  `<p class="ty-s k-fa">The computer needs Tailscale too, on the same account. The next screen shows how, for a Mac or for Linux.</p>`,
   pri('Continue', 'go') + gh("Open Tailscale to check it's connected"));
 
 const setupStep = (n, icon, title, body) => ap((n - 1) * 40, `<div class="step"><div class="row" style="gap:12px">${mark(icon, 36, 'mu')}<p class="ty-m k-ac">${n}</p><p class="ty-r">${title}</p></div>${sp(10)}${body}</div>`);
-S.setup = (p = {}) => frame(3, `<p class="ty-d">Set up the computer</p>${sp(12)}<p class="ty-b k-mu">Three steps at the keyboard, once. Everything here is copyable.</p>${sp(24)}` +
-  setupStep(1, 'github', 'Install portholed', `<p class="ty-s k-mu">It installs a background service that can run commands as you, and a Claude Code hook for remote approvals. On a Mac, or anywhere with Homebrew:</p>${sp(10)}${cmd('brew install shrimpscript/tap/porthole')}${sp(8)}${cmd('portholed setup')}${sp(10)}<p class="ty-s k-mu">Or clone the repository, read the installer, and run it:</p>${sp(10)}${cmd('git clone https://github.com/ShrimpScript/porthole')}${sp(8)}${cmd('cd porthole && ./tools/install.sh')}`) +
-  setupStep(2, 'claude', 'Start Claude Code with porthole', `<p class="ty-s k-mu">In your project's folder, run porthole where you would run claude. It starts Claude Code inside tmux, so the terminal on your phone is the same screen as at the desk; running it again in the same folder brings that session back. Already inside tmux? Plain claude works too.</p>${sp(10)}${cmd('porthole')}`) +
-  setupStep(3, 'tmux', 'Get a pairing code', `<p class="ty-s k-mu">It prints a 6-digit code that is good for five minutes. The next screens ask for it.</p>${sp(10)}${cmd('portholed pair')}`),
-  pri('Continue', 'go') + gh('Already set up'), p.scroll);
+S.setup = (p = {}) => {
+  const mac = p.os !== 'linux';
+  const ts = mac
+    ? `<p class="ty-s k-mu">Install the Tailscale app from the Mac App Store or tailscale.com, and sign in to the same account as this phone.</p>${sp(8)}<p class="ty-s k-fa">Turn on Remote Login in System Settings &gt; General &gt; Sharing. It is this phone's way back in if the daemon ever stops; once paired, the phone adds its own key for it.</p>`
+    : `<p class="ty-s k-mu">Install Tailscale, then sign in with Tailscale SSH on. SSH is this phone's way back in if the daemon ever stops.</p>${sp(10)}${cmd('sudo tailscale up --ssh')}${sp(8)}<p class="ty-s k-fa">Already signed in? sudo tailscale set --ssh</p>`;
+  const inst = mac
+    ? `<p class="ty-s k-mu">With Homebrew. portholed setup starts it at every login, where it can run commands as you, and adds a Claude Code hook for remote approvals.</p>${sp(10)}${cmd('brew install shrimpscript/tap/porthole')}${sp(8)}${cmd('portholed setup')}${sp(10)}<p class="ty-s k-fa">It keeps the Mac awake while a session works or this phone is connected, on the power adapter. Allow it to record the screen when macOS asks, for screenshots.</p>`
+    : `<p class="ty-s k-mu">Clone the repository and run the installer. Read it first: it installs a user service that can run commands as you, and a Claude Code hook for remote approvals.</p>${sp(10)}${cmd('git clone https://github.com/ShrimpScript/porthole')}${sp(8)}${cmd('cd porthole && ./tools/install.sh')}${sp(8)}${cmd('sudo loginctl enable-linger $USER', 'So it keeps running after you log out:')}${sp(10)}<p class="ty-s k-fa">Homebrew works on Linux too: brew install shrimpscript/tap/porthole, then portholed setup.</p>`;
+  return frame(3, `<p class="ty-d">Set up the computer</p>${sp(12)}<p class="ty-b k-mu">Four steps at the keyboard, once. Everything here is copyable.</p>${sp(16)}${osSwitch(p.os)}${sp(16)}` +
+    setupStep(1, 'tailscale', 'Tailscale on the computer', ts) +
+    setupStep(2, 'github', 'Install portholed', inst) +
+    setupStep(3, 'claude', 'Start Claude Code with porthole', `<p class="ty-s k-mu">In your project's folder, run porthole where you would run claude. It starts Claude Code inside tmux, so the terminal on your phone is the same screen as at the desk; running it again in the same folder brings that session back. Already inside tmux? Plain claude works too.</p>${sp(10)}${cmd('porthole')}`) +
+    setupStep(4, 'tmux', 'Get a pairing code', `<p class="ty-s k-mu">It prints a 6-digit code that is good for five minutes. The next screens ask for it.</p>${sp(10)}${cmd('portholed pair')}`),
+    pri('Continue', 'go') + gh('Already set up'), p.scroll);
+};
 
 S.connect = (p = {}) => frame(4, `<p class="ty-d">Which computer?</p>${sp(12)}<p class="ty-b k-mu">Its name on your tailnet, or its 100.x address. Porthole checks the daemon is actually answering before asking you for a code.</p>${sp(24)}` +
   `<div class="field"><p class="ty-mo ${p.host ? '' : 'k-fa'}">${p.host || 'my-pc  or  100.x.y.z'}</p></div>${sp(12)}` +
@@ -561,6 +581,27 @@ function mountPhone(el) {
   phoneCtl(el).render(v, false);
 }
 
+/* Mac or Linux: every .os-pick on the page shows one choice; the page's <head> has already
+   picked a default (this visitor's last choice, else their own system) before it painted. */
+function osPick(root) {
+  const html = document.documentElement, picks = root.querySelectorAll('.os-pick');
+  if (!picks.length) return;
+  const show = (os, save) => {
+    html.dataset.os = os;
+    picks.forEach(p => p.querySelectorAll('button[data-os]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.os === os))));
+    if (save) { try { localStorage.setItem('porthole-os', os); } catch (e) { /* private window: this page only */ } }
+  };
+  picks.forEach(p => p.addEventListener('click', e => {
+    const b = e.target.closest('button[data-os]');
+    if (!b) return;
+    const top = b.getBoundingClientRect().top;
+    show(b.dataset.os, true);
+    // Keep the switch under the finger: content above it may have changed height.
+    window.scrollBy(0, b.getBoundingClientRect().top - top);
+  }));
+  show(html.dataset.os === 'linux' ? 'linux' : 'mac', false);
+}
+
 /* Copy buttons for [data-copy] command blocks; without JavaScript there is no button at all. */
 function copies(root) {
   root.querySelectorAll('[data-copy]:not([data-copy-on])').forEach(el => {
@@ -583,6 +624,7 @@ PK.init = (root = document) => {
   root.querySelectorAll('.pk-scene[data-scene]').forEach(mountScene);
   root.querySelectorAll('.pk-phone[data-screen]').forEach(mountPhone);
   copies(root);
+  osPick(root);
 };
 PK.mountScene = mountScene;
 PK.mountPhone = mountPhone;
@@ -634,10 +676,10 @@ const tp = s => `[data-k="${s}"]`;
     label: 'Installing portholed on the computer and pairing a phone', poster: 6,
     steps: [
       { ...base, cap: 'Open Porthole on the phone. The computer needs a few commands, once.', ms: 2800, phone: ['welcome'], term: [sh + '{cur}'], seq: [[1900, { tap: tp('go') }]] },
-      { cap: "What you'll need: Tailscale on both devices, Claude Code in tmux, and portholed on the computer.", ms: 3200, phone: ['needs'], seq: [[2500, { tap: tp('go') }]] },
+      { cap: "What you'll need, and which computer: a Mac here. Tailscale on both devices, Claude Code in tmux, and portholed.", ms: 3200, phone: ['needs'], seq: [[1300, { tap: tp('mac') }], [1500, { phone: ['needs', { os: 'mac' }] }], [2600, { tap: tp('go') }]] },
       { cap: 'Tailscale connects the phone straight to the computer. There is no Porthole account.', ms: 3000, phone: ['tailscale'],
         seq: [[2300, { tap: tp('go') }]] },
-      { cap: 'At the computer: install portholed with Homebrew, then portholed setup starts its service.', ms: 7600, phone: ['setup'], term: [brew],
+      { cap: 'At the computer: install portholed with Homebrew, then portholed setup starts its service.', ms: 7600, phone: ['setup', { os: 'mac', scroll: 250 }], term: [brew],
         seq: [[2000, { term: brewed, print: 45 }], [3000, { term: [...brewed, inst] }], [4300, { term: installed, print: 45 }], [6900, { tap: tp('go') }]] },
       { cap: 'Name the computer. Porthole checks that portholed is answering on the tailnet.', ms: 3400, phone: ['connect', { host: 'workstation' }],
         seq: [[600, { phone: ['connect', { host: 'workstation', checking: 1 }] }], [1300, { phone: ['connect', { host: 'workstation', found: 1 }] }], [2600, { tap: tp('go') }]] },
