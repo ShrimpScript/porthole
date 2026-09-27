@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install portholed as a per-user service.
+# Install portholed as a per-user service, on Linux (systemd) or macOS (launchd).
 #
 # Deliberately not a curl | sh one-liner. This installs a background service that can run
 # commands as you, and a hook into your Claude Code settings; piping that from a URL into
@@ -28,7 +28,18 @@ RELEASES="https://github.com/ShrimpScript/porthole/releases/latest/download"
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$HOME/.local/bin"
-UNIT_DIR="$HOME/.config/systemd/user"
+case "$(uname -s)" in
+    Linux) OS=linux ;;
+    Darwin) OS=darwin ;;
+    *) echo "portholed runs on Linux and macOS, not $(uname -s)" >&2; exit 1 ;;
+esac
+
+# The Tailscale app on a Mac keeps its CLI inside the app bundle unless it was installed
+# from the app's menu.
+TAILSCALE=tailscale
+if ! command -v tailscale >/dev/null 2>&1 && [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    TAILSCALE=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+fi
 
 say()  { printf '  %s\n' "$*"; }
 step() { printf '\n%s\n' "$*"; }
@@ -36,14 +47,21 @@ run()  { if [ "$DRY" = 1 ]; then printf '  would run: %s\n' "$*"; else "$@"; fi 
 
 step "Checking what this needs"
 missing=0
-for tool in tailscale tmux; do
-    if command -v "$tool" >/dev/null 2>&1; then
-        say "$tool: found"
-    else
-        say "$tool: MISSING - Porthole cannot work without it"
-        missing=1
-    fi
-done
+if command -v "$TAILSCALE" >/dev/null 2>&1; then
+    say "tailscale: found"
+else
+    say "tailscale: MISSING - install it from https://tailscale.com/download and sign in"
+    missing=1
+fi
+if command -v tmux >/dev/null 2>&1; then
+    say "tmux: found"
+elif [ "$OS" = darwin ]; then
+    say "tmux: MISSING - brew install tmux"
+    missing=1
+else
+    say "tmux: MISSING - install it with your package manager"
+    missing=1
+fi
 if command -v claude >/dev/null 2>&1; then
     say "claude: found"
 else
@@ -52,7 +70,7 @@ fi
 [ "$missing" = 0 ] || { echo; echo "Install the missing tools first." >&2; exit 1; }
 
 # A daemon that binds the tailnet cannot start without one.
-if tailscale status >/dev/null 2>&1; then
+if "$TAILSCALE" status >/dev/null 2>&1; then
     say "tailscale: connected"
 else
     say "tailscale: NOT connected - run 'tailscale up' before starting the daemon"
@@ -60,25 +78,29 @@ fi
 
 # The release binary, checked against the release's SHA256SUMS before it is used.
 fetch_prebuilt() {
-    local arch
+    local arch asset
     case "$(uname -m)" in
         x86_64|amd64) arch=amd64 ;;
         aarch64|arm64) arch=arm64 ;;
         *) echo "  no prebuilt daemon for $(uname -m); install Go and run without --prebuilt" >&2; exit 1 ;;
     esac
+    asset="portholed-$OS-$arch"
     command -v curl >/dev/null 2>&1 || { echo "  --prebuilt needs curl" >&2; exit 1; }
     if [ "$DRY" = 1 ]; then
-        say "would download $RELEASES/portholed-linux-$arch"
+        say "would download $RELEASES/$asset"
         say "would verify it against $RELEASES/SHA256SUMS"
         return
     fi
-    say "downloading $RELEASES/portholed-linux-$arch"
+    say "downloading $RELEASES/$asset"
     local tmp; tmp=$(mktemp -d)
-    curl -fsSL -o "$tmp/portholed-linux-$arch" "$RELEASES/portholed-linux-$arch"
+    curl -fsSL -o "$tmp/$asset" "$RELEASES/$asset"
     curl -fsSL -o "$tmp/SHA256SUMS" "$RELEASES/SHA256SUMS"
-    (cd "$tmp" && grep " portholed-linux-$arch\$" SHA256SUMS | sha256sum -c --quiet -) ||
+    # sha256sum on Linux, shasum on a Mac; both read the same list.
+    local check="sha256sum -c --quiet -"
+    command -v sha256sum >/dev/null 2>&1 || check="shasum -a 256 -c --quiet -"
+    (cd "$tmp" && grep " $asset\$" SHA256SUMS | $check) ||
         { echo "  checksum mismatch - not installing it" >&2; rm -rf "$tmp"; exit 1; }
-    install -m 0755 "$tmp/portholed-linux-$arch" "$REPO/daemon/portholed"
+    install -m 0755 "$tmp/$asset" "$REPO/daemon/portholed"
     rm -rf "$tmp"
     say "verified and saved to daemon/portholed"
 }
@@ -109,22 +131,33 @@ case ":$PATH:" in
     *) say "NOTE: $BIN_DIR is not on your PATH - add it, or the commands below will not resolve" ;;
 esac
 
-step "Installing the user service"
-# The unit makes this directory writable inside its namespace; systemd will not start the
-# service at all if it does not already exist.
-run mkdir -p "$HOME/.config/porthole"
-run mkdir -p "$UNIT_DIR"
-run install -m 0644 "$REPO/daemon/packaging/portholed.service" "$UNIT_DIR/portholed.service"
-run systemctl --user daemon-reload
-run systemctl --user enable --now portholed
-say "logs: journalctl --user -u portholed -f"
-
-step "Surviving logout"
-if [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null || echo no)" = "yes" ]; then
-    say "linger is already enabled"
+step "Installing the background service"
+if [ "$OS" = darwin ]; then
+    say "a launchd agent ($HOME/Library/LaunchAgents/dev.shrimpscript.portholed.plist) that starts"
+    say "at login and restarts on failure; it keeps this shell's PATH so it finds tmux and claude"
 else
-    say "Run this, or the daemon dies when you log out - which is exactly when you are away:"
-    say "    sudo loginctl enable-linger $USER"
+    say "a systemd user service (~/.config/systemd/user/portholed.service)"
+fi
+run "$BIN_DIR/portholed" service install
+if [ "$OS" = darwin ]; then
+    say "logs: tail -f ~/Library/Logs/portholed.log"
+else
+    say "logs: journalctl --user -u portholed -f"
+fi
+
+if [ "$OS" = linux ]; then
+    step "Surviving logout"
+    if [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null || echo no)" = "yes" ]; then
+        say "linger is already enabled"
+    else
+        say "Run this, or the daemon dies when you log out - which is exactly when you are away:"
+        say "    loginctl enable-linger $USER      (with sudo if it asks)"
+    fi
+else
+    step "Staying reachable"
+    say "portholed keeps the Mac awake while a session works or a phone is connected, on the"
+    say "power adapter. It runs in your login session, so after a reboot it starts when you log in."
+    say "For the failsafe shell, turn on Remote Login: System Settings > General > Sharing."
 fi
 
 if [ "$HOOKS" = 1 ]; then

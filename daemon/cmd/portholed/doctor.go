@@ -1,18 +1,21 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/shrimpscript/porthole/daemon/internal/hooks"
 	"github.com/shrimpscript/porthole/daemon/internal/server"
+	"github.com/shrimpscript/porthole/daemon/internal/service"
 	"github.com/shrimpscript/porthole/daemon/internal/session"
 	"github.com/shrimpscript/porthole/daemon/internal/transcript"
 )
@@ -49,14 +52,14 @@ func runDoctor() []check {
 	add := func(state, name, detail string) { out = append(out, check{state, name, detail}) }
 
 	// The tmux window is where prompts are typed.
-	if v, err := exec.Command("tmux", "-V").Output(); err == nil {
+	if v, err := probe("tmux", "-V"); err == nil {
 		add("ok", "tmux", strings.TrimSpace(string(v)))
 	} else {
 		add("fail", "tmux", "not on PATH; Claude Code must run inside tmux for the phone to type to it")
 	}
 
 	// Tailscale is the only network the daemon binds.
-	if b, err := exec.Command("tailscale", "status", "--json").Output(); err == nil {
+	if b, err := probe(tailscaleCLI(), "status", "--json"); err == nil {
 		var st struct {
 			BackendState string `json:"BackendState"`
 			Self         struct {
@@ -115,34 +118,40 @@ func runDoctor() []check {
 	}
 
 	// Tailscale SSH is the way back in when the daemon itself is the problem.
-	if b, err := exec.Command("tailscale", "debug", "prefs").Output(); err == nil {
+	if b, err := probe(tailscaleCLI(), "debug", "prefs"); err == nil {
 		var prefs struct {
 			RunSSH bool `json:"RunSSH"`
 		}
 		if json.Unmarshal(b, &prefs) == nil {
 			if prefs.RunSSH {
 				add("ok", "ssh failsafe", "Tailscale SSH is on; the phone can open a shell and restart this daemon")
-			} else {
+			} else if runtime.GOOS != "darwin" {
+				// On a Mac the Tailscale app has no SSH server to turn on; Remote Login is
+				// checked below instead.
 				add("warn", "ssh failsafe", "Tailscale SSH is off: if the daemon stops, the phone has no way back in (tailscale set --ssh)")
 			}
 		}
 	}
 
 	// Away from the keyboard, these decide whether the computer is still there tomorrow.
-	if out, err := exec.Command("loginctl", "show-user", os.Getenv("USER"), "-p", "Linger").Output(); err == nil {
-		if strings.Contains(string(out), "yes") {
-			add("ok", "after a reboot", "lingering is on: the daemon starts without anyone logging in")
-		} else {
-			add("warn", "after a reboot", "lingering is off: after a reboot the daemon waits for a login (loginctl enable-linger)")
+	if runtime.GOOS == "darwin" {
+		macAwayChecks(add)
+	} else {
+		if out, err := probe("loginctl", "show-user", os.Getenv("USER"), "-p", "Linger"); err == nil {
+			if strings.Contains(string(out), "yes") {
+				add("ok", "after a reboot", "lingering is on: the daemon starts without anyone logging in")
+			} else {
+				add("warn", "after a reboot", "lingering is off: after a reboot the daemon waits for a login (loginctl enable-linger)")
+			}
 		}
-	}
-	// journalctl exits non-zero when its pattern matches nothing, which is the good case.
-	slept, err := exec.Command("journalctl", "-b", "-q", "--no-pager", "-g", "Entering sleep state").Output()
-	if err == nil || isExitOne(err) {
-		if strings.TrimSpace(string(slept)) == "" {
-			add("ok", "sleep", "not once since it booted"+uptimeSuffix()+"; a sleeping computer is unreachable from the phone")
-		} else {
-			add("warn", "sleep", "this machine has slept since booting; while it sleeps the phone cannot reach it")
+		// journalctl exits non-zero when its pattern matches nothing, which is the good case.
+		slept, err := probe("journalctl", "-b", "-q", "--no-pager", "-g", "Entering sleep state")
+		if err == nil || isExitOne(err) {
+			if strings.TrimSpace(string(slept)) == "" {
+				add("ok", "sleep", "not once since it booted"+uptimeSuffix()+"; a sleeping computer is unreachable from the phone")
+			} else {
+				add("warn", "sleep", "this machine has slept since booting; while it sleeps the phone cannot reach it")
+			}
 		}
 	}
 	if free, total, err := diskFree(server.BuildsDir()); err == nil {
@@ -154,7 +163,7 @@ func runDoctor() []check {
 	}
 
 	// Claude Code itself.
-	if v, err := exec.Command("claude", "--version").Output(); err == nil {
+	if v, err := probe("claude", "--version"); err == nil {
 		add("ok", "claude", strings.TrimSpace(string(v)))
 	} else {
 		add("warn", "claude", "not on PATH; sessions can still be watched, but not started from the phone")
@@ -185,7 +194,7 @@ func runDoctor() []check {
 	}
 
 	// Optional features, by the tools behind them.
-	if v, err := exec.Command("git", "--version").Output(); err == nil {
+	if v, err := probe("git", "--version"); err == nil {
 		add("ok", "changes", strings.TrimSpace(string(v))+" (what changed, on the phone)")
 	} else {
 		add("warn", "changes", "git not on PATH; the phone cannot show what changed")
@@ -209,20 +218,12 @@ func runDoctor() []check {
 			add("info", "pairing", "no phone paired yet: run `portholed pair`")
 		}
 	} else {
-		add("fail", "daemon", "not answering on its control socket: "+err.Error()+" (systemctl --user status portholed)")
+		add("fail", "daemon", "not answering on its control socket: "+err.Error()+" (portholed service status)")
 	}
-	active, _ := exec.Command("systemctl", "--user", "is-active", "portholed").Output()
-	enabled, _ := exec.Command("systemctl", "--user", "is-enabled", "portholed").Output()
-	a, e := strings.TrimSpace(string(active)), strings.TrimSpace(string(enabled))
-	switch {
-	case a == "active" && e == "enabled":
-		add("ok", "service", "portholed.service active, starts at login")
-	case a == "active":
-		add("warn", "service", "active but "+e+": it will not start at login (systemctl --user enable portholed)")
-	case a == "":
-		add("info", "service", "no systemd user service (the daemon runs some other way, or not at all)")
-	default:
-		add("warn", "service", "portholed.service is "+a)
+	if line, ok := service.Status(); ok {
+		add("ok", "service", line)
+	} else {
+		add("warn", "service", line)
 	}
 
 	// Approvals from the phone need the hook.
@@ -269,4 +270,13 @@ func diskFree(path string) (free, total uint64, err error) {
 func isExitOne(err error) bool {
 	var ee *exec.ExitError
 	return errors.As(err, &ee) && ee.ExitCode() == 1
+}
+
+// probe runs a command for doctor and returns its output. Every check is bounded: a tool
+// that hangs (a broken tailscaled, a claude wrapper waiting on input) must not stop the
+// rest of the report.
+func probe(name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, name, args...).Output()
 }

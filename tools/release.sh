@@ -8,7 +8,7 @@
 #   tools/release.sh 0.26.0 --dry-run          # print every step, change nothing
 #
 # The GitHub release is what installed apps update from: it carries porthole.apk, the
-# daemon for linux amd64 and arm64, the third-party notices and SHA256SUMS. The APK is
+# daemon for Linux and macOS on amd64 and arm64, the third-party notices and SHA256SUMS. The APK is
 # signed with the key in app-android/keystore.properties (gitignored) - every release must
 # use the same key, or Android refuses the update. The store bundle is built with
 # -Pporthole.store=true, which compiles the GitHub update check out; point KEYSTORE_PROPS
@@ -70,8 +70,10 @@ fi
 # out of the binaries, which are published.
 run mkdir -p "$DIST"
 run bash -c "cd daemon && go vet ./... && go test ./... >/dev/null"
-for arch in amd64 arm64; do
-    run env -C daemon CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "$DIST/portholed-linux-$arch" ./cmd/portholed
+for os in linux darwin; do
+    for arch in amd64 arm64; do
+        run env -C daemon CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "$DIST/portholed-$os-$arch" ./cmd/portholed
+    done
 done
 
 # 4. App: unit tests and the APK, whose R8 mapping is kept before the bundle build
@@ -100,7 +102,7 @@ run cp app-android/app/build/outputs/bundle/release/app-release.aab "$DIST/porth
 # 6. The third-party notices, which the licences of the bundled fonts and Go modules
 # require to travel with the binaries, and checksums for everything the release offers.
 run bash -c "{ cat app-android/THIRD_PARTY.md; echo; cat daemon/THIRD_PARTY.md; } > '$DIST/THIRD_PARTY.txt'"
-run bash -c "cd '$DIST' && sha256sum porthole.apk portholed-linux-amd64 portholed-linux-arm64 THIRD_PARTY.txt > SHA256SUMS"
+run bash -c "cd '$DIST' && sha256sum porthole.apk portholed-linux-amd64 portholed-linux-arm64 portholed-darwin-amd64 portholed-darwin-arm64 THIRD_PARTY.txt > SHA256SUMS"
 
 # 7. Nothing machine-specific leaves the repo.
 run ./tools/scrub-check.sh
@@ -112,7 +114,7 @@ run env TZ=UTC git -c user.name='ShrimpScript' -c user.email='shrimpscript@users
 
 # 9. Optional: install the new daemon locally and restart its user service.
 if [ "$DEPLOY" = 1 ]; then
-    run install -m 0755 "$DIST/portholed-linux-$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')" "$HOME/.local/bin/portholed.new"
+    run install -m 0755 "$DIST/portholed-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')" "$HOME/.local/bin/portholed.new"
     run mv -f "$HOME/.local/bin/portholed.new" "$HOME/.local/bin/portholed"
     run systemctl --user restart portholed
 fi
@@ -140,7 +142,7 @@ else:
 print("\nInstall: download porthole.apk on the phone; run the daemon from tools/install.sh.")
 PY
     run gh release create "v$VERSION" --title "Porthole $VERSION" --notes-file "$NOTES" \
-        "$DIST/porthole.apk" "$DIST/portholed-linux-amd64" "$DIST/portholed-linux-arm64" \
+        "$DIST/porthole.apk" "$DIST/portholed-linux-amd64" "$DIST/portholed-linux-arm64" "$DIST/portholed-darwin-amd64" "$DIST/portholed-darwin-arm64" \
         "$DIST/THIRD_PARTY.txt" "$DIST/SHA256SUMS"
 fi
 echo "released $VERSION: $DIST (porthole.apk, porthole-$VERSION-store.aab, daemon binaries, THIRD_PARTY.txt, SHA256SUMS), tag v$VERSION"

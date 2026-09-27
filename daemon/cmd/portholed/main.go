@@ -13,6 +13,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/shrimpscript/porthole/daemon/internal/service"
 	qrcode "github.com/skip2/go-qrcode"
 	"io"
 	"log/slog"
@@ -80,6 +81,8 @@ func main() {
 		err = cmdUninstallHooks()
 	case "publish":
 		err = cmdPublish(os.Args[2:])
+	case "service":
+		err = cmdService(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -108,6 +111,9 @@ func usage() {
   portholed sessions     list Claude Code sessions on this machine
   portholed replay FILE  map a transcript to feed rows (-json, -feed)
   portholed publish APK VERSION APP  offer a build of an app you are working on to paired phones
+  portholed service install|restart|status|uninstall
+                         run the daemon in the background: a launchd agent on a Mac,
+                         a systemd user service on Linux (this binary's own path)
   portholed install-hooks    register the PermissionRequest hook with Claude Code
   portholed uninstall-hooks  remove it again
   portholed hook             (invoked by Claude Code; not for humans)
@@ -601,6 +607,38 @@ func cmdStatus() error {
 		fmt.Printf("permission hook: registered in %s\n", path)
 	} else {
 		fmt.Println("permission hook: not registered (run `portholed install-hooks`)")
+	}
+	return nil
+}
+
+func cmdService(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: portholed service install|restart|status|uninstall")
+	}
+	switch args[0] {
+	case "install":
+		file, err := service.Install()
+		if err != nil {
+			return err
+		}
+		fmt.Println("installed and started:", file)
+		line, _ := service.Status()
+		fmt.Println(line)
+	case "restart":
+		return service.Restart()
+	case "status":
+		line, ok := service.Status()
+		fmt.Println(line)
+		if !ok {
+			os.Exit(3)
+		}
+	case "uninstall":
+		if err := service.Uninstall(); err != nil {
+			return err
+		}
+		fmt.Println("stopped and removed; paired devices are kept in ~/.config/porthole")
+	default:
+		return fmt.Errorf("usage: portholed service install|restart|status|uninstall")
 	}
 	return nil
 }

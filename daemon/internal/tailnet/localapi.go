@@ -1,8 +1,10 @@
-// Package tailnet talks to the local tailscaled over its unix socket.
+// Package tailnet talks to the local Tailscale over its LocalAPI.
 //
-// Deliberately no dependency on the Tailscale Go module: the LocalAPI is plain HTTP
-// over a unix socket, and speaking it directly keeps portholed a small static binary
-// with no vendored networking stack.
+// Deliberately no dependency on the Tailscale Go module: the LocalAPI is plain HTTP, and
+// speaking it directly keeps portholed a small static binary with no vendored networking
+// stack. It is reached one of three ways: a unix socket (tailscaled on Linux, and the
+// open-source tailscaled on a Mac), or - for the Tailscale app on a Mac, which runs in a
+// sandbox - a localhost TCP port with a token, found the way Tailscale's own CLI finds it.
 package tailnet
 
 import (
@@ -12,18 +14,26 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
-// Socket paths, in the order tailscaled is known to use them.
+// Socket paths, in the order tailscaled is known to use them. The last is the
+// open-source tailscaled on a Mac (Homebrew's tailscale).
 var socketPaths = []string{
 	"/var/run/tailscale/tailscaled.sock",
 	"/run/tailscale/tailscaled.sock",
+	"/var/run/tailscaled.socket",
 }
 
 type Client struct {
 	http *http.Client
+	// token, for the Mac app's TCP LocalAPI: sent as the Basic auth password.
+	token func() string
 }
 
 // Peer is the subset of a WhoIs response Porthole actually uses.
@@ -59,18 +69,113 @@ func New() (*Client, error) {
 			break
 		}
 	}
-	if path == "" {
-		return nil, fmt.Errorf("tailscaled socket not found (is Tailscale running?)")
+	if path != "" {
+		return &Client{http: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+					var d net.Dialer
+					return d.DialContext(ctx, "unix", path)
+				},
+			},
+		}}, nil
 	}
-	return &Client{http: &http.Client{
+	if runtime.GOOS == "darwin" {
+		if _, _, err := macAppEndpoint(); err == nil {
+			return newMacAppClient(), nil
+		}
+	}
+	return nil, fmt.Errorf("tailscaled socket not found (is Tailscale running?)")
+}
+
+// newMacAppClient reaches the Tailscale app for macOS. Its port and token change when the
+// app restarts, so they are looked up again whenever a connection fails.
+func newMacAppClient() *Client {
+	var mu sync.Mutex
+	var port int
+	var token string
+	endpoint := func(fresh bool) (int, string, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if port == 0 || fresh {
+			p, t, err := macAppEndpoint()
+			if err != nil {
+				return 0, "", err
+			}
+			port, token = p, t
+		}
+		return port, token, nil
+	}
+	c := &Client{}
+	c.token = func() string { _, t, _ := endpoint(false); return t }
+	c.http = &http.Client{
 		Timeout: 5 * time.Second,
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				var d net.Dialer
-				return d.DialContext(ctx, "unix", path)
+				p, _, err := endpoint(false)
+				if err == nil {
+					conn, derr := d.DialContext(ctx, "tcp", "127.0.0.1:"+strconv.Itoa(p))
+					if derr == nil {
+						return conn, nil
+					}
+				}
+				if p, _, err = endpoint(true); err != nil {
+					return nil, err
+				}
+				return d.DialContext(ctx, "tcp", "127.0.0.1:"+strconv.Itoa(p))
 			},
 		},
-	}}, nil
+	}
+	return c
+}
+
+// macAppEndpoint finds the Tailscale app's LocalAPI port and token: the App Store app
+// holds a "sameuserproof-PORT-TOKEN" file open (found with lsof), the standalone app
+// writes /Library/Tailscale/ipnport (a symlink to the port) and a token file beside it.
+func macAppEndpoint() (int, string, error) {
+	out, err := exec.Command("lsof", "-n", "-a", "-u"+strconv.Itoa(os.Getuid()), "-c", "IPNExtension", "-F").Output()
+	if err == nil {
+		if p, t, ok := parseSameUserProof(string(out)); ok {
+			return p, t, nil
+		}
+	}
+	portStr, err := os.Readlink("/Library/Tailscale/ipnport")
+	if err != nil {
+		return 0, "", fmt.Errorf("the Tailscale app is not running")
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0, "", err
+	}
+	tok, err := os.ReadFile("/Library/Tailscale/sameuserproof-" + portStr)
+	if err != nil {
+		return 0, "", err
+	}
+	if t := strings.TrimSpace(string(tok)); t != "" {
+		return port, t, nil
+	}
+	return 0, "", fmt.Errorf("empty Tailscale token file")
+}
+
+// parseSameUserProof reads the App Store app's port and token out of lsof's -F output,
+// where the open file shows as ".../io.tailscale.ipn.macos/sameuserproof-PORT-TOKEN".
+func parseSameUserProof(lsof string) (int, string, bool) {
+	const marker = ".tailscale.ipn.macos/sameuserproof-"
+	for _, line := range strings.Split(lsof, "\n") {
+		_, after, ok := strings.Cut(line, marker)
+		if !ok {
+			continue
+		}
+		portStr, token, ok := strings.Cut(strings.TrimSpace(after), "-")
+		if !ok || token == "" {
+			continue
+		}
+		if port, err := strconv.Atoi(portStr); err == nil && port > 0 {
+			return port, token, true
+		}
+	}
+	return 0, "", false
 }
 
 func (c *Client) get(ctx context.Context, path string, out any) error {
@@ -79,6 +184,9 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 		return err
 	}
 	req.Host = "local-tailscaled.sock"
+	if c.token != nil {
+		req.SetBasicAuth("", c.token())
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err

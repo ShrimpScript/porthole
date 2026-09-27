@@ -1,10 +1,8 @@
-# Porthole daemon, per-user.
+# Porthole daemon, per-user. Written by `portholed service install`, which fills in the
+# path of the portholed that ran it and creates the state directory this unit needs.
 #
-#   install:  ../../tools/install.sh   (creates the state directory this unit needs)
-#   manually: mkdir -p ~/.config/porthole
-#             cp portholed.service ~/.config/systemd/user/
-#             systemctl --user daemon-reload && systemctl --user enable --now portholed
 #   logs:     journalctl --user -u portholed -f
+#   restart:  portholed service restart
 #
 # Run `sudo loginctl enable-linger $USER` as well, or the daemon dies when the desktop
 # session logs out - which is exactly when you are away from the machine and need it.
@@ -17,7 +15,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/portholed serve
+ExecStart=@BIN@ serve
 Restart=on-failure
 RestartSec=3s
 

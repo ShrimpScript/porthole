@@ -88,6 +88,9 @@ type Hello struct {
 	// SSHUser is the account the failsafe should log in as. The app stores it while the
 	// daemon is reachable, so that when the daemon is DOWN it already knows who to be.
 	SSHUser string `json:"ssh_user,omitempty"`
+	// Restart is the shell command that restarts the daemon on this computer, for the
+	// failsafe to run over SSH when the daemon is down: learned while it was up.
+	Restart string `json:"restart,omitempty"`
 	// LatestBuild is the newest Porthole APK published on this computer, if any. Only
 	// older apps read it; current ones ignore it and update from GitHub releases.
 	LatestBuild *BuildInfo `json:"latest_build,omitempty"`

@@ -20,7 +20,9 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/shrimpscript/porthole/daemon/internal/platform"
 	"github.com/shrimpscript/porthole/daemon/internal/proto"
+	"github.com/shrimpscript/porthole/daemon/internal/service"
 	"github.com/shrimpscript/porthole/daemon/internal/session"
 	"github.com/shrimpscript/porthole/daemon/internal/store"
 	"github.com/shrimpscript/porthole/daemon/internal/tailnet"
@@ -43,7 +45,8 @@ type Server struct {
 
 	mu      sync.Mutex
 	conns   map[string]map[*websocket.Conn]struct{} // nodeID -> live sockets
-	writers map[*websocket.Conn]*writer             // serialised writer per socket
+	awake   *keepAwake
+	writers map[*websocket.Conn]*writer // serialised writer per socket
 
 	approvals *approvals
 
@@ -115,6 +118,7 @@ func New(res tailnet.Resolver, st *store.Store, log *slog.Logger) *Server {
 		// Only what the daemon can actually honour - the app reveals UI from this.
 		caps:      detectCaps(),
 		conns:     map[string]map[*websocket.Conn]struct{}{},
+		awake:     newKeepAwake(),
 		writers:   map[*websocket.Conn]*writer{},
 		approvals: newApprovals(),
 		previews:  map[int]*previewProxy{},
@@ -180,11 +184,15 @@ func (s *Server) track(nodeID string, c *websocket.Conn, w *writer) {
 	}
 	s.conns[nodeID][c] = struct{}{}
 	s.writers[c] = w
+	s.awake.phone(+1)
 }
 
 func (s *Server) untrack(nodeID string, c *websocket.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, ok := s.writers[c]; ok {
+		s.awake.phone(-1)
+	}
 	delete(s.writers, c)
 	if m := s.conns[nodeID]; m != nil {
 		delete(m, c)
@@ -284,6 +292,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		sshUser = u.Username
 	}
 	hello := proto.NewHello(Version, host, runtime.GOOS, dev.Name, sshUser, s.caps)
+	hello.Restart = service.RestartCommand()
 	hello.AutoContinue = autoContinueSetting()
 	if b := latestBuild(BuildsDir(), DefaultApp); b != nil {
 		hello.LatestBuild = &proto.BuildInfo{App: b.App, Version: b.Version, Path: "/builds/" + b.File, Size: b.Size, Code: b.Code}
@@ -335,8 +344,8 @@ func detectCaps() []string {
 	if _, err := exec.LookPath("wf-recorder"); err == nil {
 		caps = append(caps, proto.CapRecord)
 	}
-	if _, err := os.Stat("/proc/net/tcp"); err == nil {
-		caps = append(caps, proto.CapPreview) // finding dev servers reads procfs
+	if platform.CanListListeners() {
+		caps = append(caps, proto.CapPreview) // finding dev servers maps sockets to processes
 	}
 	if _, err := exec.LookPath("git"); err == nil {
 		caps = append(caps, proto.CapChanges)

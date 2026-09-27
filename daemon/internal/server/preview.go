@@ -11,22 +11,20 @@ package server
 // dies with the process.
 
 import (
-	"bufio"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/shrimpscript/porthole/daemon/internal/platform"
 	"github.com/shrimpscript/porthole/daemon/internal/proto"
 	"github.com/shrimpscript/porthole/daemon/internal/tailnet"
 )
@@ -65,57 +63,20 @@ type previewStateFrame struct {
 	Open bool `json:"open"`
 }
 
-// scanDevServers lists listening TCP sockets on loopback or the wildcard with a port of
-// 1024 or more, resolved to the owning process through /proc. Sockets of processes
-// that are not ours are unreadable and therefore absent, which is the intent: the
-// phone is offered what the user is running, not what the system is.
+// scanDevServers lists the user's listening TCP ports on loopback or the wildcard,
+// 1024 and up, with the process behind each (see platform.Listeners). Sockets of
+// processes that are not ours are absent, which is the intent: the phone is offered
+// what the user is running, not what the system is.
 func scanDevServers(exclude map[int]bool) []devServer {
-	portByInode := map[uint64]int{}
-	for _, f := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
-		readProcNet(f, portByInode)
-	}
-	if len(portByInode) == 0 {
-		return nil
-	}
-	pidByPort := map[int]int{}
-	procs, _ := os.ReadDir("/proc")
-	for _, e := range procs {
-		pid, err := strconv.Atoi(e.Name())
-		if err != nil {
-			continue
-		}
-		fds, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
-		if err != nil {
-			continue // another user's process
-		}
-		for _, fd := range fds {
-			link, err := os.Readlink(fmt.Sprintf("/proc/%d/fd/%s", pid, fd.Name()))
-			if err != nil || !strings.HasPrefix(link, "socket:[") {
-				continue
-			}
-			ino, err := strconv.ParseUint(strings.TrimSuffix(strings.TrimPrefix(link, "socket:["), "]"), 10, 64)
-			if err != nil {
-				continue
-			}
-			if port, ok := portByInode[ino]; ok {
-				if _, seen := pidByPort[port]; !seen {
-					pidByPort[port] = pid
-				}
-			}
-		}
-	}
 	var out []devServer
-	for port, pid := range pidByPort {
-		if exclude[port] || port >= ephemeralFrom {
+	for _, l := range platform.Listeners() {
+		if exclude[l.Port] || l.Port >= platform.EphemeralFrom {
 			continue // ephemeral ports are IPC (emulators, agents), never a site
 		}
-		comm, _ := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
-		cmdline, _ := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-		process := strings.TrimSpace(string(comm))
-		if notASite(process) {
+		if notASite(l.Process) {
 			continue
 		}
-		out = append(out, devServer{Port: port, Process: process, Name: devServerName(process, cmdline)})
+		out = append(out, devServer{Port: l.Port, Process: l.Process, Name: devServerName(l.Process, l.Cmdline)})
 	}
 	// Recognised dev servers first, then everything else the user runs, by port.
 	sort.Slice(out, func(i, j int) bool {
@@ -127,9 +88,6 @@ func scanDevServers(exclude map[int]bool) []devServer {
 	})
 	return out
 }
-
-// ephemeralFrom is where Linux hands out ports; a listener up there was not chosen.
-const ephemeralFrom = 32768
 
 // notASite hides listeners that are never a page: tooling, IPC and media daemons that
 // happen to own a loopback port. Anything unrecognised stays listed - the user may well
@@ -148,69 +106,6 @@ func notASite(process string) bool {
 		}
 	}
 	return false
-}
-
-// readProcNet collects LISTEN sockets on loopback/wildcard from one /proc/net table.
-func readProcNet(path string, portByInode map[uint64]int) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Scan() // header
-	for sc.Scan() {
-		fields := strings.Fields(sc.Text())
-		if len(fields) < 10 || fields[3] != "0A" { // 0A = LISTEN
-			continue
-		}
-		hostHex, portHex, ok := strings.Cut(fields[1], ":")
-		if !ok || !localOrAny(hostHex) {
-			continue
-		}
-		port64, err := strconv.ParseUint(portHex, 16, 16)
-		if err != nil || port64 < 1024 {
-			continue
-		}
-		ino, err := strconv.ParseUint(fields[9], 10, 64)
-		if err != nil {
-			continue
-		}
-		portByInode[ino] = int(port64)
-	}
-}
-
-// localOrAny: /proc writes addresses as little-endian hex words. 127.0.0.1 is
-// 0100007F, ::1 ends in 01000000, and any-address is all zeros in either width.
-func localOrAny(h string) bool {
-	b, err := hex.DecodeString(h)
-	if err != nil {
-		return false
-	}
-	switch len(b) {
-	case 4:
-		return (b[3] == 127) || (b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0)
-	case 16:
-		allZero := true
-		for i := 0; i < 15; i++ {
-			if b[i] != 0 {
-				allZero = false
-				break
-			}
-		}
-		return allZero && (b[15] == 0 || b[12] == 1 && b[13] == 0 && b[14] == 0 && b[15] == 0) || isProcV6Loopback(b)
-	}
-	return false
-}
-
-func isProcV6Loopback(b []byte) bool {
-	// ::1 as /proc prints it: three zero words then 01000000.
-	for i := 0; i < 12; i++ {
-		if b[i] != 0 {
-			return false
-		}
-	}
-	return b[12] == 1 && b[13] == 0 && b[14] == 0 && b[15] == 0
 }
 
 // devServerName turns "node /x/node_modules/.bin/vite --port 5173" into "vite".

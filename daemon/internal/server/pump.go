@@ -18,6 +18,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/shrimpscript/porthole/daemon/internal/platform"
 	"github.com/shrimpscript/porthole/daemon/internal/proto"
 	"github.com/shrimpscript/porthole/daemon/internal/session"
 	"github.com/shrimpscript/porthole/daemon/internal/termbridge"
@@ -434,33 +435,8 @@ func parseShellPane(out, cwd string) (string, int, bool) {
 	return "", 0, false
 }
 
-// hasChildren reports whether any process names pid as its parent (Linux /proc).
-// Unreadable entries count as none; an unreadable /proc as busy, the safe answer.
-func hasChildren(pid int) bool {
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
-		return true
-	}
-	for _, e := range entries {
-		if !e.IsDir() || e.Name()[0] < '0' || e.Name()[0] > '9' {
-			continue
-		}
-		b, err := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
-		if err != nil {
-			continue
-		}
-		// "pid (comm) state ppid ..." - comm may hold spaces, so parse after the last ')'.
-		i := strings.LastIndexByte(string(b), ')')
-		if i < 0 {
-			continue
-		}
-		f := strings.Fields(string(b[i+1:]))
-		if len(f) >= 2 && f[1] == strconv.Itoa(pid) {
-			return true
-		}
-	}
-	return false
-}
+// hasChildren reports whether any process names pid as its parent.
+func hasChildren(pid int) bool { return platform.HasChildren(pid) }
 
 var shells = map[string]bool{"bash": true, "fish": true, "zsh": true, "sh": true, "dash": true, "ksh": true, "tcsh": true, "nu": true}
 

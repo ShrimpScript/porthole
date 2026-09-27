@@ -72,6 +72,7 @@ func (s *Server) StartTurnWatcher(ctx context.Context) {
 					delete(watched, path)
 					id, _ := e.current()
 					s.forgetScreenAsking(id)
+					s.awake.session(id, false) // gone mid-turn must not hold the Mac awake
 				}
 			}
 			// The screen is the only place a question shows while it waits: one
@@ -112,6 +113,7 @@ func (s *Server) StartTurnWatcher(ctx context.Context) {
 						if q, ok := s.screenAsking(id); ok {
 							asking = q // the screen knows; the transcript learns later
 						}
+						s.awake.session(id, working)
 						s.broadcast(wctx, workingFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeSessionWorking},
 							SessionID: id, Title: title, Working: working, Since: since, Doing: doing, Asking: asking})
 					})

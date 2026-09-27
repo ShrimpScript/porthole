@@ -3,6 +3,7 @@ package session
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,14 +25,19 @@ func TestParseTmuxRef(t *testing.T) {
 	}
 }
 
-// ownStart is this process's start time as /proc reports it, the value the CLI stores.
+// ownStart is this process's start time the way Claude Code records it in its registry,
+// worked out here independently of the code under test: field 22 of /proc/<pid>/stat on
+// Linux, and on a Mac the output of the very command the CLI runs.
 func ownStart(t *testing.T) string {
-	b, err := os.ReadFile("/proc/self/stat")
-	if err != nil {
-		t.Skip("no /proc")
+	if b, err := os.ReadFile("/proc/self/stat"); err == nil {
+		f := strings.Fields(string(b[strings.LastIndexByte(string(b), ')')+1:]))
+		return f[19]
 	}
-	f := strings.Fields(string(b[strings.LastIndexByte(string(b), ')')+1:]))
-	return f[19]
+	out, err := exec.Command("sh", "-c", fmt.Sprintf("LC_ALL=C TZ=UTC ps -o lstart= -p %d", os.Getpid())).Output()
+	if err != nil || strings.TrimSpace(string(out)) == "" {
+		t.Skip("cannot read this process's start time here")
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func writeReg(t *testing.T, dir string, pid int, start, id, cwd, tmux, kind string) {

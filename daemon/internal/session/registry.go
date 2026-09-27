@@ -2,7 +2,7 @@ package session
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/shrimpscript/porthole/daemon/internal/platform"
 	"os"
 	"path/filepath"
 	"sort"
@@ -92,24 +92,12 @@ func parseTmuxRef(s string) (sess, window, pane string) {
 	return sess, rest[:j], rest[j+1:]
 }
 
-// procAlive checks /proc/<pid>/stat's start time against the registry's, so a pid the
-// kernel has reused for something else does not resurrect a dead session.
+// procAlive checks the process's start time against the registry's, so a pid the kernel
+// has reused for something else does not resurrect a dead session. The registry holds
+// the start time in the form this OS gives it (see platform.ProcStart).
 func procAlive(pid int, start string) bool {
-	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
-	if err != nil {
-		return false
-	}
-	// "pid (comm) state ppid ... starttime ..." - comm may hold spaces and parentheses,
-	// so count fields after the last ')': starttime is field 22, index 19 from there.
-	i := strings.LastIndexByte(string(b), ')')
-	if i < 0 {
-		return false
-	}
-	f := strings.Fields(string(b[i+1:]))
-	if len(f) < 20 {
-		return false
-	}
-	return start == "" || f[19] == start
+	got, ok := platform.ProcStart(pid)
+	return ok && (start == "" || got == "" || got == start)
 }
 
 // Successor says whether a transcript that just appeared in a session's directory is
