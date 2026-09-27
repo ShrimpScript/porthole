@@ -87,6 +87,15 @@ eddsa (the SSH failsafe), Glance (the widget) and Google's code scanner (pairing
 Porthole uses none of them to send data anywhere else; the code scanner's own reporting to
 Google is described above.
 
+## This website
+
+The site at porthole-one.vercel.app sets no cookies and runs no analytics, and is hosted on
+Vercel. Its fonts are served from the site itself. The front page loads three.js from
+cdn.jsdelivr.net and GSAP from cdnjs.cloudflare.com to draw and animate the phone; those
+servers see your IP address, as any server a page loads files from does. Your browser keeps
+two things for the site, which never leave it: whether you have seen the opening, and whether
+you picked Mac or Linux in the install steps.
+
 ## Contact
 
 Questions about this policy: open an issue on the repository.

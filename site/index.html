@@ -18,25 +18,24 @@
 <meta name="theme-color" content="#F3F7F6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#07100F" media="(prefers-color-scheme: dark)">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
-<link rel="preload" href="/assets/fonts/iosevka-term-regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css">
-<link rel="stylesheet" href="/assets/kit.css">
-<link rel="stylesheet" href="/assets/landing.css">
+<!-- Before any stylesheet: a script after one waits for it, and holds up the page. -->
 <script>
 // Mac or Linux, before the page paints: this visitor's last choice, else their own system.
 (function(){var o;try{o=localStorage.getItem('porthole-os')}catch(e){}if(o!=='mac'&&o!=='linux')o=/Linux|X11/.test(navigator.userAgent)&&!/Android|CrOS/.test(navigator.userAgent)?'linux':'mac';var h=document.documentElement;h.classList.add('os-js');h.dataset.os=o})();
 </script>
-<link rel="stylesheet" href="/assets/intro/intro.css">
 <script>
 // A first visit, with motion allowed, waits in the dark for the opening shot rather than
 // showing the page and then hiding it. If the scene is not there in five seconds, the page is.
 (function(){var h=document.documentElement,s;try{s=localStorage.getItem('porthole-intro')}catch(e){}
 if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]settled/.test(location.search)){h.classList.add('cine-pending');setTimeout(function(){h.classList.remove('cine-pending')},5000)}})();
 </script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<link rel="preload" href="/assets/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/iosevka-term-regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/kit.css">
+<link rel="stylesheet" href="/assets/landing.css">
+<link rel="stylesheet" href="/assets/intro/intro.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.15.0/gsap.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.15.0/ScrollTrigger.min.js" defer></script>
 <script type="module" src="/assets/intro/intro.js"></script>
@@ -69,6 +68,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
         <img class="cine-still" src="/assets/intro/still.webp" alt="" aria-hidden="true" width="1920" height="1080" fetchpriority="high">
       </picture>
       <canvas class="cine-canvas" aria-hidden="true"></canvas>
+      <p class="cine-title" aria-hidden="true">P<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.95"/></svg>rthole</p>
       <p class="cine-cap" aria-hidden="true"><span class="k">Sessions</span>Every Claude Code session on your computer, on your phone.</p>
       <p class="cine-cap" aria-hidden="true"><span class="k">Questions</span>Claude asks. You answer with a tap.</p>
       <p class="cine-cap" aria-hidden="true"><span class="k">Approvals</span>Allow or deny a command, with the command in full.</p>
@@ -94,6 +94,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
   <section class="section" id="how" aria-labelledby="how-h">
     <div class="wrap">
       <div class="head">
+        <p class="kick">Setup</p>
         <h2 id="how-h">How it works</h2>
         <p class="lead">Two pieces: <code>portholed</code>, a small daemon on the computer where Claude Code runs, and the Porthole app on your phone. They talk over your tailnet and nothing else.</p>
       </div>
@@ -128,12 +129,14 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
   <section class="section" id="features" aria-labelledby="features-h">
     <div class="wrap features">
       <div class="head">
+        <p class="kick">On the phone</p>
         <h2 id="features-h">What you can do from the phone</h2>
         <p class="lead">The scenes below show Porthole as it looks on the phone and, where it matters, the same session on the computer. The buttons under a scene step through it.</p>
       </div>
 
       <article class="feat" id="sessions" aria-labelledby="sessions-h">
         <div class="feat-copy">
+          <p class="kick">Sessions</p>
           <h3 id="sessions-h">Every session, with the ones waiting on you first</h3>
           <p>One row for each Claude Code running on the computer, grouped into Needs you, Live and Recent. A working row says what the session is doing and for how long. When a turn ends, a dot marks the row until you look. Open it for the feed: your prompts, Claude's replies, and every tool call with how long it took.</p>
           <ul class="facts">
@@ -146,6 +149,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
 
       <article class="feat flip" id="approval" aria-labelledby="approval-h">
         <div class="feat-copy">
+          <p class="kick">Approvals</p>
           <h3 id="approval-h">Allow or deny, with the command in full</h3>
           <p>When Claude Code asks permission to run a tool, the request reaches the phone with the command exactly as it will run, and how long is left to answer. A request you leave unanswered goes back to the prompt at the desk.</p>
           <ul class="facts">
@@ -159,6 +163,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
       <div class="pair">
         <article id="changes" aria-labelledby="changes-h">
           <div class="feat-copy">
+            <p class="kick">Changes</p>
             <h3 id="changes-h">What changed</h3>
             <p>The git status and diff of the session's folder, file by file, with lines added and removed. The daemon runs only read-only git commands, and only in that folder.</p>
           </div>
@@ -166,6 +171,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
         </article>
         <article id="since" aria-labelledby="since-h">
           <div class="feat-copy">
+            <p class="kick">Since you left</p>
             <h3 id="since-h">Where you left off</h3>
             <p>A session that carried on while you were away marks where you left off: 3 turns since you left, 4h ago, with what happened below the line. Its details hold the context window, tokens, and switches for model, effort and permission mode.</p>
           </div>
@@ -175,6 +181,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
 
       <article class="feat" id="terminal" aria-labelledby="terminal-h">
         <div class="feat-copy">
+          <p class="kick">Terminal</p>
           <h3 id="terminal-h">The terminal at the desk, on the phone</h3>
           <p>The Terminal tab is the session's tmux window itself, at the desk's width, so vim looks like vim. Opening it on the phone never resizes the window at the desk.</p>
           <ul class="facts">
@@ -187,6 +194,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
 
       <article class="feat flip" id="notify" aria-labelledby="notify-h">
         <div class="feat-copy">
+          <p class="kick">Notifications</p>
           <h3 id="notify-h">Notifications that say what happened</h3>
           <p>While a turn runs, a notification keeps time and says what the session is doing. When it ends, it says how long it worked and offers Reply, which sends the session's next prompt straight from the shade.</p>
           <ul class="facts">
@@ -199,6 +207,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
 
       <article class="feat" id="builds" aria-labelledby="builds-h">
         <div class="feat-copy">
+          <p class="kick">Builds</p>
           <h3 id="builds-h">Install what Claude Code builds</h3>
           <p>Working on an Android app? Publish a build on the computer and your phone offers it in a banner. Install downloads it from your computer, over your tailnet, and hands it to Android's installer, which asks first.</p>
           <div class="cmd"><code>portholed publish app/build/outputs/apk/release/app-release.apk 1.4.0 shopping-list</code></div>
@@ -212,6 +221,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
 
       <article class="feat flip" id="failsafe" aria-labelledby="failsafe-h">
         <div class="feat-copy">
+          <p class="kick">Failsafe</p>
           <h3 id="failsafe-h">A way back when the daemon stops</h3>
           <p>If <code>portholed</code> stops answering, the phone says so and offers what does not depend on it: a shell over SSH (Tailscale SSH, or on a Mac the phone's own key), and a restart of the daemon in one tap. The same shell is in Settings for when you need it on purpose.</p>
           <ul class="facts">
@@ -240,6 +250,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
     <div class="wrap priv">
       <div class="priv-side">
         <div class="head">
+          <p class="kick">Privacy</p>
           <h2 id="privacy-h">Privacy and security</h2>
           <p class="lead">Porthole has no servers. Your sessions travel between your phone and your computer, and nowhere else.</p>
         </div>
@@ -262,6 +273,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
   <section class="section" id="install" aria-labelledby="install-h">
     <div class="wrap">
       <div class="head">
+        <p class="kick">Install</p>
         <h2 id="install-h">Install</h2>
         <p class="lead">The app on the phone, the daemon on the computer, then pair them.</p>
       </div>
@@ -312,6 +324,20 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
           </ul>
         </div>
         <div class="pk-scene" data-scene="update"><noscript><img class="pk-still-img" src="/assets/frames/update.webp" width="407" height="777" alt="The sessions list with the banner: Porthole 0.27.0 is out, with Not now and Update."></noscript></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The close: the phone again, under the same light as the opening. -->
+  <section class="closing" aria-labelledby="closing-h">
+    <img class="closing-img" src="/assets/intro/closing.webp" alt="" aria-hidden="true" loading="lazy" width="1600" height="1000">
+    <div class="wrap closing-in">
+      <p class="kick">Get Porthole</p>
+      <h2 id="closing-h">Free for Android. The daemon is on GitHub.</h2>
+      <p class="lead">No account and no servers of ours: your sessions go from your computer to your phone over your own tailnet, and nowhere else.</p>
+      <div class="cluster">
+        <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download for Android</a>
+        <a class="btn" href="/docs#install">Set up the computer</a>
       </div>
     </div>
   </section>
