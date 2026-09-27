@@ -117,6 +117,30 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.27.0" class="v">0.27.0</span>
+        <h2>Porthole on a Mac</h2>
+        <div class="rel-date"><span>26 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>The daemon runs on macOS.</b> macOS 13 or later, Apple silicon or Intel, with the Tailscale app from the App Store or Tailscale's website. It runs as a launchd agent that starts when you log in and restarts if it fails, finds Tailscale however it was installed, and sees your sessions, tmux and dev servers the way it does on Linux.</li>
+            <li><b>Homebrew.</b> <code>brew install shrimpscript/tap/porthole</code>, then <code>portholed setup</code>, which starts the background service and adds the approval hook in one step. It works on Linux too. Upgrades keep the service pointing at the current version.</li>
+            <li><b>The failsafe on a Mac signs in with the phone's own key.</b> The Tailscale app on a Mac has no SSH server, so the failsafe goes through Remote Login instead. In Settings &gt; If Porthole cannot connect, <b>Add this phone's key</b> makes an Ed25519 key on the phone, kept encrypted under a key in Android's Keystore, and the daemon adds it to <code>~/.ssh/authorized_keys</code>, usable only from the phone's tailnet addresses and with no forwarding. <b>Remove this phone's key</b> and <code>portholed revoke</code> take it out. The same works on Linux computers that use their own sshd.</li>
+            <li><b>Restart over SSH knows the computer.</b> The failsafe's restart uses launchd on a Mac and systemd on Linux, from any login shell, and starts the daemon on its own if the service manager refuses.</li>
+            <li><b>Screenshots and clips of a Mac's screen,</b> with the system's own <code>screencapture</code>. macOS asks once, at the Mac, to allow it.</li>
+            <li><b>A Mac stays awake while it is needed.</b> While a session is working or a phone is connected, portholed keeps the Mac from sleeping, on the power adapter only, and lets it sleep again after.</li>
+            <li><b><code>portholed doctor</code> checks a Mac's own settings:</b> whether it logs in by itself after a reboot, its sleep setting, Remote Login, and how many phone keys the failsafe has. Every check it runs now has a time limit.</li>
+            <li><b>New commands:</b> <code>portholed setup</code>, <code>portholed service install|restart|status|uninstall</code> and <code>portholed version</code>.</li>
+          </ul>
+          <div class="upg">
+            <p><b>Updating a Linux computer:</b> run the installer again, so the service may write <code>~/.ssh</code> for the failsafe key, then restart it:</p>
+<pre><code><span class="p">$ </span>git pull
+<span class="p">$ </span>./tools/install.sh
+<span class="p">$ </span>portholed service restart</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="rel">
         <span id="v0.26.0" class="v">0.26.0</span>
         <h2>The first public release</h2>
         <div class="rel-date"><span>26 September 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
@@ -124,7 +148,7 @@
           <div class="rel-fig">
             <div>
               <ul>
-                <li><b>The source is on GitHub.</b> The repository is public at <a href="https://github.com/ShrimpScript/porthole">github.com/ShrimpScript/porthole</a>. Each release there carries <code>porthole.apk</code>, the daemon for Linux on amd64 and arm64, and <code>SHA256SUMS</code>.</li>
+                <li><b>The source is on GitHub.</b> The repository is public at <a href="https://github.com/ShrimpScript/porthole">github.com/ShrimpScript/porthole</a>. Each release there carries <code>porthole.apk</code>, the daemon for Linux on amd64 and arm64, and <code>SHA256SUMS</code>. From 0.27.0 they carry the daemon for macOS as well.</li>
                 <li><b>Porthole updates from its GitHub releases.</b> At most once a day, and when you tap Check now in Settings &gt; Updates, the app asks GitHub for the latest release. A newer one shows a banner with Not now and Update. The APK downloads from GitHub over HTTPS, and Android installs it only if it is signed with the same key as the Porthole you have. A switch in Settings &gt; Updates turns the check off; the <a href="/privacy">privacy policy</a> says exactly what the check sends.</li>
                 <li><b>Builds from your projects keep their banner.</b> <code>portholed publish</code> on the computer still offers an Android build of a project you are working on to your phone, with Install, and lists it under Settings &gt; Other apps on the computer. The command now needs the app name: <code>portholed publish app-release.apk 1.4.0 shopping-list</code>. Porthole's own builds on the computer are no longer offered; Porthole updates only from its releases, so every install runs the same signed APK.</li>
                 <li><b>The daemon without Go.</b> On a computer without Go, <code>./tools/install.sh</code> downloads the release's <code>portholed</code> for linux amd64 or arm64 and checks it against the release's <code>SHA256SUMS</code> before installing it. A mismatch stops the install. <code class="nw">--prebuilt</code> asks for the release binary even where Go is installed.</li>

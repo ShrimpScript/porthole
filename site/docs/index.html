@@ -173,14 +173,15 @@
 <section class="d-sec" id="what">
   <h2><a href="#what">What Porthole is</a></h2>
   <div class="prose">
-    <p>Two pieces. <strong>portholed</strong> is a small daemon on the Linux computer where Claude Code runs. <strong>Porthole</strong> is the Android app. They talk over your tailnet only: the daemon binds the computer's Tailscale addresses and nothing else, identifies the phone through Tailscale's own WhoIs, and admits a new phone only with a pairing code you read off the computer's screen. There is no account and no Porthole server; your sessions travel only between your phone and your computer.</p>
+    <p>Two pieces. <strong>portholed</strong> is a small daemon on the Mac or Linux computer where Claude Code runs. <strong>Porthole</strong> is the Android app. They talk over your tailnet only: the daemon binds the computer's Tailscale addresses and nothing else, identifies the phone through Tailscale's own WhoIs, and admits a new phone only with a pairing code you read off the computer's screen. There is no account and no Porthole server; your sessions travel only between your phone and your computer.</p>
     <p>What the phone gets: every running session with what it is doing, a feed of the conversation and its tool calls, Claude's questions as tappable choices, approvals, a real terminal, the git diff of what changed, notifications when something finishes or needs you, and the ability to start or resume sessions, open a dev server, and install builds of the Android apps you are working on.</p>
   </div>
-  <pre class="d-diagram d-fig" aria-label="Porthole on the phone connects over the tailnet to portholed on the computer, which works with tmux and Claude Code. A second path, Tailscale SSH, reaches a shell when portholed is down."><code>Porthole  ── WebSocket, port 8737 ──►  portholed ──►  tmux ──►  claude
+  <pre class="d-diagram d-fig" aria-label="Porthole on the phone connects over the tailnet to portholed on the computer, which works with tmux and Claude Code. A second path, SSH, reaches a shell when portholed is down."><code>Porthole  ── WebSocket, port 8737 ──►  portholed ──►  tmux ──►  claude
 (phone)                  your tailnet    ├ reads the transcripts
                                          ├ receives the approval hook
                                          └ bridges the tmux pane
-          ── Tailscale SSH ──────────►  a shell, when portholed is down</code></pre>
+          ── SSH ────────────────────►  a shell, when portholed is down
+             (Tailscale SSH, or on a Mac the phone's own key)</code></pre>
   <div class="prose">
     <p>Session state comes from three places, each doing what it is best at: Claude Code's transcript (the history), a Claude Code hook (approval requests), and the tmux pane (the terminal, and what is on screen right now).</p>
   </div>
@@ -189,12 +190,12 @@
   <h3 id="needs">What it needs</h3>
   <div class="prose">
     <ul>
-      <li>A Linux computer with systemd user services and tmux, running Claude Code <em>inside tmux</em> - <code>porthole</code> starts it there for you. tmux is where the phone types; a Claude Code outside tmux can be watched but not sent prompts.</li>
-      <li>Tailscale on the computer and on the phone, signed into the same tailnet.</li>
+      <li>A Mac with macOS 13 or later, or a Linux computer with systemd user services. Either needs tmux, running Claude Code <em>inside tmux</em> - <code>porthole</code> starts it there for you. tmux is where the phone types; a Claude Code outside tmux can be watched but not sent prompts.</li>
+      <li>Tailscale on the computer and on the phone, signed into the same tailnet. On a Mac, the Tailscale app from the App Store or Tailscale's website.</li>
       <li>An Android phone with Android 10 or newer.</li>
-      <li>portholed on the computer, from the steps below. Go builds it from source; without Go, the installer uses the release binary for Linux on amd64 or arm64.</li>
+      <li>portholed on the computer, from the steps below: with Homebrew, or the installer, which builds it with Go or uses the release binary for macOS or Linux, Intel or ARM.</li>
     </ul>
-    <p>There is no iOS app, and the daemon runs on Linux only.</p>
+    <p>There is no iOS app, and the daemon does not run on Windows.</p>
   </div>
 </section>
 
@@ -205,7 +206,7 @@
     <p>Once per computer: Tailscale on both devices, the app on the phone, the daemon on the computer, then pairing. The app's first run walks through the same steps, and every command it shows can be copied.</p>
   </div>
   <div class="d-fig">
-    <div class="pk-scene" data-scene="onboarding"><noscript><img class="pk-still-img" src="/assets/frames/onboarding.webp" width="1160" height="811" alt="The computer's terminal after portholed pair, showing a QR code and the code 482 913, and the phone's Pair screen with the code typed in."></noscript></div>
+    <div class="pk-scene" data-scene="onboarding"><noscript><img class="pk-still-img" src="/assets/frames/onboarding.webp" width="1148" height="762" alt="The computer's terminal after portholed pair, showing a QR code and the code 482 913, and the phone's Pair screen with the code typed in."></noscript></div>
   </div>
 
   <ol class="gs">
@@ -213,9 +214,10 @@
       <div class="gs-t">
         <h3>Tailscale on both devices</h3>
         <p><b>On the phone.</b> Install Tailscale and sign in. Porthole does not embed Tailscale; the official app's VPN already routes the tailnet.</p>
-        <p><b>On the computer.</b> Install Tailscale, sign into the same tailnet, and turn on Tailscale SSH:</p>
+        <p><b>On the computer.</b> Install Tailscale and sign into the same tailnet. On Linux, turn on Tailscale SSH:</p>
         <div class="cmd" data-copy><code>tailscale up --ssh</code></div>
         <p class="small muted"><code>--ssh</code> is what the phone falls back to if portholed ever stops answering (see <a href="#failsafe">The failsafe</a>). Your tailnet's access rules must also allow SSH to this computer.</p>
+        <p class="small muted"><b>On a Mac</b> the Tailscale app has no SSH server. Turn on <b>Remote Login</b> in System Settings &rsaquo; General &rsaquo; Sharing instead; once the phone is paired, it adds its own key for the failsafe.</p>
       </div>
       <figure class="gs-f"><div class="pk-phone" data-screen="tailscale" aria-label="Porthole's Tailscale screen: Tailscale is installed, with the command for the computer." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-tailscale.webp" width="380" height="820" alt="Porthole's Tailscale screen."></noscript></div></figure>
     </li>
@@ -236,13 +238,18 @@
     <li class="gs-step" id="install">
       <div class="gs-t">
         <h3>Install the daemon</h3>
-        <p><b>On the computer.</b> Clone the repository, read the installer, see what it would do, then run it:</p>
+        <p><b>On a Mac, or anywhere with Homebrew.</b> Install it, then let <code>portholed setup</code> start the background service and add the approval hook:</p>
+        <div class="cmd" data-copy><code>brew install shrimpscript/tap/porthole</code></div>
+        <div class="cmd" data-copy><code>portholed setup</code></div>
+        <p><b>Or from the source, on either.</b> Clone the repository, read the installer, see what it would do, then run it:</p>
         <div class="cmd" data-copy><code>git clone https://github.com/ShrimpScript/porthole</code></div>
         <div class="cmd" data-copy><code>cd porthole</code></div>
         <div class="cmd" data-copy><code>./tools/install.sh --dry-run</code></div>
         <div class="cmd" data-copy><code>./tools/install.sh</code></div>
+        <p><b>On Linux</b>, keep the daemon running after you log out, which is exactly when you are away:</p>
         <div class="cmd" data-copy><code>sudo loginctl enable-linger $USER</code></div>
-        <p>The last line keeps the daemon running after you log out, which is exactly when you are away. The installer is deliberately not a <code>curl | sh</code> one-liner: it installs a background service that can run commands as you, and a hook in your Claude Code settings.</p>
+        <p><b>On a Mac</b> the daemon is a launchd agent in your login session: it starts when you log in, so after an unattended reboot it waits until someone does, unless the Mac logs in automatically. While a session works or a phone is connected, it keeps the Mac from sleeping, on the power adapter only.</p>
+        <p>Neither is a <code>curl | sh</code> one-liner, deliberately: they install a background service that can run commands as you, and a hook in your Claude Code settings.</p>
         <p><b>On the phone.</b> <b>Set up the computer</b> shows the same commands, each one copyable.</p>
       </div>
       <figure class="gs-f"><div class="pk-phone" data-screen="setup" aria-label="Set up the computer: install portholed, start Claude Code inside tmux, get a pairing code." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-setup.webp" width="380" height="820" alt="Set up the computer."></noscript></div></figure>
@@ -277,7 +284,7 @@ ok    daemon: portholed 0.26.0 answering, 1 paired device(s), 1 connected now
 ok    service: portholed.service active, starts at login
 warn  approvals: hook not registered: approvals stay at the desk (portholed install-hooks)
 info  builds: 1 published in ~/.config/porthole/builds</code></pre>
-        <p><code>fail</code> is something the phone cannot work without, <code>warn</code> is a feature the phone will not have, and <code>info</code> is context. The daemon's log: <code>journalctl --user -u portholed -f</code>.</p>
+        <p><code>fail</code> is something the phone cannot work without, <code>warn</code> is a feature the phone will not have, and <code>info</code> is context. On a Mac the same checks look at automatic login, the Mac's sleep setting, Remote Login and screencapture. The daemon's log: <code>journalctl --user -u portholed -f</code>, or on a Mac <code>tail -f ~/Library/Logs/portholed.log</code>.</p>
       </div>
     </li>
 
@@ -322,17 +329,18 @@ info  builds: 1 published in ~/.config/porthole/builds</code></pre>
     <ol>
       <li>Checks for <code>tailscale</code> and <code>tmux</code> and stops if either is missing, looks for <code>claude</code>, and checks that Tailscale is connected.</li>
       <li>Builds <code>portholed</code> with Go if Go is installed. Otherwise it downloads the binary from the latest release and refuses it unless it matches the release's <code>SHA256SUMS</code>. It installs to <code>~/.local/bin</code>.</li>
-      <li>Creates <code>~/.config/porthole</code> for the device list, published builds and captures, then installs and starts a systemd user service, <code>portholed.service</code>, enabled at login. The unit runs with <code>ProtectSystem=strict</code>; the only path it can write is that directory.</li>
-      <li>Checks whether lingering is on, and tells you the <code>loginctl</code> line if it is not.</li>
+      <li>Creates <code>~/.config/porthole</code> for the device list, published builds and captures, then installs and starts the background service. On Linux that is a systemd user service, <code>portholed.service</code>, enabled at login, running with <code>ProtectSystem=strict</code>: the only paths it can write are that directory and <code>~/.ssh</code>, for the failsafe key. On a Mac it is a launchd agent, <code>~/Library/LaunchAgents/dev.shrimpscript.portholed.plist</code>, which starts at login and restarts if it fails.</li>
+      <li>On Linux, checks whether lingering is on, and tells you the <code>loginctl</code> line if it is not.</li>
       <li>Registers the PermissionRequest hook in <code>~/.claude/settings.json</code> (see <a href="#approvals">Approvals</a>). Undo it at any time with <code>portholed uninstall-hooks</code>.</li>
     </ol>
+    <p>With Homebrew, <code>brew install</code> puts the binary in place and <code>portholed setup</code> does the service and the hook. <code>portholed service uninstall</code> stops and removes the service; paired devices are kept.</p>
   </div>
   <div class="table-wrap">
     <table>
       <thead><tr><th scope="col">Option</th><th scope="col">What it does</th></tr></thead>
       <tbody>
         <tr><td><code>--dry-run</code></td><td>Prints every action and changes nothing.</td></tr>
-        <tr><td><code>--prebuilt</code></td><td>Uses the release binary (Linux amd64 or arm64), checked against <code>SHA256SUMS</code>, even when Go is installed.</td></tr>
+        <tr><td><code>--prebuilt</code></td><td>Uses the release binary (macOS or Linux, amd64 or arm64), checked against <code>SHA256SUMS</code>, even when Go is installed.</td></tr>
         <tr><td><code>--no-hooks</code></td><td>Skips the Claude Code hook. Remote approvals stay off until you run <code>portholed install-hooks</code>.</td></tr>
       </tbody>
     </table>
@@ -572,7 +580,9 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
 <section class="d-sec" id="capture">
   <h2><a href="#capture">Screen capture</a></h2>
   <div class="prose">
-    <p>On Wayland computers with <code>grim</code>, the camera in a session's header takes a screenshot of the desktop, which lands in the feed as a row, or watches the screen with a new frame every two seconds. With <code>wf-recorder</code> it also records a 5 or 10 second clip. Only when you ask, and the Authorize screen says so. Captures are kept under <code>~/.config/porthole</code> on the computer.</p>
+    <p>The camera in a session's header takes a screenshot of the computer's screen, which lands in the feed as a row, or watches the screen with a new frame every two seconds, or records a 5 or 10 second clip. Only when you ask, and the Authorize screen says so.</p>
+    <p><b>On a Mac</b> it uses the system's own <code>screencapture</code>, of the main display. macOS asks once, at the Mac, to let portholed record the screen (System Settings &rsaquo; Privacy &amp; Security &rsaquo; Screen &amp; System Audio Recording); until it is allowed, a capture fails or shows only the wallpaper. Clips are shrunk with <code>ffmpeg</code> when it is installed, otherwise with the system's <code>avconvert</code>.</p>
+    <p><b>On Linux</b> it needs a Wayland desktop with <code>grim</code> for screenshots and <code>wf-recorder</code> for clips; with more than one monitor, Hyprland's focused one.</p>
   </div>
 </section>
 
@@ -657,10 +667,13 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
 
   <h3 id="update-daemon">Updating the daemon</h3>
   <div class="prose">
-    <p>The daemon does not update itself. In the clone, pull and run the installer again; it rebuilds with Go when Go is installed (add <code>--prebuilt</code> for the release binary), then restart the service so the new binary is the one running:</p>
+    <p>The daemon does not update itself. With Homebrew, upgrade it, then restart the service so the new binary is the one running:</p>
+    <div class="cmd" data-copy><code>brew upgrade porthole</code></div>
+    <div class="cmd" data-copy><code>portholed service restart</code></div>
+    <p>From a clone, pull and run the installer again; it rebuilds with Go when Go is installed (add <code>--prebuilt</code> for the release binary), then restart the same way:</p>
     <div class="cmd" data-copy><code>git pull</code></div>
     <div class="cmd" data-copy><code>./tools/install.sh</code></div>
-    <div class="cmd" data-copy><code>systemctl --user restart portholed</code></div>
+    <div class="cmd" data-copy><code>portholed service restart</code></div>
     <p>If the computer runs a newer portholed than the app understands, the app says <b>workstation runs a newer Porthole</b>; update the app from Settings &rsaquo; Updates.</p>
   </div>
 </section>
@@ -669,7 +682,7 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
 <section class="d-sec" id="failsafe">
   <h2><a href="#failsafe">The failsafe</a></h2>
   <div class="prose">
-    <p>If the daemon stops answering, the app says so: <b>Can't reach workstation</b>, with Retry, <b>Open terminal anyway</b> and <b>Restart the daemon over SSH</b>. While it keeps retrying on its own the card says that too, and it clears itself when the computer answers. The two SSH buttons go over Tailscale SSH, which does not depend on Porthole running. Restart runs <code>systemctl --user restart portholed</code> for you and reconnects. Recovery does not require walking back to the desk.</p>
+    <p>If the daemon stops answering, the app says so: <b>Can't reach workstation</b>, with Retry, <b>Open terminal anyway</b> and <b>Restart the daemon over SSH</b>. While it keeps retrying on its own the card says that too, and it clears itself when the computer answers. The two SSH buttons go over SSH, which does not depend on Porthole running. Restart runs the command the daemon reported while it was up - <code>systemctl</code> on Linux, <code>launchctl</code> on a Mac, and the daemon on its own if the service manager refuses - and reconnects. Recovery does not require walking back to the desk.</p>
   </div>
   <div class="d-fig">
     <div class="pk-scene" data-scene="failsafe"><noscript><img class="pk-still-img" src="/assets/frames/failsafe.webp" width="1160" height="811" alt="The daemon's log on the computer, and the phone's failure card offering a restart over SSH."></noscript></div>
@@ -677,7 +690,9 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
   <div class="d-split">
     <div class="prose">
       <p id="failsafe-settings">The same shell is in Settings &rsaquo; <b>If Porthole cannot connect</b> &rsaquo; <b>Open a shell over SSH</b>, so it can be tried while the computer is still in the room. Before a trip that is worth one tap: a login that works at home works from anywhere on the tailnet, and the moment the daemon is down is the wrong time to find out that SSH was never enabled.</p>
-      <p>It needs Tailscale SSH on the computer (<code>tailscale up --ssh</code>, or <code>tailscale set --ssh</code>) and a rule in your tailnet's access controls that allows it. <code>portholed doctor</code> reports it on its <code>ssh failsafe</code> line. If the rule is set to &ldquo;check&rdquo;, Tailscale asks for a browser sign-in every 12 hours and the app tells you; setting the rule to &ldquo;accept&rdquo; removes that.</p>
+      <p><b>With Tailscale SSH</b> (Linux: <code>tailscale up --ssh</code>, or <code>tailscale set --ssh</code>), the tailnet signs the phone in; it needs a rule in your tailnet's access controls that allows it. If the rule is set to &ldquo;check&rdquo;, Tailscale asks for a browser sign-in every 12 hours and the app tells you; setting the rule to &ldquo;accept&rdquo; removes that.</p>
+      <p id="failsafe-key"><b>With the phone's own key</b>, where there is no Tailscale SSH: a Mac, whose Tailscale app has no SSH server, or a Linux computer with its own <code>sshd</code>. Turn on Remote Login (System Settings &rsaquo; General &rsaquo; Sharing), then in the app tap <b>Add this phone's key</b> under Settings &rsaquo; If Porthole cannot connect, while Porthole is connected. The phone makes an Ed25519 key, keeps it encrypted under a key in Android's Keystore, and the daemon adds the public half to <code>~/.ssh/authorized_keys</code> as one line, tied to the phone's tailnet addresses, allowed a terminal and no forwarding. <b>Remove this phone's key</b> takes it out, and so does <code>portholed revoke</code>. Nothing else in the file is touched.</p>
+      <p><code>portholed doctor</code> reports either on its <code>ssh failsafe</code> line, with how many phone keys there are.</p>
       <p>The shell is your login shell, sized to the phone and following rotation and the keyboard, with its own scrollback (drag to scroll) and a full-screen mode. It runs with <code>PORTHOLE_FAILSAFE=1</code> set: if your shell profile attaches to tmux (or anything else) on every SSH login, skip that when the variable is set, so the failsafe stays a plain shell.</p>
       <p>After a drop of two minutes or more, the app tells you when the computer answers again, so a phone in a pocket does not have to be checked.</p>
     </div>
@@ -701,6 +716,9 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
         <tr><td>&ldquo;Not recognised on the tailnet&rdquo;</td><td>The daemon could not identify this phone through Tailscale.</td><td>Check that Tailscale is connected on the phone and that both devices are on the same tailnet.</td></tr>
         <tr><td>&ldquo;That code didn't work&rdquo;</td><td>The pairing code was wrong or has expired.</td><td>Run <code>portholed pair</code> again for a new one.</td></tr>
         <tr><td>&ldquo;This device was revoked&rdquo;</td><td>The computer removed this phone.</td><td><code>portholed pair</code> again.</td></tr>
+        <tr><td>&ldquo;the computer did not accept this phone's key&rdquo;</td><td>The key was removed there, or the phone was set up again.</td><td>Settings &rsaquo; If Porthole cannot connect &rsaquo; Add this phone's key, while Porthole is connected.</td></tr>
+        <tr><td>Remote Login is off (a Mac)</td><td>Nothing answers for SSH, so the failsafe has no way in.</td><td>System Settings &rsaquo; General &rsaquo; Sharing &rsaquo; Remote Login.</td></tr>
+        <tr><td>A screenshot shows only the wallpaper (a Mac)</td><td>macOS has not allowed portholed to record the screen.</td><td>At the Mac: System Settings &rsaquo; Privacy &amp; Security &rsaquo; Screen &amp; System Audio Recording, allow portholed.</td></tr>
         <tr><td>&ldquo;Tailscale wants you to sign in again&rdquo;</td><td>The tailnet's SSH rule is set to &ldquo;check&rdquo;.</td><td>Sign in, or set the rule to &ldquo;accept&rdquo; in the Tailscale admin console.</td></tr>
         <tr><td>&ldquo;workstation runs a newer Porthole&rdquo;</td><td>The daemon is newer than the app.</td><td>Settings &rsaquo; Updates &rsaquo; Check now.</td></tr>
         <tr><td>&ldquo;Claude Code isn't running here&rdquo;</td><td>The session's transcript exists, but no Claude process is writing it.</td><td>Resume or New session on the card, or start it at the desk inside tmux.</td></tr>
@@ -710,7 +728,7 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
         <tr><td>&ldquo;Claude is not asking anything right now&rdquo;</td><td>You tapped after the picker was answered at the desk.</td><td>Nothing; the tap was refused rather than typed.</td></tr>
         <tr><td>Approvals never reach the phone</td><td>The hook is not registered, or Claude Code runs with permissions bypassed.</td><td><code>portholed install-hooks</code>; check <code>portholed status</code>.</td></tr>
         <tr><td>The phone goes quiet while it is idle</td><td>Android's battery optimisation cut the connection.</td><td>Settings &rsaquo; While you are away &rsaquo; Open battery settings.</td></tr>
-        <tr><td>Nothing after you log out, or after a reboot</td><td>Lingering is off, so the user service stops with your session.</td><td><code>sudo loginctl enable-linger $USER</code></td></tr>
+        <tr><td>Nothing after you log out, or after a reboot</td><td>Linux: lingering is off, so the user service stops with your session. A Mac: the agent runs in a login session, and nobody has logged in since the reboot.</td><td>Linux: <code>sudo loginctl enable-linger $USER</code>. A Mac: log in, or turn on automatic login in System Settings &rsaquo; Users &amp; Groups.</td></tr>
         <tr><td>No banner after <code>portholed publish</code></td><td>The phone learns about builds when it connects, so a build published while it was connected arrives with its next connection. Each version is offered once.</td><td>Open <code>http://&lt;computer&gt;:8737/builds/</code> in the phone's browser to get it now, or install it later from Settings &rsaquo; Other apps on the computer.</td></tr>
         <tr><td>Android will not install a build</td><td>It is signed with a different key than the version on the phone.</td><td>Uninstall the app on the phone first, then install the build.</td></tr>
       </tbody>
@@ -725,18 +743,21 @@ or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
     <table>
       <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>porthole [ARGS]</code></td><td>Starts Claude Code inside tmux, where the phone can reach it: a session named after the folder, or the one already open there. ARGS go to <code>claude</code>. The same program as <code>portholed</code> (install.sh links the name); <code>portholed claude</code> does the same.</td></tr>
+        <tr><td><code>porthole [ARGS]</code></td><td>Starts Claude Code inside tmux, where the phone can reach it: a session named after the folder, or the one already open there. ARGS go to <code>claude</code>. The same program as <code>portholed</code> (the installer and Homebrew link the name); <code>portholed claude</code> does the same.</td></tr>
+        <tr><td><code>portholed setup</code></td><td>Installs and starts the background service and registers the approval hook, once; what the installer runs, and the step after <code>brew install</code>. <code>-no-hooks</code> leaves Claude Code's settings alone.</td></tr>
+        <tr><td><code>portholed service install|restart|status|uninstall</code></td><td>The background service on its own: a systemd user service on Linux, a launchd agent on a Mac.</td></tr>
         <tr><td><code>portholed serve</code></td><td>Runs the daemon, bound to the tailnet addresses only. The user service does this. <code>-port</code> sets the port (8737); <code>-v</code> logs more.</td></tr>
         <tr><td><code>portholed pair</code></td><td>Prints a single-use 6-digit code and its QR code for a new phone. <code>-no-qr</code> prints the code alone; <code>-png FILE</code> also writes the QR code to a file.</td></tr>
         <tr><td><code>portholed devices</code></td><td>Lists paired devices: name, tailnet user, when paired, last seen, live connections, and the ID.</td></tr>
         <tr><td><code>portholed revoke ID</code></td><td>Removes a device and drops its live connections at once.</td></tr>
         <tr><td><code>portholed status</code></td><td>The daemon's version, paired and connected devices, and whether the approval hook is registered.</td></tr>
-        <tr><td><code>portholed doctor</code></td><td>Checks everything a phone needs on this computer, one line each: tmux, Tailscale, key expiry, SSH, lingering, sleep, disk, Claude Code, sessions, git, capture, the daemon, the service, the hook and builds. Exits with an error if anything failed.</td></tr>
+        <tr><td><code>portholed doctor</code></td><td>Checks everything a phone needs on this computer, one line each: tmux, Tailscale, key expiry, the SSH failsafe, what happens after a reboot, sleep, disk, Claude Code, sessions, git, capture, the daemon, the service, the hook and builds. Exits with an error if anything failed.</td></tr>
         <tr><td><code>portholed sessions</code></td><td>Lists Claude Code sessions as the phone will see them. It reads the files directly, so it works while the daemon is down.</td></tr>
         <tr><td><code>portholed publish APK VERSION APP</code></td><td>Offers a build of an Android app you are working on to paired phones (see <a href="#builds">Builds</a>).</td></tr>
         <tr><td><code>portholed install-hooks</code></td><td>Registers the PermissionRequest hook in <code>~/.claude/settings.json</code>, keeping everything else in it.</td></tr>
         <tr><td><code>portholed uninstall-hooks</code></td><td>Removes exactly that hook again.</td></tr>
         <tr><td><code>portholed replay FILE</code></td><td>Maps a transcript to feed rows, for checking what the phone would show. <code>-feed</code> prints the rows, <code>-json</code> the counts, <code>-limit N</code> only the last N.</td></tr>
+        <tr><td><code>portholed version</code></td><td>Prints the version.</td></tr>
         <tr><td><code>portholed hook</code></td><td>Run by Claude Code when it asks permission; not for you to run.</td></tr>
       </tbody>
     </table>

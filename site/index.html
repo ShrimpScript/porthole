@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Porthole: Claude Code on your computer, from your phone</title>
-<meta name="description" content="Porthole is an Android app and a small daemon for your Linux computer. Answer, approve and type into your Claude Code sessions from your phone, over your own Tailscale network. No account, no relay server.">
+<meta name="description" content="Porthole is an Android app and a small daemon for your Mac or Linux computer. Answer, approve and type into your Claude Code sessions from your phone, over your own Tailscale network. No account, no relay server.">
 <link rel="canonical" href="https://porthole-one.vercel.app/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Porthole">
@@ -49,13 +49,13 @@
     <div class="wrap hero-grid">
       <h1 id="top-h"><span>Run Claude Code on your computer.</span> <span>Answer it from your phone.</span></h1>
       <div class="hero-copy">
-        <p class="lead">Porthole puts every Claude Code session on your Linux computer on your Android phone, so you can answer, approve and type into each one over your own Tailscale network.</p>
+        <p class="lead">Porthole puts every Claude Code session on your Mac or Linux computer on your Android phone, so you can answer, approve and type into each one over your own Tailscale network.</p>
         <div class="cluster">
           <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download for Android</a>
           <a class="btn" href="/docs#install">Set up the computer</a>
           <a class="gh" href="https://github.com/ShrimpScript/porthole"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>Source on GitHub</a>
         </div>
-        <p class="needs small muted">Needs Android 10 or later, a Linux computer running Claude Code in tmux, and Tailscale on both. There is no account to make.</p>
+        <p class="needs small muted">Needs Android 10 or later, a Mac or Linux computer running Claude Code in tmux, and Tailscale on both. There is no account to make.</p>
       </div>
       <div class="pk-scene" data-scene="question"><noscript><img class="pk-still-img" src="/assets/frames/question.webp" width="1160" height="811" alt="Claude Code in tmux on the computer asks which theme new users should get. The same question is on the phone as a card with two options, and a finger taps option 2, Always light."></noscript></div>
     </div>
@@ -73,8 +73,8 @@
           <li>
             <span class="n" aria-hidden="true">1</span>
             <h3>Install the daemon</h3>
-            <p>Clone the repository, read the installer, run it. <code>portholed</code> runs as a systemd user service and adds a Claude Code hook for approvals.</p>
-            <code>./tools/install.sh</code>
+            <p>With Homebrew, or from a clone with the installer. <code>portholed</code> runs as a background service (launchd on a Mac, systemd on Linux) and adds a Claude Code hook for approvals.</p>
+            <code>brew install shrimpscript/tap/porthole</code>
           </li>
           <li>
             <span class="n" aria-hidden="true">2</span>
@@ -89,7 +89,7 @@
             <code>porthole</code>
           </li>
         </ol>
-        <div class="pk-scene" data-scene="onboarding"><noscript><img class="pk-still-img" src="/assets/frames/onboarding.webp" width="1160" height="811" alt="The computer's terminal after portholed pair, showing a QR code and a 6-digit code, and the phone's pairing screen with the code typed in."></noscript></div>
+        <div class="pk-scene" data-scene="onboarding"><noscript><img class="pk-still-img" src="/assets/frames/onboarding.webp" width="1148" height="762" alt="The computer's terminal after portholed pair, showing a QR code and a 6-digit code, and the phone's pairing screen with the code typed in."></noscript></div>
       </div>
     </div>
   </section>
@@ -183,7 +183,7 @@
       <article class="feat flip" id="failsafe" aria-labelledby="failsafe-h">
         <div class="feat-copy">
           <h3 id="failsafe-h">A way back when the daemon stops</h3>
-          <p>If <code>portholed</code> stops answering, the phone says so and offers what does not depend on it: a shell over Tailscale SSH, and a restart of the daemon in one tap. The same shell is in Settings for when you need it on purpose.</p>
+          <p>If <code>portholed</code> stops answering, the phone says so and offers what does not depend on it: a shell over SSH (Tailscale SSH, or on a Mac the phone's own key), and a restart of the daemon in one tap. The same shell is in Settings for when you need it on purpose.</p>
           <ul class="facts">
             <li><code>portholed doctor</code> on the computer checks Tailscale, tmux, Claude Code, the service, key expiry, SSH, sleep and disk.</li>
           </ul>
@@ -196,7 +196,7 @@
         <ul>
           <li><b>Start or resume</b>A stopped session offers Resume or New session, in any folder Claude Code has been used in.</li>
           <li><b>Dev-server preview</b>Open a dev server running on the computer in the phone's browser, shared through the daemon over your tailnet.</li>
-          <li><b>Screen capture</b>A screenshot or a short clip of the computer's desktop, on Wayland with grim and wf-recorder, only when you ask.</li>
+          <li><b>Screen capture</b>A screenshot or a short clip of the computer's screen, only when you ask: built in on a Mac, with grim and wf-recorder on Wayland.</li>
           <li><b>Quick replies and commands</b>One-tap replies when Claude is idle, Claude Code's slash commands with descriptions, and photo attachments.</li>
           <li><b>Widget and tile</b>A home-screen widget lists the sessions; a quick-settings tile counts them.</li>
           <li><b>Session details</b>Context window, tokens and activity per session, with model, effort and permission switches and a mute.</li>
@@ -246,14 +246,17 @@
         </div>
         <div>
           <h3>On the computer</h3>
-          <p>Linux with systemd user services, tmux, Tailscale and Claude Code.</p>
+          <p>A Mac (macOS 13 or later) or Linux with systemd user services, with tmux, Tailscale and Claude Code. With Homebrew:</p>
+<pre><code><span class="p">$ </span>brew install shrimpscript/tap/porthole
+<span class="p">$ </span>portholed setup                 <span class="c"># the service and the approval hook</span>
+<span class="p">$ </span>portholed doctor
+<span class="p">$ </span>portholed pair</code></pre>
+          <p>Or from a clone, on either:</p>
 <pre><code><span class="p">$ </span>git clone https://github.com/ShrimpScript/porthole
 <span class="p">$ </span>cd porthole
 <span class="p">$ </span>./tools/install.sh --dry-run    <span class="c"># read what it will do</span>
 <span class="p">$ </span>./tools/install.sh
-<span class="p">$ </span>sudo loginctl enable-linger $USER
-<span class="p">$ </span>portholed doctor
-<span class="p">$ </span>portholed pair</code></pre>
+<span class="p">$ </span>sudo loginctl enable-linger $USER   <span class="c"># Linux: keep running after logout</span></code></pre>
           <p class="note">Deliberately not a <code>curl | sh</code> one-liner: the installer sets up a service that runs commands as you. Read it first. It builds with Go if you have it; otherwise, or with <code>--prebuilt</code>, it downloads the release binary and checks it against <code>SHA256SUMS</code>.</p>
           <p><a href="/docs#install">Every step, in the docs</a></p>
         </div>

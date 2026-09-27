@@ -1,7 +1,7 @@
 # Porthole
 
-Run and supervise Claude Code on your own computer from your Android phone, over your own
-Tailscale network. No account, and no Porthole server in between: your sessions travel only
+Run and supervise Claude Code on your own Mac or Linux computer from your Android phone, over
+your own Tailscale network. No account, and no Porthole server in between: your sessions travel only
 between your phone and your computer.
 
 **[Website](https://porthole-one.vercel.app)** ·
@@ -30,10 +30,12 @@ between your phone and your computer.
 - **Builds of your own Android projects**, published on the computer, installed on the
   phone in one tap.
 - **Preview a dev server** from the computer in the phone's browser.
-- **A failsafe.** If the daemon stops answering, open a shell over Tailscale SSH and restart
-  it from the phone. It is your login shell with `PORTHOLE_FAILSAFE=1` set; if your shell
-  profile attaches to tmux on every SSH login, skip that when the variable is set, so the
-  failsafe stays a plain shell.
+- **Screenshots and clips** of the computer's screen, when you ask.
+- **A failsafe.** If the daemon stops answering, open a shell over SSH and restart it from the
+  phone: Tailscale SSH on Linux, or on a Mac (whose Tailscale app has no SSH server) Remote
+  Login with a key the phone makes and the daemon adds to `authorized_keys`, tied to the
+  phone's tailnet addresses. The shell is your login shell with `PORTHOLE_FAILSAFE=1` set; if
+  your shell profile attaches to tmux on every SSH login, skip that when the variable is set.
 
 ## How it works
 
@@ -57,25 +59,37 @@ Android app  ──WebSocket──►  portholed (Go)  ──►  tmux session r
 
 ## Install
 
-You need a Linux computer with systemd user services, [Tailscale](https://tailscale.com),
-tmux and [Claude Code](https://code.claude.com/docs), and an Android 10+
-phone with Tailscale on the same tailnet.
+You need a Mac with macOS 13 or later, or a Linux computer with systemd user services, with
+[Tailscale](https://tailscale.com), tmux and [Claude Code](https://code.claude.com/docs); and an
+Android 10+ phone with Tailscale on the same tailnet.
 
 **The phone.** Download
 [`porthole.apk`](https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk)
 from the latest release and open it; Android asks once to allow installs from your browser.
 
-**The computer.**
+**The computer**, with [Homebrew](https://brew.sh) (a Mac, or Linux):
+
+```sh
+brew install shrimpscript/tap/porthole
+portholed setup                 # the background service and the approval hook
+portholed doctor                # checks everything the phone will depend on
+portholed pair                  # prints a code and a QR code for the phone
+```
+
+Or from a clone, on either:
 
 ```sh
 git clone https://github.com/ShrimpScript/porthole
 cd porthole
 ./tools/install.sh --dry-run    # read what it will do
 ./tools/install.sh              # builds with Go if you have it; --prebuilt uses the release binary
-sudo loginctl enable-linger $USER
-portholed doctor                # checks everything the phone will depend on
-portholed pair                  # prints a code and a QR code for the phone
+sudo loginctl enable-linger $USER   # Linux: keep running after you log out
 ```
+
+On a Mac the daemon is a launchd agent that starts when you log in, and keeps the Mac awake
+while a session works or a phone is connected (on the power adapter). Turn on Remote Login
+(System Settings > General > Sharing) for the failsafe, and allow portholed to record the
+screen when macOS asks, for screenshots. On Linux it is a systemd user service.
 
 Then start Claude Code with `porthole` instead of `claude`, in your project's folder. It
 runs Claude Code inside tmux - which is what lets the phone see its terminal and type to it -
@@ -83,17 +97,19 @@ and running it again in the same folder brings that session back instead of star
 second one. Arguments go straight to `claude` (`porthole --resume`). Already inside tmux?
 Plain `claude` works there too. The phone can also start or resume a session itself.
 
-This is deliberately not a `curl | sh` one-liner: it installs a background service that can
-run commands as you, plus a hook into your Claude Code settings. Clone it, read the script,
-then run it. `--no-hooks` skips the settings change, at the cost of remote approval.
+Neither is a `curl | sh` one-liner, deliberately: they install a background service that can
+run commands as you, plus a hook into your Claude Code settings. `--no-hooks` (on
+`portholed setup` or `install.sh`) skips the settings change, at the cost of remote approval.
 
 | Command | |
 |---|---|
 | `porthole [ARGS]` | start Claude Code inside tmux, where the phone can reach it (ARGS go to claude) |
-| `portholed serve` | run the daemon (the installed user service does this) |
+| `portholed setup` | install the background service and the approval hook, once |
+| `portholed service install\|restart\|status\|uninstall` | the background service: launchd on a Mac, systemd on Linux |
+| `portholed serve` | run the daemon (the background service does this) |
 | `portholed pair` | print a single-use code and its QR code for a new phone |
 | `portholed devices` / `revoke ID` | who is paired and connected; cut a device off at once |
-| `portholed doctor` | check Tailscale, tmux, Claude Code, the service, key expiry, SSH, sleep and disk |
+| `portholed doctor` | check Tailscale, tmux, Claude Code, the service, key expiry, the failsafe, sleep and disk |
 | `portholed publish APK VERSION APP` | offer a build of your Android project to the phone |
 | `portholed install-hooks` / `uninstall-hooks` | add or remove the approval hook |
 | `portholed sessions` | the sessions the phone would see |

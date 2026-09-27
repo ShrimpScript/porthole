@@ -306,6 +306,12 @@
 .wc-min::after { border-bottom: 1.4px solid #9AA6A3; height: 6px !important; top: 6px !important; }
 .wc-max::after { border: 1.4px solid #9AA6A3; left: 6px !important; top: 6px !important; width: 8px !important; height: 8px !important; }
 .wc-x::after { background: linear-gradient(45deg, transparent 45%, #9AA6A3 45% 55%, transparent 55%), linear-gradient(-45deg, transparent 45%, #9AA6A3 45% 55%, transparent 55%); }
+.pk-win.mac .pk-tbc { right: auto; left: 13px; gap: 8px; }
+.pk-win.mac .pk-tbc i { width: 12px; height: 12px; }
+.pk-win.mac .pk-tbc i::after { display: none; }
+.pk-win.mac .wc-x { order: 1; background: #FF5F57; }
+.pk-win.mac .wc-min { order: 2; background: #FEBC2E; }
+.pk-win.mac .wc-max { order: 3; background: #28C840; }
 .pk-term {
   flex: 1; min-height: 0; padding: 10px 14px; display: flex; flex-direction: column;
   font: 400 14.4px/18px "Iosevka Term", ui-monospace, monospace; color: #D6DCDA;

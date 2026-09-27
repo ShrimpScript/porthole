@@ -39,6 +39,8 @@ cannot be established - the standard DERP behaviour, documented by Tailscale.
 
 - the computers it is paired with, their addresses, and the username the SSH failsafe logs
   in as (learned from the daemon)
+- if you add one, the phone's own SSH key for the failsafe, encrypted under a key in
+  Android's Keystore
 - your settings: theme, terminal text size, notification choices, muted sessions, quick
   replies, and whether to check GitHub for updates
 - when each session was last opened (for the "since you left" line), and which builds you

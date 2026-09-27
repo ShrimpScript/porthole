@@ -136,12 +136,12 @@ S.needs = () => frame(1, `<p class="ty-d">What you'll need</p>${sp(12)}<p class=
 
 S.tailscale = () => frame(2, `<div class="row" style="gap:14px">${mark('tailscale', 56)}<div class="row k-ok" style="gap:6px">${ic('check', 18)}<p class="ty-s">Installed on this phone</p></div></div>${sp(20)}` +
   `<p class="ty-d">Tailscale is installed</p>${sp(12)}<p class="ty-b k-mu">Porthole reaches your computer through Tailscale's private network. Make sure it is connected and signed into the same account as the computer, then continue.</p>${sp(20)}` +
-  `<p class="ty-s k-mu">On the computer</p>${sp(8)}${cmd('tailscale up --ssh', 'Install Tailscale there too, then:')}${sp(8)}<p class="ty-s k-fa">--ssh turns on Tailscale SSH, which is what Porthole falls back to if its own daemon ever stops answering.</p>`,
+  `<p class="ty-s k-mu">On the computer</p>${sp(8)}${cmd('tailscale up --ssh', 'Install Tailscale there too. On Linux, then:')}${sp(8)}<p class="ty-s k-fa">--ssh turns on Tailscale SSH, which is what Porthole falls back to if its own daemon ever stops answering. On a Mac, sign in to the Tailscale app and turn on Remote Login instead (System Settings > General > Sharing); this phone then adds its own key from Settings.</p>`,
   pri('Continue', 'go') + gh("Open Tailscale to check it's connected"));
 
 const setupStep = (n, icon, title, body) => ap((n - 1) * 40, `<div class="step"><div class="row" style="gap:12px">${mark(icon, 36, 'mu')}<p class="ty-m k-ac">${n}</p><p class="ty-r">${title}</p></div>${sp(10)}${body}</div>`);
 S.setup = (p = {}) => frame(3, `<p class="ty-d">Set up the computer</p>${sp(12)}<p class="ty-b k-mu">Three steps at the keyboard, once. Everything here is copyable.</p>${sp(24)}` +
-  setupStep(1, 'github', 'Install portholed', `<p class="ty-s k-mu">Clone the Porthole repository and run the installer. Read it first: it installs a user service that can run commands as you, and a Claude Code hook for remote approvals.</p>${sp(10)}${cmd('git clone https://github.com/ShrimpScript/porthole')}${sp(8)}${cmd('cd porthole && ./tools/install.sh')}`) +
+  setupStep(1, 'github', 'Install portholed', `<p class="ty-s k-mu">It installs a background service that can run commands as you, and a Claude Code hook for remote approvals. On a Mac, or anywhere with Homebrew:</p>${sp(10)}${cmd('brew install shrimpscript/tap/porthole')}${sp(8)}${cmd('portholed setup')}${sp(10)}<p class="ty-s k-mu">Or clone the repository, read the installer, and run it:</p>${sp(10)}${cmd('git clone https://github.com/ShrimpScript/porthole')}${sp(8)}${cmd('cd porthole && ./tools/install.sh')}`) +
   setupStep(2, 'claude', 'Start Claude Code with porthole', `<p class="ty-s k-mu">In your project's folder, run porthole where you would run claude. It starts Claude Code inside tmux, so the terminal on your phone is the same screen as at the desk; running it again in the same folder brings that session back. Already inside tmux? Plain claude works too.</p>${sp(10)}${cmd('porthole')}`) +
   setupStep(3, 'tmux', 'Get a pairing code', `<p class="ty-s k-mu">It prints a 6-digit code that is good for five minutes. The next screens ask for it.</p>${sp(10)}${cmd('portholed pair')}`),
   pri('Continue', 'go') + gh('Already set up'), p.scroll);
@@ -405,6 +405,8 @@ function computerCtl(host) {
     root: f,
     render(s, anim) {
       title.textContent = s.title || 'Terminal';
+      // A Mac's window: traffic lights on the left, for the scenes that show one.
+      f.querySelector('.pk-win').classList.toggle('mac', !!s.mac);
       const tm = s.tmux === undefined ? ['[work] 0:claude*', '"workstation" 10:24'] : s.tmux;
       const k = JSON.stringify(tm);
       if (k !== tk) { tk = k; bar.style.display = tm ? '' : 'none'; if (tm) { bar.children[0].textContent = tm[0]; bar.children[1].textContent = tm[1]; } }
@@ -595,24 +597,25 @@ const tp = s => `[data-k="${s}"]`;
 
 // 1. Install and pair.
 {
-  const sh = T.sh(), shp = T.sh('~/porthole');
-  const clone = { pre: sh, type: 'git clone https://github.com/ShrimpScript/porthole' };
-  const ts = { pre: sh, type: 'tailscale up --ssh' };
-  const cloned = [ts, clone, "Cloning into 'porthole'...", 'Receiving objects: 100% (2143/2143), done.', 'Resolving deltas: 100% (1377/1377), done.'];
-  const inst = { pre: sh, type: 'cd porthole && ./tools/install.sh' };
-  const out = ['', '{B:Checking what this needs}', '  tailscale: found', '  tmux: found', '  claude: found', '  tailscale: connected', '',
-    '{B:Building portholed}', '  built daemon/portholed', '', '{B:Installing to ~/.local/bin}', '  ~/.local/bin is on your PATH', '',
-    '{B:Installing the user service}', '  logs: journalctl --user -u portholed -f', '', '{B:Surviving logout}', '  linger is already enabled', '',
-    '{B:Claude Code hook}', '  This edits ~/.claude/settings.json to add a PermissionRequest hook, which is what',
-    '  lets you approve tool calls from the phone. Without it everything else still works.',
-    'Registered the PermissionRequest hook in ~/.claude/settings.json', 'Permission prompts will now reach your paired phone.',
-    'Remove it any time with: portholed uninstall-hooks', '  undo at any time with: portholed uninstall-hooks', '',
-    '{B:Pair your phone}', '  1. install Porthole on the phone (https://github.com/ShrimpScript/porthole/releases/lat',
-    'est),', '     and Tailscale if it is not there already',
-    '  2. run:  portholed pair', '  3. type the 6-digit code into the phone', '',
-    '  who is paired:   portholed devices', '  cut a device off: portholed revoke <id>', ''];
-  const installed = [...cloned, inst, ...out];
-  const pair = { pre: shp, type: 'portholed pair' };
+  // The Homebrew way, as on a Mac: the output is what brew and portholed setup print.
+  const sh = T.sh();
+  const brew = { pre: sh, type: 'brew install shrimpscript/tap/porthole' };
+  const brewed = [brew, '{B:==>} Tapping shrimpscript/tap', '{B:==>} Fetching shrimpscript/tap/porthole',
+    '{B:==>} Installing porthole from shrimpscript/tap', '{B:==>} Caveats',
+    'Start the background service and add the approval hook to Claude Code:', '  portholed setup',
+    '{B:==>} Summary', '/opt/homebrew/Cellar/porthole/0.27.0: 5 files, 11.4MB'];
+  const inst = { pre: sh, type: 'portholed setup' };
+  const out = ['{B:Background service}', 'installed and started: ~/Library/LaunchAgents/dev.shrimpscript.portholed.plist',
+    'launchd agent dev.shrimpscript.portholed running, starts at login', '',
+    '{B:Claude Code hook}', 'Registered the PermissionRequest hook in ~/.claude/settings.json',
+    'Permission prompts will now reach your paired phone.', 'Remove it any time with: portholed uninstall-hooks', '',
+    'On a Mac: turn on Remote Login (System Settings > General > Sharing) so the phone',
+    'has a way back in if the daemon ever stops. portholed keeps the Mac awake while a',
+    'session works or a phone is connected, on the power adapter.', '',
+    'Next: portholed doctor, then portholed pair for the phone.',
+    "Start Claude Code with porthole instead of claude, in your project's folder."];
+  const installed = [...brewed, inst, ...out];
+  const pair = { pre: sh, type: 'portholed pair' };
   // The pairing QR (porthole://pair?host=192.0.2.10:8737&code=482913), drawn as qrText() draws it.
   const QR = (() => {
     const h = 'fe308e3fc16326106eb73b2bb75922c5dba2123aec13454507faaaaafe01f4050082dd6be72cb8ce8eaaf6493d1f2e615fc631ffb3152c765db7fe00c33450ea24d5e2f6f81c5e6eadb9e3cc65c96d89be63d1a92895cf4ec56cdaeae7a8f550b44464d7bfb0f980489c47ff9a4a6a90431211dba5d34f85d286687ee8a23927049f7284fe90f2d90', n = 33, bit = (x, y) => y < n && parseInt(h[(y * n + x) >> 2], 16) >> (3 - ((y * n + x) & 3)) & 1;
@@ -625,17 +628,17 @@ const tp = s => `[data-k="${s}"]`;
     return [...out, out[0]];
   })();
   const paired = [...installed, pair, '', '  Pairing code:  {B:482 913}', '', ...QR.map(l => '  ' + l), '',
-    "  Scan with Porthole (Pair > Scan), or with the phone's camera.", '  Or type the code into Porthole. Expires in 5 minutes.', '', shp + '{cur}'];
-  const base = { title: 'Terminal', tmux: null };
+    "  Scan with Porthole (Pair > Scan), or with the phone's camera.", '  Or type the code into Porthole. Expires in 5 minutes.', '', sh + '{cur}'];
+  const base = { title: 'Terminal', tmux: null, mac: true };
   PK.scene('onboarding', {
     label: 'Installing portholed on the computer and pairing a phone', poster: 6,
     steps: [
       { ...base, cap: 'Open Porthole on the phone. The computer needs a few commands, once.', ms: 2800, phone: ['welcome'], term: [sh + '{cur}'], seq: [[1900, { tap: tp('go') }]] },
       { cap: "What you'll need: Tailscale on both devices, Claude Code in tmux, and portholed on the computer.", ms: 3200, phone: ['needs'], seq: [[2500, { tap: tp('go') }]] },
       { cap: 'Tailscale connects the phone straight to the computer. There is no Porthole account.', ms: 3000, phone: ['tailscale'],
-        seq: [[300, { term: [ts] }], [1500, { term: [ts, sh + '{cur}'] }], [2300, { tap: tp('go') }]] },
-      { cap: 'At the computer: clone the repository and run the installer. It is short; read it first.', ms: 7600, phone: ['setup'], term: [ts, clone],
-        seq: [[2200, { term: cloned }], [2700, { term: [...cloned, inst] }], [4200, { term: installed, print: 45 }], [6900, { tap: tp('go') }]] },
+        seq: [[2300, { tap: tp('go') }]] },
+      { cap: 'At the computer: install portholed with Homebrew, then portholed setup starts its service.', ms: 7600, phone: ['setup'], term: [brew],
+        seq: [[2000, { term: brewed, print: 45 }], [3000, { term: [...brewed, inst] }], [4300, { term: installed, print: 45 }], [6900, { tap: tp('go') }]] },
       { cap: 'Name the computer. Porthole checks that portholed is answering on the tailnet.', ms: 3400, phone: ['connect', { host: 'workstation' }],
         seq: [[600, { phone: ['connect', { host: 'workstation', checking: 1 }] }], [1300, { phone: ['connect', { host: 'workstation', found: 1 }] }], [2600, { tap: tp('go') }]] },
       { cap: 'Before anything is paired, Porthole lists what this phone will be able to do on the computer.', ms: 3600, phone: ['consent'], seq: [[2900, { tap: tp('go') }]] },

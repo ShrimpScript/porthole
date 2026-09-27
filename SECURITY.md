@@ -36,6 +36,21 @@ The share reaches only what is listed: loopback listeners owned by the daemon's 
 with the ephemeral range and known tooling hidden. A share whose server has exited is
 closed on the next listing. Shares die with the daemon; nothing is written into tailscaled.
 
+**The failsafe key** (0.27.0). Where Tailscale SSH does not serve the computer - a Mac,
+whose Tailscale app has no SSH server - the failsafe signs in to the system's sshd with a key
+of the phone's own. The phone makes an Ed25519 key; the 32-byte seed is stored encrypted with
+AES-GCM under a key held in the Android Keystore, which never leaves it. On the phone's request
+over its paired connection (gates 0-2), the daemon validates the public key (Ed25519 only, the
+wire format checked) and writes one line to `~/.ssh/authorized_keys`:
+`restrict,pty,from="<the phone's tailnet addresses>" ssh-ed25519 ... porthole:<node id>`. It
+works only from that phone's own tailnet addresses (from tailscaled's WhoIs), gets a terminal
+and no port, agent or X11 forwarding, and runs no `~/.ssh/rc`. The line goes when the phone
+asks or is revoked, and every other line in the file is kept byte for byte, written by
+atomic rename. This grants nothing a paired phone could not already do through Claude Code
+and the terminal; what it adds is a way in that survives the daemon stopping. A test runs a
+real sshd against the exact line, and the phone's sign-in code is tested against one too,
+on an emulator with the real Keystore.
+
 **Installs.** The app hands an APK to Android's installer from two places only. Porthole's
 own updates come from GitHub releases over HTTPS, and Android refuses any update not
 signed with the same key as the installed app. Builds of your other apps come from the
