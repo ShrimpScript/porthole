@@ -1,0 +1,156 @@
+/*
+ * The product page. Everything that shows the product is a kit scene; this file only
+ * lays the page out around them. Tokens come from site.css.
+ *
+ * A duo scene (computer + phone) needs a box at least 700 px wide to sit side by side,
+ * so text sits beside a scene only from 1180 px up, and above it below that.
+ */
+
+/* ------------------------------------------------------------- hero --- */
+
+.hero { padding-block: clamp(28px, 5vw, 72px) clamp(56px, 7vw, 104px); }
+.feat {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(32px, 5vw, 48px); align-items: center;
+}
+@media (min-width: 1180px) {
+  .feat { grid-template-columns: minmax(300px, 1fr) minmax(700px, 1.9fr); gap: 56px; }
+  .feat.flip { grid-template-columns: minmax(700px, 1.9fr) minmax(300px, 1fr); }
+  .feat.flip > .feat-copy { order: 2; }
+}
+
+.hero-copy { max-width: 40rem; }
+.hero h1 { font-size: clamp(2.3rem, 1.4rem + 3.4vw, 4.1rem); line-height: 1.04; letter-spacing: -.03em; }
+@media (min-width: 900px) { .hero h1 span { display: block; } }
+.hero .lead { max-width: 40ch; }
+.hero .cluster { margin-top: 28px; }
+@media (max-width: 479px) { .hero .cluster > .btn { flex: 1 1 100%; } }
+.hero .needs { margin-top: 20px; max-width: 46ch; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+.hero-copy { margin-top: 20px; }
+.hero .pk-scene { margin-top: clamp(40px, 6vw, 56px); }
+/* Wide: the headline across the top, then the words beside the scene. */
+@media (min-width: 1180px) {
+  .hero-grid { grid-template-columns: minmax(300px, 1fr) minmax(700px, 1.9fr); column-gap: 56px; align-items: start; }
+  .hero h1 { grid-column: 1 / -1; }
+  .hero-copy { margin-top: 52px; }
+  .hero .pk-scene { margin-top: 40px; }
+}
+
+/* The third link beside the two buttons: plain, but the same height to tap. */
+.gh {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 6px;
+  color: var(--text); text-decoration: none; font-weight: 500;
+}
+.gh svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.gh:hover { text-decoration: underline; text-decoration-thickness: 1px; }
+
+/* The hero copy settles in once, with the app's Appear motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero h1, .hero-copy > * { animation: rise var(--t-slow) var(--ease-settle) both; }
+  .hero-copy > :nth-child(1) { animation-delay: calc(var(--stagger) * 1); }
+  .hero-copy > :nth-child(2) { animation-delay: calc(var(--stagger) * 2); }
+  .hero-copy > :nth-child(3) { animation-delay: calc(var(--stagger) * 3); }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(var(--travel)); } }
+
+/* ---------------------------------------------------------- sections --- */
+
+.head { max-width: 46rem; }
+.head .lead { margin-top: 16px; max-width: 52ch; }
+.head + * { margin-top: clamp(36px, 5vw, 56px); }
+
+/* ------------------------------------------------------ how it works --- */
+
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 28px; }
+@media (min-width: 960px) and (max-width: 1179px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; } }
+.steps li { display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 16px; align-items: start; }
+.steps li > * { grid-column: 2; }
+/* The numeral in a ring, as the app's setup steps number themselves. */
+.steps .n {
+  grid-column: 1; grid-row: 1 / span 3;
+  width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--edge);
+  display: grid; place-items: center; font: 400 1rem/1 var(--mono); color: var(--accent);
+}
+.steps h3 { font-size: 1.15rem; line-height: 36px; }
+.steps p { margin-top: 4px; color: var(--muted); }
+.steps li > code { display: inline-block; justify-self: start; margin-top: 12px; padding: 4px 10px; font-size: .88rem; line-height: 1.5; color: var(--accent); }
+
+/* ---------------------------------------------------------- features --- */
+
+.feat-copy { max-width: 60ch; }
+.feat-copy h3 { font-size: clamp(1.45rem, 1.2rem + .9vw, 1.85rem); line-height: 1.15; letter-spacing: -.02em; }
+.feat-copy > p { margin-top: 14px; }
+.feat-copy .cmd { margin-top: 20px; }
+.feat-copy .more { display: inline-flex; align-items: center; min-height: 44px; margin-top: 10px; }
+
+/* Specifics under a feature: a tiny ring for a bullet, as the app marks state. */
+.facts { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 8px; color: var(--muted); font-size: .96rem; line-height: 1.5; }
+.facts li { position: relative; padding-left: 20px; }
+.facts li::before {
+  content: ""; position: absolute; left: 1px; top: .5em; width: 8px; height: 8px;
+  border-radius: 50%; border: 1.5px solid var(--accent);
+}
+
+.features > .feat, .features > .pair { margin-top: clamp(72px, 9vw, 136px); }
+.features > .head + .feat { margin-top: clamp(40px, 6vw, 72px); }
+
+/* Two phone-only scenes side by side, text above each; subgrid keeps the phones level. */
+.pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(72px, 9vw, 96px) 48px; }
+.pair > article { display: grid; gap: 28px; align-content: start; }
+@media (min-width: 760px) {
+  .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto; }
+  .pair > article { grid-row: span 2; grid-template-rows: subgrid; row-gap: 32px; }
+}
+
+/* The rest of the app, as a plain list: no icons, no cards. */
+.also { margin-top: clamp(80px, 10vw, 144px); }
+.also h3 { font-size: 1.25rem; }
+.also ul { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 40px; }
+@media (min-width: 720px) { .also ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .also ul { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.also li { border-top: 1px solid var(--edge); padding: 16px 0 20px; color: var(--muted); font-size: .96rem; line-height: 1.5; }
+.also li b { display: block; color: var(--text); font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+
+/* ----------------------------------------------------------- privacy --- */
+
+.priv { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(36px, 5vw, 64px); }
+@media (min-width: 1024px) { .priv { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; } }
+.priv .head + * { margin-top: 0; }
+.priv .note { margin-top: 28px; max-width: 52ch; }
+.priv .links { margin-top: 16px; }
+.priv .links a { display: inline-flex; align-items: center; min-height: 44px; }
+@media (min-width: 1024px) { .priv-side { position: sticky; top: calc(var(--header-h) + 32px); } }
+
+.plain { margin: 0; }
+.plain > div { border-top: 1px solid var(--edge); padding-block: 18px 20px; display: grid; gap: 6px; }
+.plain > div:last-child { border-bottom: 1px solid var(--edge); }
+@media (min-width: 640px) { .plain > div { grid-template-columns: 13rem minmax(0, 1fr); gap: 24px; } }
+.plain dt { font-weight: 600; line-height: 1.4; }
+.plain dd { margin: 0; color: var(--muted); line-height: 1.55; }
+
+/* ----------------------------------------------------------- install --- */
+
+.get { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
+@media (min-width: 900px) { .get { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; } }
+.get h3 { font-size: 1.3rem; }
+.get p { margin-top: 12px; color: var(--muted); max-width: 52ch; }
+.get .cluster { margin-top: 20px; }
+.get .cluster a:not(.btn) { display: inline-flex; align-items: center; min-height: 48px; }
+.get pre { margin-top: 18px; font-size: .88rem; }
+.get .note { margin-top: 16px; font-size: .95rem; }
+
+.updates { margin-top: clamp(72px, 9vw, 120px); display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+@media (min-width: 900px) { .updates { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 56px; } }
+
+/*
+ * Short inline code in the page's own text never splits (a broken "--prebuilt" would read
+ * as a stray dash) and never stretches its line. Scoped so the mock-ups keep the kit's styles.
+ */
+:is(.hero-copy, .head, .steps, .feat-copy, .plain, .get, .also) :is(p, li, dd) > code { white-space: nowrap; line-height: 0; }
+
+/* Captions run one or two lines; reserving two keeps the page below from shifting as a scene plays. */
+main .pk-cap { min-height: 2.9em; }
+
+/* After the inline-code rule above on purpose: a step's command is its own line, not code
+   inside a sentence, and needs its line height back or its background collapses. */
+.steps li > code { line-height: 1.5; }

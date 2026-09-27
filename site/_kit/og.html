@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  The Open Graph image (site/og.png, 1200x630), composed from the device kit. Not deployed
+  (_kit/ is in .vercelignore). Regenerate after a kit change, with a local server on the
+  site directory:
+
+    python3 -m http.server 8777 --bind 127.0.0.1 -d site &
+    google-chrome-stable --headless=new --disable-gpu --hide-scrollbars --window-size=1200,630 \
+      --virtual-time-budget=4000 --screenshot=site/og.png http://127.0.0.1:8777/_kit/og.html
+    kill %1
+
+  ?step=N picks another step of the question scene (default 1: the question on both sides).
+-->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<title>Porthole og image</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/kit.css">
+<script src="../assets/kit.js" defer></script>
+<script src="../assets/kit-more.js" defer></script>
+<style>
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body { position: relative; background: var(--ground); }
+  .t { position: absolute; left: 72px; top: 0; bottom: 0; width: 420px; display: flex; flex-direction: column; justify-content: center; gap: 26px; }
+  .wm { display: flex; align-items: center; font: 600 76px/1 var(--sans); letter-spacing: -.02em; color: var(--text); }
+  .wm svg { width: 50px; height: 50px; margin: 6px 3px 0; flex: none; }
+  .wm circle { fill: none; stroke: var(--accent); stroke-width: 2.1; }
+  .say { font: 600 38px/1.14 var(--sans); letter-spacing: -.02em; color: var(--text); text-wrap: balance; margin: 0; }
+  .sub { font: 400 22px/1.4 var(--sans); color: var(--muted); margin: 0; max-width: 20em; }
+  .comp { position: absolute; left: 520px; top: 58px; width: 560px; }
+  .ph { position: absolute; left: 948px; top: 92px; width: 232px; }
+  /* The window's own shadow is in the kit; the phone overlaps the window's right edge. */
+</style>
+</head>
+<body>
+  <div class="t">
+    <div class="wm">P<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</div>
+    <p class="say">Run Claude Code on your computer, from your phone.</p>
+    <p class="sub">An Android app and a small Linux daemon, over your own Tailscale network.</p>
+  </div>
+  <div class="comp"></div>
+  <div class="ph"></div>
+<script>
+addEventListener('load', () => document.fonts.ready.then(() => {
+  const steps = PK.scenes.question.steps;
+  const k = Math.min(steps.length - 1, +(new URLSearchParams(location.search).get('step') ?? 1));
+  const OWN = { cap: 1, ms: 1, seq: 1, tap: 1 };
+  const take = (s, st) => { for (const x in st) if (!OWN[x]) s[x] = st[x]; return s; };
+  const s = {};
+  for (let x = 0; x <= k; x++) { take(s, steps[x]); (steps[x].seq || []).forEach(q => take(s, q[1])); }
+  PK.computer(document.querySelector('.comp')).render(s, false);
+  PK.phone(document.querySelector('.ph')).render(s, false);
+  document.body.classList.add('pk-still');
+}));
+</script>
+</body>
+</html>

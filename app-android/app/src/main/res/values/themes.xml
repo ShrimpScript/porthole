@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dark by design: the ground colour never changes, so no window may
+         flash white before Compose draws. -->
+    <style name="Theme.Porthole" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#07100F</item>
+        <item name="android:statusBarColor">#07100F</item>
+        <item name="android:navigationBarColor">#07100F</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- The Claude theme in its light appearance. Chosen in code before the window is
+         created (MainActivity reads the saved theme), so a light session never opens on
+         a dark frame. -->
+    <style name="Theme.Porthole.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FAF9F5</item>
+        <item name="android:statusBarColor">#FAF9F5</item>
+        <item name="android:navigationBarColor">#FAF9F5</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+    <style name="Theme.Porthole.ClaudeDark" parent="Theme.Porthole">
+        <item name="android:windowBackground">#1F1E1D</item>
+        <item name="android:statusBarColor">#1F1E1D</item>
+        <item name="android:navigationBarColor">#1F1E1D</item>
+    </style>
+
+    <style name="Theme.Porthole.GeminiLight" parent="Theme.Porthole.Light">
+        <item name="android:windowBackground">#FFFFFF</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+    </style>
+    <style name="Theme.Porthole.GeminiDark" parent="Theme.Porthole">
+        <item name="android:windowBackground">#131314</item>
+        <item name="android:statusBarColor">#131314</item>
+        <item name="android:navigationBarColor">#131314</item>
+    </style>
+
+    <!-- The system splash. Android draws it before any of our code runs, from this
+         theme, but it honours the app's own night mode (UiModeManager, API 31+), which
+         MainActivity sets from the chosen appearance: values-night carries the dark
+         version. The ring is the brand in either; the family's accent takes over as the
+         porthole opens (ApertureView). -->
+    <style name="Theme.Porthole.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F4F7F6</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_animated</item>
+        <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand_on_light</item>
+        <!-- API 31 and 32 read the duration from here; 33+ infer it from the drawable. -->
+        <item name="windowSplashScreenAnimationDuration">900</item>
+        <item name="postSplashScreenTheme">@style/Theme.Porthole.Light</item>
+    </style>
+    <style name="Theme.Porthole.Starting.PortholeDark" parent="Theme.Porthole.Starting">
+        <item name="windowSplashScreenBackground">#07100F</item>
+        <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand</item>
+        <item name="postSplashScreenTheme">@style/Theme.Porthole</item>
+    </style>
+    <style name="Theme.Porthole.Starting.Light" parent="Theme.Porthole.Starting">
+        <item name="windowSplashScreenBackground">#FAF9F5</item>
+        <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand_on_light</item>
+        <item name="postSplashScreenTheme">@style/Theme.Porthole.Light</item>
+    </style>
+    <style name="Theme.Porthole.Starting.ClaudeDark" parent="Theme.Porthole.Starting">
+        <item name="windowSplashScreenBackground">#1F1E1D</item>
+        <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand</item>
+        <item name="postSplashScreenTheme">@style/Theme.Porthole.ClaudeDark</item>
+    </style>
+    <style name="Theme.Porthole.Starting.GeminiLight" parent="Theme.Porthole.Starting">
+        <item name="windowSplashScreenBackground">#FFFFFF</item>
+        <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand_on_light</item>
+        <item name="postSplashScreenTheme">@style/Theme.Porthole.GeminiLight</item>
+    </style>
+    <style name="Theme.Porthole.Starting.GeminiDark" parent="Theme.Porthole.Starting">
+        <item name="windowSplashScreenBackground">#131314</item>
+        <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand</item>
+        <item name="postSplashScreenTheme">@style/Theme.Porthole.GeminiDark</item>
+    </style>
+</resources>

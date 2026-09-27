@@ -1,0 +1,22 @@
+Copyright (c) 2026 ShrimpScript. All rights reserved.
+
+The source code of Porthole is published so that anyone can read and audit what they run.
+
+You may:
+  - download the released builds and run them on your own devices;
+  - copy and modify this source as needed to build it and run it on your own devices;
+  - view and fork this repository on GitHub, as GitHub's Terms of Service provide.
+
+No other licence is granted. Without prior written permission of the copyright holder you
+may not distribute, publish, sublicense or sell this software or builds of it, modified or
+not, in whole or in part.
+
+Bundled third-party components are under their own licences: see app-android/THIRD_PARTY.md
+and daemon/THIRD_PARTY.md.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Porthole changelog</title>
+<meta name="description" content="What changed in each release of Porthole, the Android app and the portholed daemon, newest first.">
+<link rel="canonical" href="https://porthole-one.vercel.app/changelog">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F3F7F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#07100F" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Porthole">
+<meta property="og:url" content="https://porthole-one.vercel.app/changelog">
+<meta property="og:title" content="Porthole changelog">
+<meta property="og:description" content="What changed in each release of Porthole, the Android app and the portholed daemon, newest first.">
+<meta property="og:image" content="https://porthole-one.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Claude Code asks a multiple-choice question in a terminal on a computer; the same question is on a phone running Porthole, as buttons.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Porthole changelog">
+<meta name="twitter:description" content="What changed in each release of Porthole, the Android app and the portholed daemon, newest first.">
+<meta name="twitter:image" content="https://porthole-one.vercel.app/og.png">
+<meta name="twitter:image:alt" content="Claude Code asks a multiple-choice question in a terminal on a computer; the same question is on a phone running Porthole, as buttons.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="preload" href="/assets/fonts/iosevka-term-regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/kit.css">
+<script src="/assets/kit.js" defer></script>
+<script src="/assets/kit-more.js" defer></script>
+<style>
+  /*
+   * One release per section element with class rel: its version (.v, class last), its title
+   * (an h2 with no attributes) and its list items (li with no attributes). tools/release.sh
+   * reads exactly those to write a release's notes on GitHub, so keep them that way, keep
+   * other sections out of a release, and never write those tags in a comment on this page.
+   */
+  .cl-head { padding-block: clamp(40px, 6vw, 88px) clamp(32px, 4vw, 48px); }
+  .cl-head .lead { margin-top: 18px; max-width: 50ch; }
+  .cl-head .cluster { margin-top: 28px; }
+  .cl-head .btn svg { width: 20px; height: 20px; }
+
+  .rels { padding-bottom: clamp(56px, 8vw, 112px); }
+  .rel {
+    display: grid; grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "v" "h" "d" "b";
+    padding-block: 36px 40px; border-top: 1px solid var(--edge);
+  }
+  .rel .v { grid-area: v; font: 700 1.5rem/1.2 var(--mono); letter-spacing: 0; color: var(--text); font-variant-numeric: tabular-nums; }
+  .rel h2 { grid-area: h; margin-top: 6px; font-size: clamp(1.25rem, 1.1rem + .6vw, 1.55rem); letter-spacing: -.015em; }
+  .rel-date { grid-area: d; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 10px; color: var(--muted); font-size: .92rem; }
+  .rel-body { grid-area: b; margin-top: 18px; min-width: 0; }
+  .tag { border: 1px solid var(--edge); border-radius: 999px; padding: 1px 10px; font-size: .8rem; line-height: 1.6; color: var(--muted); }
+
+  .rel ul { padding-left: 1.2em; max-width: 66ch; }
+  .rel li + li { margin-top: .6em; }
+  .rel li::marker { color: var(--faint); }
+  .rel li b { font-weight: 600; }
+  .rel code.nw { white-space: nowrap; }
+  .rel .cmd, .rel pre { max-width: 66ch; }
+  .upg { margin-top: 28px; max-width: 66ch; }
+  .upg > * + * { margin-top: 12px; }
+
+  /* 0.26.0: the list beside the update scene. */
+  .rel-fig { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .rel-fig .pk-scene { width: 100%; max-width: 360px; justify-self: center; }
+
+  @media (min-width: 900px) {
+    .rel {
+      grid-template-columns: 12rem minmax(0, 1fr); column-gap: 40px;
+      grid-template-areas: "v h" "d b";
+      padding-block: 48px 52px;
+    }
+    .rel .v, .rel h2 { align-self: baseline; }
+    .rel h2 { margin-top: 0; }
+    .rel-date { align-self: start; margin-top: 8px; }
+    .rel-date > :first-child { flex-basis: 100%; }
+    .rel-body { margin-top: 14px; }
+  }
+  @media (min-width: 1140px) {
+    .rel-fig { grid-template-columns: minmax(0, 1fr) 320px; gap: 56px; align-items: start; }
+    .rel-fig .pk-scene { position: sticky; top: calc(var(--header-h) + 24px); }
+  }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-h">
+  <div class="wrap site-h-in">
+    <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/changelog" aria-current="page">Changelog</a>
+      <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+    <div class="cl-head">
+      <h1>Changelog</h1>
+      <p class="lead">The app and the daemon share a version number and are released together. Newest first.</p>
+      <div class="cluster">
+        <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download the latest app</a>
+        <a class="btn" href="https://github.com/ShrimpScript/porthole/releases">Releases on GitHub</a>
+      </div>
+    </div>
+
+    <div class="rels">
+
+      <section class="rel">
+        <span id="v0.26.0" class="v">0.26.0</span>
+        <h2>The first public release</h2>
+        <div class="rel-date"><span>26 September 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <div class="rel-fig">
+            <div>
+              <ul>
+                <li><b>The source is on GitHub.</b> The repository is public at <a href="https://github.com/ShrimpScript/porthole">github.com/ShrimpScript/porthole</a>. Each release there carries <code>porthole.apk</code>, the daemon for Linux on amd64 and arm64, and <code>SHA256SUMS</code>.</li>
+                <li><b>Porthole updates from its GitHub releases.</b> At most once a day, and when you tap Check now in Settings &gt; Updates, the app asks GitHub for the latest release. A newer one shows a banner with Not now and Update. The APK downloads from GitHub over HTTPS, and Android installs it only if it is signed with the same key as the Porthole you have. A switch in Settings &gt; Updates turns the check off; the <a href="/privacy">privacy policy</a> says exactly what the check sends.</li>
+                <li><b>Builds from your projects keep their banner.</b> <code>portholed publish</code> on the computer still offers an Android build of a project you are working on to your phone, with Install, and lists it under Settings &gt; Other apps on the computer. The command now needs the app name: <code>portholed publish app-release.apk 1.4.0 shopping-list</code>. Porthole's own builds on the computer are no longer offered; Porthole updates only from its releases, so every install runs the same signed APK.</li>
+                <li><b>The daemon without Go.</b> On a computer without Go, <code>./tools/install.sh</code> downloads the release's <code>portholed</code> for linux amd64 or arm64 and checks it against the release's <code>SHA256SUMS</code> before installing it. A mismatch stops the install. <code class="nw">--prebuilt</code> asks for the release binary even where Go is installed.</li>
+                <li><b><code>porthole</code> starts Claude Code where the phone can reach it.</b> Run it instead of <code>claude</code> in a project's folder: it starts Claude Code inside tmux, in a session named after the folder, or brings back the one already open there. Arguments go to <code>claude</code>. The installer adds the name.</li>
+                <li><b>Fix: Allow and Deny from the phone now reach Claude Code.</b> The approval hook answered in a shape current Claude Code does not accept, so it asked at the desk as if the phone had never replied.</li>
+                <li><b>Fix: terminals stay on the right session and stay live.</b> A terminal is now bound to the session it was opened for, reopens itself after the connection drops instead of freezing on its last frame, follows the window when it is resized at the desk, and draws the character runs and sequences tmux sends that it used to drop.</li>
+                <li><b>The terminal scrolls back and goes full screen.</b> Drag with one finger to walk the window's history (tmux's own scrollback); a chip brings you back to live. A full-screen button hides the header and the system bars.</li>
+                <li><b>The failsafe is a plain shell that fits the phone.</b> It is sized to the screen, has its own scrollback and full screen, and runs with <code>PORTHOLE_FAILSAFE=1</code> set, so a shell profile that attaches to tmux on every SSH login can leave it alone.</li>
+                <li><b>Fix:</b> Start and Resume from the phone work after the computer reboots, before anyone has opened tmux at the desk.</li>
+                <li><b>Fix:</b> a local slash command such as <code>/model</code> or <code>/effort</code>, or a <code>!</code> shell command, no longer leaves a session showing as working forever.</li>
+                <li><b>Fix:</b> the working clock in the session list counts from the start of the turn again; it no longer restarts at every tool call.</li>
+                <li><b>The composer makes room while you type.</b> Typing folds the photo and slash buttons into one +, so the field is wider. Quick replies go away once something is typed, and the field grows to five lines, then scrolls.</li>
+                <li><b>Licences.</b> Settings &gt; Licences lists the fonts and libraries in the app.</li>
+                <li><b>A new site and docs.</b> The app and the computer are drawn as they look, and the docs now cover getting started, updates, builds from your projects and every <code>portholed</code> command.</li>
+              </ul>
+              <div class="upg">
+                <p><b>Coming from 0.25.0:</b> earlier versions do not check GitHub, so install this one from the <a href="https://github.com/ShrimpScript/porthole/releases/latest">release page</a>. Releases after it arrive as the update banner. On the computer, in the folder you cloned, pull, run the installer again (with <code class="nw">--prebuilt</code> if Go is not installed) and restart the service:</p>
+<pre><code><span class="p">$ </span>git pull
+<span class="p">$ </span>./tools/install.sh
+<span class="p">$ </span>systemctl --user restart portholed</code></pre>
+              </div>
+            </div>
+            <div class="pk-scene" data-scene="update"><noscript><img class="pk-still-img" src="/assets/frames/update.webp" width="407" height="777" alt="The Porthole session list with a banner at the top: Porthole 0.27.0 is out. You have 0.26.0. Downloads from GitHub, then Android asks to update. Not now and Update buttons."></noscript></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.25.0" class="v">0.25.0</span>
+        <h2>Coming back to a session</h2>
+        <div class="rel-date"><span>21 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>Since you left.</b> A session that ran on while you were away opens on the line where you stopped reading, with how many turns it got through and how long you were gone. Everything below the line is new.</li>
+            <li><b>Mute one session.</b> A loop that finishes a turn every four minutes can be silenced from its details sheet without being hidden: it still appears in the list and in Needs you. Settings says how many are muted and unmutes them all.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.24.4" class="v">0.24.4</span>
+        <h2>Being far from the computer</h2>
+        <div class="rel-date"><span>21 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li>The failsafe SSH shell is now in Settings as well as on the failure card, so the login can be tried before anything breaks.</li>
+            <li>Settings reports whether Android has the app in battery optimisation, which decides whether a connection survives in your pocket.</li>
+            <li>A drop of more than two minutes ends with a notification when the computer answers again.</li>
+            <li><code>portholed doctor</code> checks node-key expiry for the computer and each paired phone, whether Tailscale SSH is on, whether the daemon survives a reboot with no one logged in, whether the machine has slept, and free disk.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.24.3" class="v">0.24.1 &ndash; 0.24.3</span>
+        <h2>Two crashes, one symptom</h2>
+        <div class="rel-date"><span>21 September 2026</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <ul>
+            <li>The launch animation could throw when Android reclaimed the splash icon early, closing the app as it opened. It is decoration and can no longer close anything.</li>
+            <li>One session resumed in two terminal panes was listed twice, which the list refuses. The daemon now returns one row per session, newest pane winning, and the app removes duplicates as well.</li>
+            <li>Crash reporting: the app keeps its last crash, says so in a notification, and hands it to the computer on the next connection.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.24.0" class="v">0.24.0</span>
+        <h2>More than one computer</h2>
+        <div class="rel-date"><span>14 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li>Pair a second computer from Settings. Sessions from both appear in one list, named by machine, with unreachable ones kept apart rather than hidden.</li>
+            <li>Notifications, the widget and the approval card all work across machines.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.23.0" class="v">0.23.0</span>
+        <h2>Switches</h2>
+        <div class="rel-date"><span>14 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li>Model, reasoning effort and permission mode from the session's details sheet, using the CLI's own commands, with the current values read from the transcript and the screen.</li>
+            <li>The docs site and the privacy policy.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.22.0" class="v">0.22.0</span>
+        <h2>Checking a computer</h2>
+        <div class="rel-date"><span>14 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><code>portholed doctor</code>: tmux, Tailscale, Claude Code, the session registry, transcripts, git, screen capture, the service and published builds, each with what to do when it is not right.</li>
+            <li>A release script that builds, tests, signs and publishes both halves from one command.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.21.0" class="v">0.21.0</span>
+        <h2>What changed, and three-word replies</h2>
+        <div class="rel-date"><span>14 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li>A Changes sheet per session: what git sees, file by file, as a real diff on the phone.</li>
+            <li>Quick replies above the composer when a turn just finished, editable by long-press.</li>
+            <li>Copy and share any tool output.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.20.0" class="v">0.20.0</span>
+        <h2>Questions by tap</h2>
+        <div class="rel-date"><span>14 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li>When Claude Code asks a multiple-choice question, the choices appear as buttons exactly as they stand on the computer's screen; one tap presses the key. Single, multi-select and several questions in a row.</li>
+            <li>A Needs you section at the top of the list for sessions waiting on an answer.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
+        <span id="v0.19.0" class="v">0.19.0</span>
+        <h2>One feed per session</h2>
+        <div class="rel-date"><span>13 September 2026</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li>Each running Claude Code is matched to its own transcript through the CLI's session registry, so two sessions in the same directory - or the same session resumed elsewhere - never share a feed.</li>
+          </ul>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<footer class="site-f">
+  <div class="wrap">
+    <div class="site-f-top">
+      <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+        <a href="https://github.com/ShrimpScript/porthole/releases/latest">Releases</a>
+      </nav>
+    </div>
+    <p class="by">Published by ShrimpScript.</p>
+    <p class="tm">Porthole is an independent project and is not affiliated with or endorsed by Anthropic or Tailscale. Claude and Claude Code are trademarks of Anthropic, PBC; Tailscale is a trademark of Tailscale Inc.</p>
+  </div>
+</footer>
+</body>
+</html>

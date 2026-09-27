@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  The shared shell, for page builders to copy. Not linked and not deployed (.vercelignore).
+  Copy the three marked blocks as they are: HEAD, HEADER, FOOTER. On each page, set
+  aria-current="page" on the nav link for that page, and give the page its own <title>
+  and description.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Porthole</title>
+<meta name="description" content="Run and supervise Claude Code on your own computer from your phone, over your own Tailscale network.">
+
+<!-- HEAD: fonts, styles, the device kit. kit.js and kit-more.js only where a page shows devices. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="preload" href="/assets/fonts/iosevka-term-regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/kit.css">
+<script src="/assets/kit.js" defer></script>
+<script src="/assets/kit-more.js" defer></script>
+<!-- /HEAD -->
+</head>
+<body>
+
+<!-- HEADER -->
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-h">
+  <div class="wrap site-h-in">
+    <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+    </nav>
+  </div>
+</header>
+<!-- /HEADER -->
+
+<main id="main">
+  <section class="section">
+    <div class="wrap split">
+      <div class="stack" style="--gap:20px">
+        <h1>Run Claude Code on your computer, from your phone.</h1>
+        <p class="lead">An example of the primitives: a heading, a lead, buttons, a command block.</p>
+        <div class="cluster">
+          <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk">Download for Android</a>
+          <a class="btn" href="/docs">Read the docs</a>
+        </div>
+        <div class="cmd" data-copy><code>portholed pair</code></div>
+        <pre><code><span class="p">$ </span>git clone https://github.com/ShrimpScript/porthole
+<span class="p">$ </span>cd porthole &amp;&amp; ./tools/install.sh --dry-run   <span class="c"># read what it will do</span></code></pre>
+      </div>
+      <div class="pk-phone" data-screen="sessions" style="--pk-w:300px;justify-self:center"></div>
+    </div>
+  </section>
+</main>
+
+<!-- FOOTER -->
+<footer class="site-f">
+  <div class="wrap">
+    <div class="site-f-top">
+      <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+        <a href="https://github.com/ShrimpScript/porthole/releases/latest">Releases</a>
+      </nav>
+    </div>
+    <p class="by">Published by ShrimpScript.</p>
+    <p class="tm">Porthole is an independent project and is not affiliated with or endorsed by Anthropic or Tailscale. Claude and Claude Code are trademarks of Anthropic, PBC; Tailscale is a trademark of Tailscale Inc.</p>
+  </div>
+</footer>
+<!-- /FOOTER -->
+</body>
+</html>

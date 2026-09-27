@@ -1,0 +1,35 @@
+node_modules/
+*.apk
+*.keystore
+*.jks
+*.p12
+local.properties
+.gradle/
+build/
+
+# Go build artifacts
+daemon/portholed
+daemon/cmd/portholed/portholed
+
+# Android
+app-android/local.properties
+app-android/.gradle/
+app-android/build/
+app-android/app/build/
+app-android/.kotlin/
+
+# emulator/build artifacts
+/tmp/
+keystore.properties
+
+# generated dev artifacts
+screenshots/
+build/store/
+__pycache__/
+*.pyc
+
+# Vercel CLI link state (per-machine, not product code)
+.vercel/
+
+# release artefacts (tools/release.sh)
+dist/

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Porthole privacy</title>
+<meta name="description" content="Porthole has no servers. What the app talks to, what the GitHub update check sends, what the app stores, and what it never does.">
+<link rel="canonical" href="https://porthole-one.vercel.app/privacy">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F3F7F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#07100F" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Porthole">
+<meta property="og:url" content="https://porthole-one.vercel.app/privacy">
+<meta property="og:title" content="Porthole privacy">
+<meta property="og:description" content="Porthole has no servers. What the app talks to, what the GitHub update check sends, what the app stores, and what it never does.">
+<meta property="og:image" content="https://porthole-one.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Claude Code asks a multiple-choice question in a terminal on a computer; the same question is on a phone running Porthole, as buttons.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Porthole privacy">
+<meta name="twitter:description" content="Porthole has no servers. What the app talks to, what the GitHub update check sends, what the app stores, and what it never does.">
+<meta name="twitter:image" content="https://porthole-one.vercel.app/og.png">
+<meta name="twitter:image:alt" content="Claude Code asks a multiple-choice question in a terminal on a computer; the same question is on a phone running Porthole, as buttons.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="preload" href="/assets/fonts/iosevka-term-regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/kit.css">
+<script src="/assets/kit.js" defer></script>
+<script src="/assets/kit-more.js" defer></script>
+<style>
+  /* Spacing on direct children only: the phone mock-up inside has paragraphs of its own. */
+  .pv { padding-block: clamp(40px, 6vw, 88px) clamp(56px, 8vw, 112px); }
+  .pv > * + *, .upd-t > * + * { margin-top: 14px; }
+  .pv > .lead { margin-top: 18px; max-width: 52ch; }
+  .pv > h2 { font-size: clamp(1.35rem, 1.15rem + .8vw, 1.75rem); margin-top: 56px; scroll-margin-top: calc(var(--header-h) + 16px); }
+  .upd-t > h3 { font-size: 1.1rem; margin-top: 28px; }
+  .upd-t > h3:first-child { margin-top: 0; }
+  .pv > h2 + *, .upd-t > h3 + * { margin-top: 12px; }
+  .pv > h2 + .upd { margin-top: 24px; }
+  .pv > ul { padding-left: 1.2em; }
+  .pv > ul > li + li { margin-top: .45em; }
+  .pv > ul > li::marker { color: var(--faint); }
+  .pv td code { white-space: nowrap; }
+  @media (max-width: 599px) {
+    .rf thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .rf, .rf tbody, .rf tr, .rf td { display: block; }
+    .rf tr { padding: 12px 0; border-bottom: 1px solid var(--edge); }
+    .rf tr:first-child { border-top: 1px solid var(--edge); }
+    .rf td { border: 0; padding: 0; }
+    .rf td + td { margin-top: 4px; }
+    .rf td:first-child { font-weight: 600; }
+    .rf td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); }
+  }
+  .upd-t > pre { font-size: .84rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* The update check: the words beside the Settings screen they describe. */
+  .upd { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .upd .pk-phone { justify-self: center; }
+  @media (min-width: 800px) {
+    .upd { grid-template-columns: minmax(0, 1fr) 248px; gap: 48px; align-items: start; }
+    .upd .pk-phone { position: sticky; top: calc(var(--header-h) + 24px); }
+  }
+  .pv > .end { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--edge); }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-h">
+  <div class="wrap site-h-in">
+    <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <article class="wrap-narrow pv">
+    <h1>Privacy</h1>
+    <p class="lead">Short, because the architecture makes it short: Porthole has no servers. There is no account, no sign-in, no backend, and no analytics. Nothing you do in the app reaches ShrimpScript, because there is nowhere for it to go.</p>
+
+    <h2 id="talks-to">What the app talks to</h2>
+    <p>Your own computer, inside your own tailnet, and GitHub for Porthole's own updates:</p>
+    <div class="table-wrap"><table class="rf" role="table">
+      <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Destination</th><th scope="col" role="columnheader">What for</th><th scope="col" role="columnheader">When</th></tr></thead>
+      <tbody role="rowgroup">
+        <tr role="row"><td role="cell"><code>ws://&lt;your computer&gt;:8737</code></td><td role="cell" data-label="For">the daemon: sessions, feed, approvals, terminal, builds of your projects</td><td role="cell" data-label="When">while the app is connected</td></tr>
+        <tr role="row"><td role="cell">SSH to <code>&lt;your computer&gt;</code></td><td role="cell" data-label="For">the failsafe shell</td><td role="cell" data-label="When">only when you open it</td></tr>
+        <tr role="row"><td role="cell"><code>api.github.com</code></td><td role="cell" data-label="For">asks whether a newer Porthole release exists</td><td role="cell" data-label="When">at most once a day, and when you tap Check now</td></tr>
+        <tr role="row"><td role="cell"><code>github.com</code>, <code>*.githubusercontent.com</code></td><td role="cell" data-label="For">downloads the new Porthole APK</td><td role="cell" data-label="When">only when you tap Update</td></tr>
+      </tbody>
+    </table></div>
+    <p>There is no other destination. Links in the app (Tailscale's store page, links in Claude's replies, a dev server you choose to open) are things you tap, not requests the app makes on its own. Scanning a pairing QR code uses Google's code scanner, part of Google Play services on the phone; Porthole receives only the scanned text and needs no camera permission. Play services runs the scanner under Google's own terms, which let it send Google usage metrics; typing the 6-digit code instead avoids it.</p>
+
+    <h2 id="updates">The update check</h2>
+    <div class="upd">
+      <div class="upd-t">
+        <h3>What it sends</h3>
+        <p>One unauthenticated HTTPS request:</p>
+<pre><code>GET /repos/ShrimpScript/porthole/releases/latest
+Host: api.github.com
+Accept: application/vnd.github+json
+User-Agent: Porthole/0.26.0</code></pre>
+        <p>The app sets <code>Accept</code> and <code>User-Agent</code>, and the version in <code>User-Agent</code> is the Porthole you have installed. <code>Host</code> and the rest are the ones any HTTP client adds to reach a server. There is no account, token, cookie or device identifier, and nothing about your computer or your sessions. As with any web request, GitHub sees your IP address, and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a> covers what it does with it.</p>
+
+        <h3>How often</h3>
+        <p>At most once every 24 hours, when the app is opened or comes back to the screen. Also when you tap Check now in Settings &gt; Updates, and when you turn the switch back on.</p>
+
+        <h3>What the app keeps</h3>
+        <p>The time of the last check and, when a newer release was found, its version, download address, size and release page, so the banner survives a restart without a connection.</p>
+
+        <h3>The download</h3>
+        <p>Only when you tap Update. The APK comes from <code>github.com</code> over HTTPS, and GitHub serves the file from <code>*.githubusercontent.com</code>. The app refuses a download address, or a redirect, that leads anywhere other than GitHub over HTTPS. Android then installs the file only if it is signed with the same key as the Porthole you have.</p>
+
+        <h3>Turning it off</h3>
+        <p>Settings &gt; Updates &gt; Check GitHub for new versions. While it is off the app sends nothing to GitHub and shows no release banner. You can still download a release yourself from the <a href="https://github.com/ShrimpScript/porthole/releases">releases page</a>.</p>
+
+        <h3>Store builds</h3>
+        <p>A build of the app made for an app store has the check compiled out: no Updates section in Settings and no request to GitHub. There is no store build yet.</p>
+      </div>
+      <div class="pk-phone" data-screen="settings" style="--pk-w:248px" aria-label="Porthole Settings, Updates section: the switch Check GitHub for new versions is on. Once a day, one request to api.github.com. It carries nothing about you, this phone or your computer. Porthole 0.26.0, up to date, checked 3h ago. A Check now button."><noscript><img class="pk-still-img" src="/assets/frames/screen-settings.webp" width="380" height="820" alt="Porthole Settings, Updates section: the switch Check GitHub for new versions is on, Porthole 0.26.0 is up to date, and a Check now button."></noscript></div>
+    </div>
+
+    <h2 id="leaves">What leaves your computer</h2>
+    <p>Your session transcripts, file contents, command output and terminal bytes travel from your computer to your phone across your tailnet, which is a direct WireGuard connection between two devices you own. Traffic does not pass through ShrimpScript, and it does not pass through Tailscale's servers either except as encrypted relay traffic when a direct path cannot be established - the standard DERP behaviour, documented by Tailscale.</p>
+    <p>Builds of your own projects, offered with <code>portholed publish</code>, download from your computer over the same connection.</p>
+
+    <h2 id="stores">What the app stores on the phone</h2>
+    <ul>
+      <li>the computers it is paired with, their addresses, and the username the SSH failsafe logs in as (learned from the daemon)</li>
+      <li>your settings: theme, terminal text size, notification choices, muted sessions, quick replies, and whether to check GitHub for updates</li>
+      <li>when each session was last opened (for the "since you left" line), and which builds you put away</li>
+      <li>the result of the last update check</li>
+      <li>the last session list the app saw (titles and what each was doing), for the home-screen widget and the quick settings tile</li>
+      <li>in the app's cache, APKs you downloaded and screen clips you opened, which Android clears as needed</li>
+      <li>if the app crashes, a report of that crash; it is sent to your own computer the next time the app connects (it lands in <code>~/.config/porthole/crashes/</code>) and then deleted from the phone</li>
+    </ul>
+    <p>No transcripts, no credentials, no message history. There is nothing to delete on a server, because there is no server. Uninstalling the app removes all of it. Revoking the device with <code>portholed revoke</code> on the computer cuts it off immediately, whether or not the phone cooperates.</p>
+
+    <h2 id="permissions">Permissions the app asks for</h2>
+    <div class="table-wrap"><table class="rf" role="table">
+      <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Permission</th><th scope="col" role="columnheader">Why</th></tr></thead>
+      <tbody role="rowgroup">
+        <tr role="row"><td role="cell"><code>INTERNET</code></td><td role="cell">to reach your computer over the tailnet, and GitHub for updates</td></tr>
+        <tr role="row"><td role="cell"><code>ACCESS_NETWORK_STATE</code></td><td role="cell">to reconnect when your phone gets a network back</td></tr>
+        <tr role="row"><td role="cell"><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_SPECIAL_USE</code></td><td role="cell">to hold the connection open while you are away from the app</td></tr>
+        <tr role="row"><td role="cell"><code>POST_NOTIFICATIONS</code>, <code>POST_PROMOTED_NOTIFICATIONS</code></td><td role="cell">the connection, finished turns, questions and approvals</td></tr>
+        <tr role="row"><td role="cell"><code>REQUEST_INSTALL_PACKAGES</code></td><td role="cell">to hand a downloaded APK (a Porthole update or a build of your project) to Android's installer, which asks you first</td></tr>
+      </tbody>
+    </table></div>
+    <p>The app requests no location, no contacts, no camera, no microphone, and no storage access. Photos you attach come through Android's photo picker, which shares only the photos you pick.</p>
+
+    <h2 id="computer">What it can do on your computer</h2>
+    <p>Everything the consent screen lists, because that is the point of the product: run commands as your user, read and write files your user can reach, approve tool calls, and read your Claude Code session transcripts. It is worth being plain about this: a device paired with Porthole is a device that can act as you on that computer. Pair only your own phone, and revoke it if you lose the device.</p>
+
+    <h2 id="third-party">Third-party code</h2>
+    <p>The app bundles no analytics or advertising SDKs. Its dependencies are AndroidX and Jetpack Compose (UI), OkHttp (the connection and downloads), sshj with BouncyCastle and eddsa (the SSH failsafe), Glance (the widget) and Google's code scanner (pairing QR codes). Porthole uses none of them to send data anywhere else; the code scanner's own reporting to Google is described above.</p>
+
+    <h2 id="contact">Contact</h2>
+    <p>Questions about this policy: <a href="https://github.com/ShrimpScript/porthole/issues">open an issue on the repository</a>.</p>
+
+    <p class="end small muted">This policy covers Porthole 0.26.0 and later. The repository has it as <a href="https://github.com/ShrimpScript/porthole/blob/main/PRIVACY.md">PRIVACY.md</a>.</p>
+  </article>
+</main>
+
+<footer class="site-f">
+  <div class="wrap">
+    <div class="site-f-top">
+      <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy" aria-current="page">Privacy</a>
+        <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+        <a href="https://github.com/ShrimpScript/porthole/releases/latest">Releases</a>
+      </nav>
+    </div>
+    <p class="by">Published by ShrimpScript.</p>
+    <p class="tm">Porthole is an independent project and is not affiliated with or endorsed by Anthropic or Tailscale. Claude and Claude Code are trademarks of Anthropic, PBC; Tailscale is a trademark of Tailscale Inc.</p>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The porthole ring, in its connected state: one unbroken circle. It is the app's
+  signature, so the icon is that shape and nothing else.
+
+  Radius 22 with a 5.5 stroke puts the outer edge at ~50 across in a 108 canvas. The safe
+  zone allows 72, but filling it makes the ring read as a border drawn around the
+  launcher's own circular mask rather than as a ring sitting on the app's ground. The
+  smaller circle keeps visible ground around it, which is the whole shape.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M 32,54 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
+        android:strokeColor="#3FD4C0"
+        android:strokeWidth="5.5"
+        android:strokeLineCap="round" />
+</vector>

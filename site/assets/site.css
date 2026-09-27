@@ -1,0 +1,300 @@
+/*
+ * Porthole site: tokens, type, the shared shell, and the small set of primitives every
+ * page uses. The device mock-ups live in kit.css and keep the app's dark palette on
+ * either page theme.
+ *
+ * Colour: the app's Porthole palette (Theme.kt) is the dark theme. The app has no light
+ * Porthole palette, so the light theme below is the same hues, re-weighted for a light
+ * ground and checked for AA contrast on it.
+ */
+
+@font-face {
+  font-family: "Iosevka Term";
+  src: url("fonts/iosevka-term-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Term";
+  src: url("fonts/iosevka-term-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --ground: #F3F7F6;
+  --surface: #FFFFFF;
+  --raised: #E7EEEC;
+  --edge: #D2DDDA;
+  --text: #0E1D1B;
+  --muted: #45605C;
+  --faint: #556B67;
+  --accent: #097368;
+  --accent-fill: #3FD4C0;
+  --on-accent: #07100F;
+  --warn: #8A5A00;
+  --bad: #B3362C;
+  --ok: #23703F;
+  --deep: #E7EEEC;
+  --focus: #097368;
+  --shadow: 0 1px 2px rgb(14 29 27 / .06), 0 8px 24px rgb(14 29 27 / .08);
+
+  --sans: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Iosevka Term", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Radius (PortholeShape): cards, controls, key caps. */
+  --r-card: 14px;
+  --r-control: 10px;
+  --r-key: 8px;
+
+  /* Motion (PortholeMotion): every entrance is an ease-out with no overshoot. */
+  --t-fast: 120ms;
+  --t-enter: 200ms;
+  --t-exit: 140ms;
+  --t-axis: 260ms;
+  --t-slow: 360ms;
+  --stagger: 40ms;
+  --travel: 12px;
+  --ease-settle: cubic-bezier(.16, 1, .3, 1);
+  --ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --ease-leave: cubic-bezier(.3, 0, .7, .4);
+
+  /* Layout. */
+  --gutter: 16px;
+  --maxw: 1200px;
+  --measure: 68ch;
+  --header-h: 64px;
+}
+@media (min-width: 720px) { :root { --gutter: 32px; } }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #07100F;
+    --surface: #0E1A19;
+    --raised: #162523;
+    --edge: #22322F;
+    --text: #E8F0EE;
+    --muted: #8FA3A0;
+    --faint: #7B908C;
+    --accent: #3FD4C0;
+    --accent-fill: #3FD4C0;
+    --on-accent: #07100F;
+    --warn: #E8B54A;
+    --bad: #F2685E;
+    --ok: #5FCF80;
+    --deep: #050B0A;
+    --focus: #3FD4C0;
+    --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .35);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #07100F;
+  --surface: #0E1A19;
+  --raised: #162523;
+  --edge: #22322F;
+  --text: #E8F0EE;
+  --muted: #8FA3A0;
+  --faint: #7B908C;
+  --accent: #3FD4C0;
+  --accent-fill: #3FD4C0;
+  --on-accent: #07100F;
+  --warn: #E8B54A;
+  --bad: #F2685E;
+  --ok: #5FCF80;
+  --deep: #050B0A;
+  --focus: #3FD4C0;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .35);
+}
+
+/* ------------------------------------------------------------------ base --- */
+
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  background: var(--ground);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 16px);
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font: 400 17px/1.6 var(--sans);
+  font-feature-settings: "ss01" 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+img, svg, video { max-width: 100%; }
+img { height: auto; }
+
+h1, h2, h3, h4 { margin: 0; font-weight: 600; line-height: 1.12; letter-spacing: -.015em; text-wrap: balance; }
+h1 { font-size: clamp(2.25rem, 1.4rem + 3.6vw, 3.75rem); letter-spacing: -.025em; }
+h2 { font-size: clamp(1.65rem, 1.2rem + 1.8vw, 2.4rem); letter-spacing: -.02em; }
+h3 { font-size: 1.25rem; line-height: 1.25; }
+h4 { font-size: 1.05rem; line-height: 1.3; }
+p, ul, ol, dl { margin: 0; }
+p, li { text-wrap: pretty; }
+
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em; }
+a:hover { text-decoration-thickness: 2px; }
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+.lead { font-size: clamp(1.1rem, 1rem + .45vw, 1.3rem); line-height: 1.5; color: var(--muted); max-width: 44ch; }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.small { font-size: .9rem; line-height: 1.5; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.skip {
+  position: absolute; left: var(--gutter); top: -100px; z-index: 100;
+  background: var(--surface); color: var(--text); border: 1px solid var(--edge);
+  border-radius: var(--r-control); padding: 10px 14px; text-decoration: none;
+}
+.skip:focus { top: 12px; }
+
+/* --------------------------------------------------------------- layout --- */
+
+.wrap { width: 100%; max-width: calc(var(--maxw) + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
+.wrap-narrow { width: 100%; max-width: calc(760px + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
+.prose { max-width: var(--measure); }
+.prose > * + * { margin-top: 1em; }
+.prose ul, .prose ol { padding-left: 1.3em; }
+.prose li + li { margin-top: .35em; }
+.stack { display: flex; flex-direction: column; gap: var(--gap, 16px); }
+.stack > * { min-width: 0; }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap, 12px); }
+/* Text beside a device or scene; stacks below 900px. */
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(28px, 4vw, 64px); align-items: center; }
+@media (min-width: 900px) {
+  .split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .split.flip > :first-child { order: 2; }
+}
+.grid-2, .grid-3 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+@media (min-width: 720px) { .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.section { padding-block: clamp(56px, 8vw, 112px); }
+.section + .section { border-top: 1px solid var(--edge); }
+.card { background: var(--surface); border: 1px solid var(--edge); border-radius: var(--r-card); padding: 20px; }
+.rule { border: 0; border-top: 1px solid var(--edge); margin: 0; }
+
+/* ---------------------------------------------------------------- shell --- */
+
+.site-h {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
+}
+.site-h-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: var(--header-h); }
+
+/* The wordmark: the ring stands in for the "o", as it does in the app. */
+.brand {
+  display: inline-flex; align-items: center; gap: 0;
+  color: var(--text); text-decoration: none;
+  font: 600 1.375rem/1 var(--sans); letter-spacing: -.01em;
+  padding: 6px 2px; border-radius: 6px;
+}
+.brand:hover { text-decoration: none; }
+.brand-ring { width: .66em; height: .66em; margin-inline: 1px; flex: none; overflow: visible; }
+.brand-ring circle { fill: none; stroke: var(--accent); stroke-width: 2.1; }
+
+.site-nav { display: flex; align-items: center; gap: 4px; }
+.site-nav a {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px;
+  color: var(--muted); text-decoration: none; font-size: .98rem; font-weight: 500; border-radius: var(--r-control);
+  transition: color var(--t-fast) var(--ease-standard), background-color var(--t-fast) var(--ease-standard);
+}
+.site-nav a:hover { color: var(--text); background: var(--raised); }
+.site-nav a[aria-current="page"] { color: var(--text); }
+@media (max-width: 420px) { .site-nav a { padding: 0 9px; font-size: .94rem; } .brand { font-size: 1.25rem; } }
+
+.site-f { border-top: 1px solid var(--edge); padding-block: 40px 48px; color: var(--muted); font-size: .94rem; line-height: 1.55; }
+.site-f-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.site-f nav { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.site-f nav a { color: var(--muted); text-decoration: none; display: inline-flex; min-height: 44px; align-items: center; }
+.site-f nav a:hover { color: var(--text); text-decoration: underline; }
+.site-f .by { margin-top: 20px; color: var(--text); }
+.site-f .tm { margin-top: 8px; max-width: 76ch; color: var(--faint); font-size: .86rem; }
+
+/* -------------------------------------------------------------- buttons --- */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 48px; padding: 12px 20px;
+  font: 500 1rem/1.2 var(--sans); color: var(--text); text-decoration: none;
+  background: transparent; border: 1px solid var(--edge); border-radius: var(--r-control);
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--ease-standard), background-color var(--t-fast) var(--ease-standard), border-color var(--t-fast) var(--ease-standard);
+}
+.btn:hover { background: var(--raised); text-decoration: none; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent-fill) 88%, var(--text)); border-color: transparent; }
+.btn svg { width: 20px; height: 20px; flex: none; fill: currentColor; }
+.btn small { font-weight: 400; opacity: .75; font-size: .82rem; }
+
+/* ----------------------------------------------------------------- code --- */
+
+code, kbd, samp, pre { font-family: var(--mono); }
+code {
+  font-size: .9em; background: var(--raised); border: 1px solid var(--edge);
+  border-radius: 5px; padding: .05em .35em; word-break: break-word;
+}
+kbd {
+  font-size: .82em; background: var(--raised); border: 1px solid var(--edge); border-bottom-width: 2px;
+  border-radius: 6px; padding: .05em .45em; white-space: nowrap;
+}
+pre {
+  margin: 0; font-size: .9rem; line-height: 1.55; color: var(--text);
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--r-control);
+  padding: 14px 16px; overflow-x: auto; tab-size: 4;
+}
+pre code { background: none; border: 0; padding: 0; font-size: inherit; word-break: normal; }
+pre .c { color: var(--faint); }      /* a comment */
+pre .p { color: var(--faint); user-select: none; }   /* a prompt, not copied */
+
+/*
+ * A command to run, like the app's CommandBlock: mono, accent, on a raised ground. Add
+ * data-copy and kit.js adds a copy button; without JavaScript there is no button, so
+ * nothing on the page pretends to work.
+ */
+.cmd {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--raised); border-radius: var(--r-control);
+  padding: 6px 6px 6px 16px; min-height: 48px;
+}
+.cmd code, .cmd pre {
+  flex: 1; min-width: 0; background: none; border: 0; padding: 6px 0; border-radius: 0;
+  color: var(--accent); font-size: .95rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.cmd + .cmd { margin-top: 8px; }
+.copy {
+  flex: none; min-height: 36px; min-width: 56px; padding: 0 12px;
+  font: 500 .8rem/1 var(--sans); color: var(--muted);
+  background: transparent; border: 0; border-radius: var(--r-key); cursor: pointer;
+}
+.copy:hover { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
+.copy[data-done] { color: var(--ok); }
+
+/* A plain-spoken note: what a thing is, or what it can do to you. */
+.note { background: var(--surface); border: 1px solid var(--edge); border-left: 3px solid var(--accent); border-radius: 0 var(--r-control) var(--r-control) 0; padding: 12px 16px; }
+.note.warn { border-left-color: var(--warn); }
+
+/* Tables in the docs. */
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--edge); }
+th { font-weight: 600; color: var(--text); }

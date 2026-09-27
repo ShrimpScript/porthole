@@ -1,0 +1,55 @@
+# Porthole daemon, per-user.
+#
+#   install:  ../../tools/install.sh   (creates the state directory this unit needs)
+#   manually: mkdir -p ~/.config/porthole
+#             cp portholed.service ~/.config/systemd/user/
+#             systemctl --user daemon-reload && systemctl --user enable --now portholed
+#   logs:     journalctl --user -u portholed -f
+#
+# Run `sudo loginctl enable-linger $USER` as well, or the daemon dies when the desktop
+# session logs out - which is exactly when you are away from the machine and need it.
+
+[Unit]
+Description=Porthole daemon (remote Claude Code over Tailscale)
+Documentation=https://github.com/shrimpscript/porthole
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/portholed serve
+Restart=on-failure
+RestartSec=3s
+
+# The daemon runs commands as you - that is the product - so the hardening below is
+# about limiting blast radius from a bug, not pretending it is sandboxed.
+NoNewPrivileges=yes
+
+# PrivateTmp MUST stay off. tmux's socket lives in /tmp/tmux-$UID/, so a private /tmp
+# hides the user's tmux server completely: no session ever reads as live, prompts cannot
+# be typed, and the terminal cannot attach. It fails silently - the daemon starts, serves,
+# and simply reports an empty world - which is why it is called out here rather than left
+# to whoever next tidies this file.
+PrivateTmp=no
+
+ProtectSystem=strict
+# No ProtectHome. It only ever restricts further, and "read-write" is not one of its
+# values - systemd rejects that as invalid and ignores the line. ProtectSystem=strict
+# already makes home read-only; the one path the daemon writes is opened below.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+# Tailnet TCP plus the unix control socket. Nothing else is needed.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# It must be able to write its device allowlist. The leading "-" matters: without it a
+# missing directory fails the whole unit at namespace setup (status 226/NAMESPACE), so a
+# fresh install would never start at all. tools/install.sh creates it.
+ReadWritePaths=-%h/.config/porthole
+
+[Install]
+WantedBy=default.target

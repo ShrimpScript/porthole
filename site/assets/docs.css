@@ -1,0 +1,188 @@
+/*
+ * The docs page. A list of sections beside the manual on wide screens, and a section
+ * menu that stays under the header on narrow ones. Everything else comes from site.css
+ * and the device kit.
+ */
+
+/* ------------------------------------------------------------- layout --- */
+
+.docs { display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) {
+  .docs { grid-template-columns: 212px minmax(0, 1fr); column-gap: clamp(40px, 4.5vw, 72px); }
+}
+
+.doc { min-width: 0; padding-block: 40px 104px; container: doc / inline-size; }
+@media (min-width: 1024px) { .doc { padding-top: 56px; } }
+
+.doc-head { padding-bottom: 8px; }
+.doc-head h1 { font-size: clamp(2.2rem, 1.7rem + 2vw, 3.1rem); }
+.doc-head .lead { margin-top: 16px; max-width: 58ch; }
+
+/* Sections: contiguous, so exactly one sits under the reading line at a time. */
+.d-sec { padding-top: 56px; margin-top: 56px; border-top: 1px solid var(--edge); }
+@media (min-width: 720px) { .d-sec { padding-top: 72px; margin-top: 72px; } }
+.doc-head + .d-sec { margin-top: 32px; }
+.d-sec > h2 { font-size: clamp(1.6rem, 1.35rem + 1vw, 2.05rem); margin-bottom: 20px; }
+.d-sec h2 a { color: inherit; text-decoration: none; }
+.d-sec h2 a:hover { text-decoration: underline; text-decoration-color: var(--edge); text-decoration-thickness: 2px; }
+.d-sec h3 { font-size: 1.22rem; margin: 44px 0 14px; scroll-margin-top: 8px; }
+.d-sec h3 + * { margin-top: 0; }
+.d-sec .prose + .prose, .d-sec .prose + .table-wrap, .d-sec .table-wrap + .prose { margin-top: 1em; }
+.d-sec .prose code { white-space: nowrap; }
+/* A command block wraps inside its own box, and on a phone so may a long inline one: an
+   unbreakable line would otherwise widen the whole page past the screen. */
+.d-sec .prose .cmd code { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .d-sec .prose code { white-space: normal; overflow-wrap: anywhere; } }
+.d-sec .prose pre code { white-space: inherit; }
+
+/* A scene or a set of phones inside a section. */
+.d-fig { margin: 36px 0 40px; }
+.d-fig:last-child { margin-bottom: 0; }
+
+/* Text beside a phone-only scene or a single phone. */
+.d-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; margin-top: 8px; }
+.d-split > .d-side { justify-self: center; width: 100%; max-width: 320px; }
+@container doc (min-width: 760px) {
+  .d-split { grid-template-columns: minmax(0, 1fr) 300px; column-gap: 48px; align-items: start; }
+  .d-split > .d-side { max-width: none; }
+}
+.d-side .pk-phone { margin-inline: auto; }
+.d-side figcaption, .d-phones figcaption { margin-top: 14px; font-size: .9rem; line-height: 1.45; color: var(--muted); }
+
+/* Two or three static phones: a sideways strip on a phone, a row when there is room. */
+.d-phones {
+  display: flex; gap: 20px; margin: 32px calc(-1 * var(--gutter)) 0; padding: 4px var(--gutter) 14px;
+  overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter);
+  scrollbar-width: thin;
+}
+.d-phones figure { flex: none; width: 236px; margin: 0; scroll-snap-align: start; }
+.d-phones .pk-phone { --pk-w: 236px; }
+@container doc (min-width: 600px) {
+  .d-phones { overflow: visible; margin-inline: 0; padding-inline: 0; flex-wrap: wrap; gap: 32px 40px; }
+  .d-phones figure { width: 250px; }
+  .d-phones .pk-phone { --pk-w: 250px; }
+}
+
+/* ---------------------------------------------------- getting started --- */
+
+/* The setup is a real sequence, so it is numbered; each number sits in the app's ring. */
+.gs { list-style: none; margin: 44px 0 0; padding: 0; counter-reset: gs; }
+.gs-step {
+  counter-increment: gs; position: relative; padding: 0 0 52px 52px;
+  display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 40px; align-items: start;
+}
+.gs-step:last-child { padding-bottom: 0; }
+.gs-step::before {
+  content: counter(gs); position: absolute; left: 0; top: -2px;
+  width: 34px; height: 34px; border: 2px solid var(--accent); border-radius: 50%;
+  display: grid; place-items: center; background: var(--ground);
+  font: 600 .95rem/1 var(--sans); color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.gs-step::after { content: ""; position: absolute; left: 16px; top: 42px; bottom: 10px; width: 2px; background: var(--edge); border-radius: 1px; }
+.gs-step:last-child::after { display: none; }
+.gs-step > .gs-t > * + * { margin-top: 14px; }
+.gs-step > .gs-t > .cmd + .cmd { margin-top: 8px; }
+.gs-step h3 { margin: 0 0 12px; font-size: 1.2rem; line-height: 1.5rem; padding-top: 3px; }
+.gs-f { display: none; margin: 0; }
+@container doc (min-width: 740px) {
+  .gs-step { grid-template-columns: minmax(0, 1fr) 208px; }
+  .gs-f { display: block; }
+  .gs-f .pk-phone { --pk-w: 208px; }
+}
+.gs-step .cluster { --gap: 10px; }
+
+/* Output a command prints, as opposed to a command to run. */
+pre.d-out { font-size: .76rem; line-height: 1.6; background: var(--surface); }
+pre.d-out b { font-weight: 700; }
+.d-diagram { font-size: .84rem; line-height: 1.5; white-space: pre; }
+
+.note { max-width: var(--measure); }
+.note strong { font-weight: 600; }
+.d-sec .note { margin-top: 24px; }
+
+/* Tables: the command reference and troubleshooting. */
+.d-sec .table-wrap { margin-top: 20px; }
+.d-sec table { min-width: 540px; }
+.d-sec td code { white-space: nowrap; }
+.d-sec th { font-size: .9rem; color: var(--muted); font-weight: 600; }
+.d-sec td:first-child { width: 34%; }
+.t3 td:first-child { width: 28%; }
+
+/* -------------------------------------------------------- the sidebar --- */
+
+.toc-list, .toc-list ul { list-style: none; margin: 0; padding: 0; }
+.toc-g { display: block; padding: 0 12px; margin: 22px 0 6px; font: 600 .92rem/1.3 var(--sans); color: var(--text); }
+.toc-list > li:first-child > .toc-g { margin-top: 0; }
+.toc-list a {
+  position: relative; display: flex; align-items: center; min-height: 30px; padding: 4px 12px 4px 26px;
+  color: var(--muted); text-decoration: none; font-size: .92rem; line-height: 1.3; border-radius: var(--r-control);
+  transition: color var(--t-fast) var(--ease-standard), background-color var(--t-fast) var(--ease-standard);
+}
+.toc-list a:hover { color: var(--text); background: var(--raised); }
+.toc-list ul ul a { padding-left: 38px; font-size: .88rem; min-height: 28px; }
+/* Where you are: the ring closes around the section being read. */
+.toc-list a::before {
+  content: ""; position: absolute; left: 10px; top: 50%; width: 8px; height: 8px; margin-top: -4px;
+  border: 1.6px solid var(--accent); border-radius: 50%;
+  opacity: 0; transform: scale(.4);
+  transition: opacity var(--t-exit) var(--ease-leave), transform var(--t-exit) var(--ease-leave);
+}
+.toc-list ul ul a::before { left: 22px; }
+.toc-list a[aria-current] { color: var(--text); }
+.toc-list a[aria-current]::before {
+  opacity: 1; transform: none;
+  transition: opacity var(--t-enter) var(--ease-settle), transform var(--t-enter) var(--ease-settle);
+}
+
+.toc {
+  display: none; position: sticky; top: calc(var(--header-h) + 1px); align-self: start;
+  max-height: calc(100vh - var(--header-h) - 1px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 44px 4px 40px 0; margin-left: -12px; scrollbar-width: thin;
+}
+@media (min-width: 1024px) { .toc { display: block; } }
+
+/* ------------------------------------------------ the phone section menu --- */
+
+.toc-bar {
+  position: sticky; top: calc(var(--header-h) + 1px); z-index: 40;
+  background: color-mix(in srgb, var(--ground) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--edge);
+}
+@media (min-width: 1024px) { .toc-bar { display: none; } }
+@media (max-width: 1023.98px) { html { scroll-padding-top: calc(var(--header-h) + 72px); } }
+
+.toc-m { position: relative; }
+.toc-m > summary {
+  display: flex; align-items: center; gap: 8px; min-height: 48px; cursor: pointer; list-style: none;
+  font-weight: 600; font-size: .98rem; border-radius: var(--r-control);
+}
+.toc-m > summary::-webkit-details-marker { display: none; }
+.toc-cur { flex: 1; min-width: 0; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toc-cur:not(:empty)::before { content: "\00B7\00A0"; }
+.toc-m .chev {
+  width: 20px; height: 20px; flex: none; color: var(--muted);
+  transition: transform var(--t-axis) var(--ease-settle);
+}
+.toc-m[open] .chev { transform: rotate(180deg); }
+.toc-m > nav {
+  position: absolute; left: calc(-1 * var(--gutter)); right: calc(-1 * var(--gutter)); top: 100%;
+  max-height: calc(100vh - var(--header-h) - 64px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 12px var(--gutter) 20px; background: var(--surface);
+  border-block: 1px solid var(--edge); box-shadow: var(--shadow);
+}
+.toc-m[open] > nav { animation: toc-in var(--t-enter) var(--ease-settle); }
+@keyframes toc-in { from { opacity: 0; transform: translateY(-8px); } }
+.toc-m .toc-list a { min-height: 44px; font-size: 1rem; }
+.toc-m .toc-list ul ul a { min-height: 40px; font-size: .95rem; }
+.toc-m .toc-g { margin-top: 18px; }
+@media (min-width: 560px) {
+  .toc-m .toc-list { columns: 2; column-gap: 24px; }
+  .toc-m .toc-list > li { break-inside: avoid; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toc-m[open] > nav { animation: none; }
+  .toc-m .chev, .toc-list a, .toc-list a::before { transition: none; }
+}
+.nw { white-space: nowrap; }

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Porthole: Claude Code on your computer, from your phone</title>
+<meta name="description" content="Porthole is an Android app and a small daemon for your Linux computer. Answer, approve and type into your Claude Code sessions from your phone, over your own Tailscale network. No account, no relay server.">
+<link rel="canonical" href="https://porthole-one.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Porthole">
+<meta property="og:title" content="Porthole: Claude Code on your computer, from your phone">
+<meta property="og:description" content="Answer, approve and type into your Claude Code sessions from your Android phone, over your own Tailscale network. No account, no relay server.">
+<meta property="og:url" content="https://porthole-one.vercel.app/">
+<meta property="og:image" content="https://porthole-one.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F3F7F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#07100F" media="(prefers-color-scheme: dark)">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="preload" href="/assets/fonts/iosevka-term-regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/kit.css">
+<link rel="stylesheet" href="/assets/landing.css">
+<script src="/assets/kit.js" defer></script>
+<script src="/assets/kit-more.js" defer></script>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-h">
+  <div class="wrap site-h-in">
+    <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- Hero: the question scene. Claude asks at the desk; one tap on the phone answers it. -->
+  <section class="section hero" aria-labelledby="top-h">
+    <div class="wrap hero-grid">
+      <h1 id="top-h"><span>Run Claude Code on your computer.</span> <span>Answer it from your phone.</span></h1>
+      <div class="hero-copy">
+        <p class="lead">Porthole puts every Claude Code session on your Linux computer on your Android phone, so you can answer, approve and type into each one over your own Tailscale network.</p>
+        <div class="cluster">
+          <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download for Android</a>
+          <a class="btn" href="/docs#install">Set up the computer</a>
+          <a class="gh" href="https://github.com/ShrimpScript/porthole"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>Source on GitHub</a>
+        </div>
+        <p class="needs small muted">Needs Android 10 or later, a Linux computer running Claude Code in tmux, and Tailscale on both. There is no account to make.</p>
+      </div>
+      <div class="pk-scene" data-scene="question"><noscript><img class="pk-still-img" src="/assets/frames/question.webp" width="1160" height="811" alt="Claude Code in tmux on the computer asks which theme new users should get. The same question is on the phone as a card with two options, and a finger taps option 2, Always light."></noscript></div>
+    </div>
+  </section>
+
+  <!-- How it works: install, pair, supervise, with the onboarding scene. -->
+  <section class="section" id="how" aria-labelledby="how-h">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="how-h">How it works</h2>
+        <p class="lead">Two pieces: <code>portholed</code>, a small daemon on the computer where Claude Code runs, and the Porthole app on your phone. They talk over your tailnet and nothing else.</p>
+      </div>
+      <div class="feat">
+        <ol class="steps">
+          <li>
+            <span class="n" aria-hidden="true">1</span>
+            <h3>Install the daemon</h3>
+            <p>Clone the repository, read the installer, run it. <code>portholed</code> runs as a systemd user service and adds a Claude Code hook for approvals.</p>
+            <code>./tools/install.sh</code>
+          </li>
+          <li>
+            <span class="n" aria-hidden="true">2</span>
+            <h3>Pair the phone</h3>
+            <p>The computer prints a QR code and a 6-digit code. Scan it or type it into Porthole. The code works once, for five minutes.</p>
+            <code>portholed pair</code>
+          </li>
+          <li>
+            <span class="n" aria-hidden="true">3</span>
+            <h3>Supervise</h3>
+            <p>Start Claude Code with <code>porthole</code> instead of <code>claude</code>: it runs inside tmux, where the phone can type into it. Every session on the computer shows up on the phone.</p>
+            <code>porthole</code>
+          </li>
+        </ol>
+        <div class="pk-scene" data-scene="onboarding"><noscript><img class="pk-still-img" src="/assets/frames/onboarding.webp" width="1160" height="811" alt="The computer's terminal after portholed pair, showing a QR code and a 6-digit code, and the phone's pairing screen with the code typed in."></noscript></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features, each carried by its scene. -->
+  <section class="section" id="features" aria-labelledby="features-h">
+    <div class="wrap features">
+      <div class="head">
+        <h2 id="features-h">What you can do from the phone</h2>
+        <p class="lead">The scenes below show Porthole as it looks on the phone and, where it matters, the same session on the computer. The buttons under a scene step through it.</p>
+      </div>
+
+      <article class="feat" id="sessions" aria-labelledby="sessions-h">
+        <div class="feat-copy">
+          <h3 id="sessions-h">Every session, with the ones waiting on you first</h3>
+          <p>One row for each Claude Code running on the computer, grouped into Needs you, Live and Recent. A working row says what the session is doing and for how long. When a turn ends, a dot marks the row until you look. Open it for the feed: your prompts, Claude's replies, and every tool call with how long it took.</p>
+          <ul class="facts">
+            <li>Each row names its tmux session, so two sessions in one folder stay apart.</li>
+            <li>More than one computer in the same list, with one that cannot be reached kept apart.</li>
+          </ul>
+        </div>
+        <div class="pk-scene" data-scene="sessions"><noscript><img class="pk-still-img" src="/assets/frames/sessions.webp" width="1160" height="811" alt="Three Claude Code sessions in tmux panes on the computer, and the phone's session list with one session under Needs you, two under Live and one under Recent."></noscript></div>
+      </article>
+
+      <article class="feat flip" id="approval" aria-labelledby="approval-h">
+        <div class="feat-copy">
+          <h3 id="approval-h">Allow or deny, with the command in full</h3>
+          <p>When Claude Code asks permission to run a tool, the request reaches the phone with the command exactly as it will run, and how long is left to answer. A request you leave unanswered goes back to the prompt at the desk.</p>
+          <ul class="facts">
+            <li>Nothing is approved for you, and there is no “always allow”.</li>
+            <li>It works through a Claude Code permission hook. <code>portholed uninstall-hooks</code> removes it; everything else keeps working.</li>
+          </ul>
+        </div>
+        <div class="pk-scene" data-scene="approval"><noscript><img class="pk-still-img" src="/assets/frames/approval.webp" width="1160" height="811" alt="The terminal waits on a permission prompt for npm publish, and the phone shows the same request with Allow, Deny and a countdown."></noscript></div>
+      </article>
+
+      <div class="pair">
+        <article id="changes" aria-labelledby="changes-h">
+          <div class="feat-copy">
+            <h3 id="changes-h">What changed</h3>
+            <p>The git status and diff of the session's folder, file by file, with lines added and removed. The daemon runs only read-only git commands, and only in that folder.</p>
+          </div>
+          <div class="pk-scene" data-scene="changes"><noscript><img class="pk-still-img" src="/assets/frames/changes.webp" width="407" height="777" alt="The Changes sheet over a finished session: six changed files with the lines added and removed in each."></noscript></div>
+        </article>
+        <article id="since" aria-labelledby="since-h">
+          <div class="feat-copy">
+            <h3 id="since-h">Where you left off</h3>
+            <p>A session that carried on while you were away marks where you left off: 3 turns since you left, 4h ago, with what happened below the line. Its details hold the context window, tokens, and switches for model, effort and permission mode.</p>
+          </div>
+          <div class="pk-scene" data-scene="since"><noscript><img class="pk-still-img" src="/assets/frames/since.webp" width="407" height="777" alt="A session opened on the rule marking 3 turns since you left, 4h ago, with the new rows below it."></noscript></div>
+        </article>
+      </div>
+
+      <article class="feat" id="terminal" aria-labelledby="terminal-h">
+        <div class="feat-copy">
+          <h3 id="terminal-h">The terminal at the desk, on the phone</h3>
+          <p>The Terminal tab is the session's tmux window itself, at the desk's width, so vim looks like vim. Opening it on the phone never resizes the window at the desk.</p>
+          <ul class="facts">
+            <li>A key row for Claude Code: <kbd>Esc</kbd> <kbd>Tab</kbd> <kbd>⇧Tab</kbd> for permission modes, <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>^C</kbd>, and the <span style="white-space:nowrap"><kbd>/</kbd> <kbd>@</kbd> <kbd>!</kbd> menus</span>.</li>
+            <li>Bigger text scrolls sideways instead of rewrapping.</li>
+          </ul>
+        </div>
+        <div class="pk-scene" data-scene="terminal"><noscript><img class="pk-still-img" src="/assets/frames/terminal.webp" width="1160" height="811" alt="Claude Code working in tmux on the computer, and the phone's Terminal tab showing the same window with the key row below it."></noscript></div>
+      </article>
+
+      <article class="feat flip" id="notify" aria-labelledby="notify-h">
+        <div class="feat-copy">
+          <h3 id="notify-h">Notifications that say what happened</h3>
+          <p>While a turn runs, a notification keeps time and says what the session is doing. When it ends, it says how long it worked and offers Reply, which sends the session's next prompt straight from the shade.</p>
+          <ul class="facts">
+            <li>A question for you, or a usage limit, notifies at once.</li>
+            <li>Mute one session and it stays in the list without notifying.</li>
+          </ul>
+        </div>
+        <div class="pk-scene" data-scene="notify"><noscript><img class="pk-still-img" src="/assets/frames/notify.webp" width="1160" height="811" alt="Three Claude Code sessions in tmux on the computer, and the phone's notification shade with a question waiting, a finished turn with Reply, and a working timer."></noscript></div>
+      </article>
+
+      <article class="feat" id="builds" aria-labelledby="builds-h">
+        <div class="feat-copy">
+          <h3 id="builds-h">Install what Claude Code builds</h3>
+          <p>Working on an Android app? Publish a build on the computer and your phone offers it in a banner. Install downloads it from your computer, over your tailnet, and hands it to Android's installer, which asks first.</p>
+          <div class="cmd"><code>portholed publish app/build/outputs/apk/release/app-release.apk 1.4.0 shopping-list</code></div>
+          <ul class="facts">
+            <li>The build stays listed under Settings &gt; Other apps on the computer.</li>
+          </ul>
+          <a class="more" href="/docs#builds">Builds from your projects, in the docs</a>
+        </div>
+        <div class="pk-scene" data-scene="builds"><noscript><img class="pk-still-img" src="/assets/frames/builds.webp" width="1160" height="811" alt="portholed publish on the computer, and the phone's banner offering Shopping list 1.4.0 with Install."></noscript></div>
+      </article>
+
+      <article class="feat flip" id="failsafe" aria-labelledby="failsafe-h">
+        <div class="feat-copy">
+          <h3 id="failsafe-h">A way back when the daemon stops</h3>
+          <p>If <code>portholed</code> stops answering, the phone says so and offers what does not depend on it: a shell over Tailscale SSH, and a restart of the daemon in one tap. The same shell is in Settings for when you need it on purpose.</p>
+          <ul class="facts">
+            <li><code>portholed doctor</code> on the computer checks Tailscale, tmux, Claude Code, the service, key expiry, SSH, sleep and disk.</li>
+          </ul>
+        </div>
+        <div class="pk-scene" data-scene="failsafe"><noscript><img class="pk-still-img" src="/assets/frames/failsafe.webp" width="1160" height="811" alt="The daemon's log on the computer, and the phone's card saying it can't reach workstation, with Restart the daemon over SSH."></noscript></div>
+      </article>
+
+      <div class="also">
+        <h3>Also in the app</h3>
+        <ul>
+          <li><b>Start or resume</b>A stopped session offers Resume or New session, in any folder Claude Code has been used in.</li>
+          <li><b>Dev-server preview</b>Open a dev server running on the computer in the phone's browser, shared through the daemon over your tailnet.</li>
+          <li><b>Screen capture</b>A screenshot or a short clip of the computer's desktop, on Wayland with grim and wf-recorder, only when you ask.</li>
+          <li><b>Quick replies and commands</b>One-tap replies when Claude is idle, Claude Code's slash commands with descriptions, and photo attachments.</li>
+          <li><b>Widget and tile</b>A home-screen widget lists the sessions; a quick-settings tile counts them.</li>
+          <li><b>Session details</b>Context window, tokens and activity per session, with model, effort and permission switches and a mute.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy and security, in plain terms. -->
+  <section class="section" id="privacy" aria-labelledby="privacy-h">
+    <div class="wrap priv">
+      <div class="priv-side">
+        <div class="head">
+          <h2 id="privacy-h">Privacy and security</h2>
+          <p class="lead">Porthole has no servers. Your sessions travel between your phone and your computer, and nowhere else.</p>
+        </div>
+        <p class="note warn">A phone paired with Porthole can act as you on that computer: run commands, read and write files, answer and approve. That is the product, not a side effect. Pair only your own phone, and revoke it if you lose it.</p>
+        <p class="links cluster" style="--gap:4px 24px"><a href="/privacy">Privacy policy</a><a href="https://github.com/ShrimpScript/porthole/blob/main/SECURITY.md">The security model</a></p>
+      </div>
+      <dl class="plain">
+        <div><dt>No account</dt><dd>Nothing to sign up for, no sign-in, no analytics. Nothing you do in the app reaches ShrimpScript, because there is nowhere for it to go.</dd></div>
+        <div><dt>No relay</dt><dd>The phone talks to your computer over your tailnet, a WireGuard connection between devices you own. Tailscale's servers relay it, still encrypted, only when a direct path cannot be made.</dd></div>
+        <div><dt>Tailnet only</dt><dd><code>portholed</code> listens on the computer's Tailscale addresses, never the local network, and identifies every caller through Tailscale's WhoIs.</dd></div>
+        <div><dt>Paired at the desk</dt><dd>A new phone needs a 6-digit code printed on the computer: single-use, five minutes, ten attempts. <code>portholed revoke</code> cuts a phone off at once, whether or not it cooperates.</dd></div>
+        <div><dt>Browsers refused</dt><dd>Any connection that carries a browser's Origin header is refused, so a web page open on the paired phone cannot drive the daemon.</dd></div>
+        <div><dt>Approvals are yours</dt><dd>Nothing is approved automatically. A request the phone does not answer in time goes back to the prompt at the desk.</dd></div>
+        <div><dt>One request to GitHub</dt><dd>At most once a day the app asks <code>api.github.com</code> for Porthole's latest release. It carries nothing about you beyond the IP address any web request carries. Settings &gt; Updates turns it off.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- Install: the app, the daemon, and how updates arrive. -->
+  <section class="section" id="install" aria-labelledby="install-h">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="install-h">Install</h2>
+        <p class="lead">The app on the phone, the daemon on the computer, then pair them.</p>
+      </div>
+      <div class="get">
+        <div>
+          <h3>On the phone</h3>
+          <p>Download <code>porthole.apk</code> from the latest GitHub release and open it. Android asks once to allow installs from your browser. You also need the Tailscale app, signed in to the same tailnet as the computer.</p>
+          <div class="cluster">
+            <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download for Android</a>
+            <a href="https://github.com/ShrimpScript/porthole/releases/latest">Release notes and files</a>
+          </div>
+        </div>
+        <div>
+          <h3>On the computer</h3>
+          <p>Linux with systemd user services, tmux, Tailscale and Claude Code.</p>
+<pre><code><span class="p">$ </span>git clone https://github.com/ShrimpScript/porthole
+<span class="p">$ </span>cd porthole
+<span class="p">$ </span>./tools/install.sh --dry-run    <span class="c"># read what it will do</span>
+<span class="p">$ </span>./tools/install.sh
+<span class="p">$ </span>sudo loginctl enable-linger $USER
+<span class="p">$ </span>portholed doctor
+<span class="p">$ </span>portholed pair</code></pre>
+          <p class="note">Deliberately not a <code>curl | sh</code> one-liner: the installer sets up a service that runs commands as you. Read it first. It builds with Go if you have it; otherwise, or with <code>--prebuilt</code>, it downloads the release binary and checks it against <code>SHA256SUMS</code>.</p>
+          <p><a href="/docs#install">Every step, in the docs</a></p>
+        </div>
+      </div>
+
+      <div class="updates">
+        <div class="feat-copy">
+          <h3>Updates come from GitHub</h3>
+          <p>Porthole checks its GitHub releases at most once a day and shows a banner when there is a newer version. Update downloads <code>porthole.apk</code> over HTTPS, and Android installs it only if it is signed with the same key as the app you have.</p>
+          <ul class="facts">
+            <li>Settings &gt; Updates has Check now and a switch to stop checking.</li>
+            <li>The only other install banner is for builds you publish from your own computer.</li>
+          </ul>
+        </div>
+        <div class="pk-scene" data-scene="update"><noscript><img class="pk-still-img" src="/assets/frames/update.webp" width="407" height="777" alt="The sessions list with the banner: Porthole 0.27.0 is out, with Not now and Update."></noscript></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-f">
+  <div class="wrap">
+    <div class="site-f-top">
+      <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+        <a href="https://github.com/ShrimpScript/porthole/releases/latest">Releases</a>
+      </nav>
+    </div>
+    <p class="by">Published by ShrimpScript.</p>
+    <p class="tm">Porthole is an independent project and is not affiliated with or endorsed by Anthropic or Tailscale. Claude and Claude Code are trademarks of Anthropic, PBC; Tailscale is a trademark of Tailscale Inc.</p>
+  </div>
+</footer>
+</body>
+</html>

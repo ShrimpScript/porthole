@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's "ground" colour. The icon sits on the app's own darkest surface rather than a
+         launcher-default white, so it reads as the same object as the app. -->
+    <color name="ic_launcher_background">#07100F</color>
+</resources>

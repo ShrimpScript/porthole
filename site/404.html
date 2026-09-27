@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found · Porthole</title>
+<meta name="description" content="There is no page at this address on the Porthole site.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F3F7F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#07100F" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Porthole">
+<meta property="og:title" content="Page not found · Porthole">
+<meta property="og:description" content="There is no page at this address on the Porthole site.">
+<meta property="og:image" content="https://porthole-one.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Claude Code asks a multiple-choice question in a terminal on a computer; the same question is on a phone running Porthole, as buttons.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Page not found · Porthole">
+<meta name="twitter:description" content="There is no page at this address on the Porthole site.">
+<meta name="twitter:image" content="https://porthole-one.vercel.app/og.png">
+<meta name="twitter:image:alt" content="Claude Code asks a multiple-choice question in a terminal on a computer; the same question is on a phone running Porthole, as buttons.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+  .nf { padding-block: clamp(56px, 10vw, 136px) clamp(72px, 10vw, 144px); }
+  /* The wordmark's trick: the ring stands in for the 0, and here it does not close. */
+  .nf-code {
+    display: flex; align-items: center; margin-left: -.04em;
+    font: 600 clamp(6rem, 3.5rem + 12vw, 11rem)/1 var(--sans); letter-spacing: -.03em; color: var(--text);
+  }
+  .nf-code svg { width: .74em; height: .74em; margin: -.04em .03em 0; flex: none; overflow: visible; }
+  .nf-code circle { fill: none; stroke: var(--accent); stroke-width: 2.1; stroke-linecap: round; stroke-dasharray: 300 360; stroke-dashoffset: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .nf-code circle { animation: nf-draw 720ms var(--ease-settle) 120ms both; }
+  }
+  @keyframes nf-draw { from { stroke-dashoffset: 300; } }
+  .nf h1 { margin-top: 28px; font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.5rem); }
+  .nf p { margin-top: 16px; max-width: 46ch; color: var(--muted); font-size: 1.1rem; }
+  .nf .cluster { margin-top: 32px; }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-h">
+  <div class="wrap site-h-in">
+    <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap nf">
+    <div class="nf-code" aria-hidden="true">4<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.95" pathLength="360" transform="rotate(-62 8 8)"/></svg>4</div>
+    <h1>There is no page at this address.</h1>
+    <p>The link may have a typo, or the page may have moved when the docs were rewritten. Everything about Porthole is on the pages below.</p>
+    <div class="cluster">
+      <a class="btn btn-primary" href="/">Go to the home page</a>
+      <a class="btn" href="/docs">Read the docs</a>
+      <a class="btn" href="/changelog">Changelog</a>
+    </div>
+  </div>
+</main>
+
+<footer class="site-f">
+  <div class="wrap">
+    <div class="site-f-top">
+      <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+        <a href="https://github.com/ShrimpScript/porthole/releases/latest">Releases</a>
+      </nav>
+    </div>
+    <p class="by">Published by ShrimpScript.</p>
+    <p class="tm">Porthole is an independent project and is not affiliated with or endorsed by Anthropic or Tailscale. Claude and Claude Code are trademarks of Anthropic, PBC; Tailscale is a trademark of Tailscale Inc.</p>
+  </div>
+</footer>
+</body>
+</html>

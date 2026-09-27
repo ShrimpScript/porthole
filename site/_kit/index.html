@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Device kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/kit.css">
+<script src="../assets/kit.js" defer></script>
+<script src="../assets/kit-more.js" defer></script>
+<style>
+  .k-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 40px 28px; margin-top: 28px; }
+  .k-grid figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .k-grid figcaption { font: 500 .9rem/1.3 var(--mono); color: var(--muted); }
+  .k-grid .pk-phone { --pk-w: 280px; }
+  .k-scene { margin-top: 56px; }
+  .k-scene h3 { font-family: var(--mono); font-weight: 400; font-size: 1rem; color: var(--muted); margin-bottom: 16px; }
+  .k-api { margin-top: 32px; }
+  .k-api pre { font-size: .82rem; }
+  /* ?only=screen:id or ?only=scene:id: one item on its own, for capturing still frames. */
+  html.only body > :not(#only) { display: none !important; }
+  html.only, html.only body { background: transparent; }
+  #only { padding: 24px; }
+  #only .pk-phone { --pk-w: 380px; }
+  #only .pk-scene { width: 1100px; max-width: 100%; }
+  #only .pk-ctl { display: none; }
+  html.ctl #only .pk-ctl { display: flex; }
+</style>
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search), only = q.get('only');
+    if (!only) return;
+    document.documentElement.className = q.has('ctl') ? 'only ctl' : 'only';
+    document.addEventListener('DOMContentLoaded', function () {
+      var p = only.split(':'), d = document.createElement('div');
+      d.id = 'only';
+      d.innerHTML = p[0] === 'scene' ? '<div class="pk-scene" data-scene="' + p[1] + '"></div>' : '<div class="pk-phone" data-screen="' + p[1] + '"></div>';
+      document.body.prepend(d);
+    }, { once: true });
+  })();
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-h">
+  <div class="wrap site-h-in">
+    <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="wrap section">
+  <h1>Device kit</h1>
+  <p class="lead" style="margin-top:16px">Every phone screen and every scene the site uses. This page is not deployed.</p>
+
+  <div class="k-api prose">
+    <h2>Placing things on a page</h2>
+    <p>Include <code>assets/site.css</code>, <code>assets/kit.css</code>, then <code>assets/kit.js</code> and <code>assets/kit-more.js</code>, both with <code>defer</code>. Everything with the classes below is set up on load.</p>
+<pre><code>&lt;!-- A scene: computer and phone side by side (stacked when narrow), with controls. --&gt;
+&lt;div class="pk-scene" data-scene="question"&gt;
+  &lt;noscript&gt;&lt;img class="pk-still-img" src="/assets/frames/question.webp" width="1100" height="660" alt="..."&gt;&lt;/noscript&gt;
+&lt;/div&gt;
+
+&lt;!-- Options on a scene --&gt;
+data-layout="phone"   the phone only        data-layout="stack"   phone under computer at any width
+data-step="3"         held still at step 3 (zero-based), no autoplay
+
+&lt;!-- A single phone screen, no motion of its own besides spinners. Width: --pk-w (default 300px). --&gt;
+&lt;div class="pk-phone" data-screen="sessions" style="--pk-w:280px"&gt;&lt;/div&gt;
+
+URL, for screenshots:   ?scene=question&amp;step=2   holds that scene at that step
+                        ?still                    holds every scene at its poster step, spinners stopped
+                        ?theme=light|dark         forces the page theme</code></pre>
+    <p>The scene fills its container's width; the page decides the width. Scenes play only while at least a third is on screen, pause when the tab is hidden, and with reduced motion they do not play at all: Previous and Next walk the steps.</p>
+    <h2 style="margin-top:40px">Part two: kit-more.js</h2>
+    <p>Screens take their params from a view or a scene step; with none they show the state listed first.</p>
+<pre><code>changes     session + Changes sheet      { sheet: 0 (closed), file: 2 (theme.ts's diff) }
+details     session + Session details    { sheet: 0, top: 1 (feed lands on the since rule), scroll (0..314), muted }
+terminal    the Terminal tab (fit)       { feed: 1 + s: session params (the Feed tab), lines, z: 13 (text size), go (tab just switched) }
+settings    Settings                     { scroll (0..358), rel: '0.27.0' (a release is out) }
+failure     Can't reach workstation      { busy: 'Restarting portholed over SSH…' }
+failsafe    SSH shell, from Settings     { down: 1 (from the failure card), lines }
+shade       notification shade           { n: [{ k, t, x, w (working seconds), r (Reply), ri (reply text) }] }
+ainst       Android's installer (overlay){ upd: 1 (Porthole's own update) }
+
+Views: changes-diff, details-switches, session-since, settings-update, settings-away,
+       banner-update, banner-build, install (sessions + banner, installer over it)
+Scenes: changes (4 steps, poster 1, phone only), terminal (5, poster 2), builds (5, poster 1),
+        notify (4, poster 1), since (5, poster 1, phone only), failsafe (4, poster 1),
+        update (3, poster 0, phone only)</code></pre>
+  </div>
+
+  <h2 style="margin-top:64px">Screens</h2>
+  <div class="k-grid">
+    <figure><div class="pk-phone" data-screen="welcome"></div><figcaption>welcome</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="needs"></div><figcaption>needs</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="tailscale"></div><figcaption>tailscale</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="setup"></div><figcaption>setup</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="connect"></div><figcaption>connect</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="consent"></div><figcaption>consent</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="pair"></div><figcaption>pair</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="tour"></div><figcaption>tour</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="sessions"><noscript><img class="pk-still-img" src="../assets/frames/screen-sessions.webp" width="440" height="898" alt="The sessions list: one needs you, two live, one recent."></noscript></div><figcaption>sessions</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="session"></div><figcaption>session</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="session-working"></div><figcaption>session-working</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="session-question"></div><figcaption>session-question</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="approval"></div><figcaption>approval</figcaption></figure>
+  </div>
+  <h3 style="margin-top:48px">From kit-more.js</h3>
+  <div class="k-grid" id="more-screens">
+    <figure><div class="pk-phone" data-screen="changes"><noscript><img class="pk-still-img" src="../assets/frames/screen-changes.webp" width="380" height="820" alt="The Changes sheet over a finished session: six files with lines added and removed."></noscript></div><figcaption>changes</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="changes-diff"><noscript><img class="pk-still-img" src="../assets/frames/screen-changes-diff.webp" width="380" height="820" alt="The diff of one file in the Changes sheet, additions tinted green and removals red."></noscript></div><figcaption>changes-diff</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="terminal"><noscript><img class="pk-still-img" src="../assets/frames/screen-terminal.webp" width="380" height="820" alt="The Terminal tab: the computer's tmux window shrunk to fit, with the key row below."></noscript></div><figcaption>terminal</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="details"><noscript><img class="pk-still-img" src="../assets/frames/screen-details.webp" width="380" height="820" alt="Session details: model and permission mode, the context window, tokens and activity."></noscript></div><figcaption>details</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="details-switches"><noscript><img class="pk-still-img" src="../assets/frames/screen-details-switches.webp" width="380" height="820" alt="Session details scrolled to the model, effort and permission switches and the notifications switch."></noscript></div><figcaption>details-switches</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="session-since"><noscript><img class="pk-still-img" src="../assets/frames/screen-session-since.webp" width="380" height="820" alt="A session opened on the rule: 3 turns since you left, 4h ago."></noscript></div><figcaption>session-since</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="settings"><noscript><img class="pk-still-img" src="../assets/frames/screen-settings.webp" width="380" height="820" alt="Settings: the computer, Updates with its switch, another computer, and other apps on the computer."></noscript></div><figcaption>settings</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="settings-update"><noscript><img class="pk-still-img" src="../assets/frames/screen-settings-update.webp" width="380" height="820" alt="Settings, Updates: 0.27.0 is out, you have 0.26.0, with Update Porthole."></noscript></div><figcaption>settings-update</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="settings-away"><noscript><img class="pk-still-img" src="../assets/frames/screen-settings-away.webp" width="380" height="820" alt="Settings: other apps, While you are away, and If Porthole cannot connect with Open a shell over SSH."></noscript></div><figcaption>settings-away</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="banner-update"><noscript><img class="pk-still-img" src="../assets/frames/screen-banner-update.webp" width="380" height="820" alt="The sessions list with the banner: Porthole 0.27.0 is out."></noscript></div><figcaption>banner-update</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="banner-build"><noscript><img class="pk-still-img" src="../assets/frames/screen-banner-build.webp" width="380" height="820" alt="The sessions list with the banner: Shopping list 1.4.0 is on the computer."></noscript></div><figcaption>banner-build</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="install"><noscript><img class="pk-still-img" src="../assets/frames/screen-install.webp" width="380" height="820" alt="Android's installer asking whether to install Shopping list."></noscript></div><figcaption>install</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="shade"><noscript><img class="pk-still-img" src="../assets/frames/screen-shade.webp" width="380" height="820" alt="The notification shade: a question waiting, a finished turn with Reply, and a working timer."></noscript></div><figcaption>shade</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="failure"><noscript><img class="pk-still-img" src="../assets/frames/screen-failure.webp" width="380" height="820" alt="The failure card: Can't reach workstation, with Retry, Open terminal anyway and Restart the daemon over SSH."></noscript></div><figcaption>failure</figcaption></figure>
+    <figure><div class="pk-phone" data-screen="failsafe"><noscript><img class="pk-still-img" src="../assets/frames/screen-failsafe.webp" width="380" height="820" alt="The failsafe shell over Tailscale SSH, showing systemctl status for portholed."></noscript></div><figcaption>failsafe</figcaption></figure>
+  </div>
+
+  <h2 style="margin-top:64px">Scenes</h2>
+  <section class="k-scene"><h3>onboarding</h3><div class="pk-scene" data-scene="onboarding"></div></section>
+  <section class="k-scene"><h3>sessions</h3><div class="pk-scene" data-scene="sessions"></div></section>
+  <section class="k-scene"><h3>question</h3><div class="pk-scene" data-scene="question"><noscript><img class="pk-still-img" src="../assets/frames/question.webp" width="1160" height="811" alt="Claude Code in tmux asks which theme new users should get; the same question is on the phone, and a tap on option 2 answers it."></noscript></div></section>
+  <section class="k-scene"><h3>approval</h3><div class="pk-scene" data-scene="approval"></div></section>
+  <section class="k-scene"><h3>changes</h3><div class="pk-scene" data-scene="changes"><noscript><img class="pk-still-img" src="../assets/frames/changes.webp" width="407" height="777" alt="The Changes sheet over a finished session, then the diff of one file."></noscript></div></section>
+  <section class="k-scene"><h3>terminal</h3><div class="pk-scene" data-scene="terminal"><noscript><img class="pk-still-img" src="../assets/frames/terminal.webp" width="1160" height="811" alt="Claude Code in tmux on the computer and the phone's Terminal tab showing the same window."></noscript></div></section>
+  <section class="k-scene"><h3>builds</h3><div class="pk-scene" data-scene="builds"><noscript><img class="pk-still-img" src="../assets/frames/builds.webp" width="1160" height="811" alt="portholed publish on the computer, and the phone offering Shopping list 1.4.0 from its banner."></noscript></div></section>
+  <section class="k-scene"><h3>notify</h3><div class="pk-scene" data-scene="notify"><noscript><img class="pk-still-img" src="../assets/frames/notify.webp" width="1160" height="811" alt="Three Claude Code sessions in tmux, and Porthole's notifications in the phone's shade."></noscript></div></section>
+  <section class="k-scene"><h3>since</h3><div class="pk-scene" data-scene="since"><noscript><img class="pk-still-img" src="../assets/frames/since.webp" width="407" height="777" alt="A session opened on the rule marking 3 turns since you left."></noscript></div></section>
+  <section class="k-scene"><h3>failsafe</h3><div class="pk-scene" data-scene="failsafe"><noscript><img class="pk-still-img" src="../assets/frames/failsafe.webp" width="1160" height="811" alt="The daemon's log on the computer, and the phone's failure card offering a restart over SSH."></noscript></div></section>
+  <section class="k-scene"><h3>update</h3><div class="pk-scene" data-scene="update"><noscript><img class="pk-still-img" src="../assets/frames/update.webp" width="407" height="777" alt="The sessions list with the banner: Porthole 0.27.0 is out."></noscript></div></section>
+  <div id="more-scenes"></div>
+</main>
+
+<footer class="site-f">
+  <div class="wrap">
+    <div class="site-f-top">
+      <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+        <a href="https://github.com/ShrimpScript/porthole/releases/latest">Releases</a>
+      </nav>
+    </div>
+    <p class="by">Published by ShrimpScript.</p>
+    <p class="tm">Porthole is an independent project and is not affiliated with or endorsed by Anthropic or Tailscale. Claude and Claude Code are trademarks of Anthropic, PBC; Tailscale is a trademark of Tailscale Inc.</p>
+  </div>
+</footer>
+<script>
+  // Anything kit-more.js registers shows up here too, below the kit's own. ?ids lists every id for frames.py.
+  addEventListener('DOMContentLoaded', function () {
+    if (!window.PK) return;
+    var overlays = Object.keys(PK.views).map(function (v) { return PK.views[v].over && PK.views[v].over[0]; });
+    var all = Object.keys(PK.views).concat(Object.keys(PK.screens)).filter(function (id, i, a) {
+      return a.indexOf(id) === i && (PK.views[id] || overlays.indexOf(id) < 0);
+    });
+    if (new URLSearchParams(location.search).has('ids')) {
+      document.body.insertAdjacentHTML('beforeend', '<pre id="ids">' + JSON.stringify({ scenes: Object.keys(PK.scenes), screens: all }) + '</pre>');
+      return;
+    }
+    var own = [].map.call(document.querySelectorAll('.pk-phone[data-screen]'), function (e) { return e.dataset.screen; });
+    var ownScenes = [].map.call(document.querySelectorAll('.pk-scene[data-scene]'), function (e) { return e.dataset.scene; });
+    var g = document.getElementById('more-screens');
+    all.filter(function (id) { return own.indexOf(id) < 0; }).forEach(function (id) {
+      g.insertAdjacentHTML('beforeend', '<figure><div class="pk-phone" data-screen="' + id + '"></div><figcaption>' + id + '</figcaption></figure>');
+    });
+    var s = document.getElementById('more-scenes');
+    Object.keys(PK.scenes).filter(function (id) { return ownScenes.indexOf(id) < 0; }).forEach(function (id) {
+      s.insertAdjacentHTML('beforeend', '<section class="k-scene"><h3>' + id + '</h3><div class="pk-scene" data-scene="' + id + '"></div></section>');
+    });
+    PK.init();
+  });
+</script>
+</body>
+</html>

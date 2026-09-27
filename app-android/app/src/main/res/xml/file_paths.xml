@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Downloaded builds live in the cache; the installer reads them through this provider. -->
+<paths>
+    <cache-path name="builds" path="builds/" />
+</paths>

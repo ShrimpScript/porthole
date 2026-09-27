@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Your Claude Code sessions: what each is doing, and when.</string>
+</resources>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launch: the ring appears the way a ring is made, by being drawn. Stroke from
+     twelve o'clock, clockwise, over 700ms on the settle curve; then a 200ms settle from
+     103% to 100%. 900ms in all, under the platform's 1000ms cap. The exit that follows
+     (MainActivity) carries this same ring to where it lives in the header. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="108dp"
+            android:height="108dp"
+            android:viewportWidth="108"
+            android:viewportHeight="108">
+            <group
+                android:name="ring"
+                android:pivotX="54"
+                android:pivotY="54"
+                android:scaleX="1.03"
+                android:scaleY="1.03">
+                <path
+                    android:name="stroke"
+                    android:pathData="M 54,34 a 20,20 0 0,1 0,40 a 20,20 0 0,1 0,-40"
+                    android:strokeColor="#3FD4C0"
+                    android:strokeWidth="5"
+                    android:strokeLineCap="round"
+                    android:trimPathEnd="0" />
+            </group>
+        </vector>
+    </aapt:attr>
+    <target android:name="stroke">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:duration="700"
+                android:interpolator="@interpolator/settle" />
+        </aapt:attr>
+    </target>
+    <target android:name="ring">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="scaleX"
+                    android:valueFrom="1.03"
+                    android:valueTo="1"
+                    android:startOffset="700"
+                    android:duration="200"
+                    android:interpolator="@interpolator/settle" />
+                <objectAnimator
+                    android:propertyName="scaleY"
+                    android:valueFrom="1.03"
+                    android:valueTo="1"
+                    android:startOffset="700"
+                    android:duration="200"
+                    android:interpolator="@interpolator/settle" />
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>

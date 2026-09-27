@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Porthole talks to portholed over plain HTTP/WS, and that is deliberate (see SECURITY.md,
+  "Cleartext to the daemon"): every byte already crosses WireGuard with
+  per-peer keys, and a self-signed certificate would add a trust-store problem on
+  Android while buying nothing. Identity comes from tailscaled's WhoIs plus a pairing
+  code, not from TLS.
+
+  Android disagrees by default (API 28+ blocks cleartext), so it has to be declared.
+  The daemon is only ever reached at a tailnet address, which is not routable from
+  anywhere outside the user's own tailnet.
+
+  If this is ever tightened, the route is `tailscale cert` on the daemon and real TLS
+  here - not a hand-rolled certificate.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

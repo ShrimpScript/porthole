@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Porthole docs</title>
+<meta name="description" content="The Porthole manual: install the daemon, pair a phone, and use sessions, questions, approvals, the terminal, changes, notifications, builds of your Android projects, updates and the SSH failsafe.">
+<link rel="canonical" href="https://porthole-one.vercel.app/docs">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Porthole">
+<meta property="og:title" content="Porthole docs">
+<meta property="og:description" content="Install the daemon, pair a phone, and everything the app does after that.">
+<meta property="og:url" content="https://porthole-one.vercel.app/docs">
+<meta property="og:image" content="https://porthole-one.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- HEAD: fonts, styles, the device kit. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="preload" href="/assets/fonts/iosevka-term-regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/kit.css">
+<script src="/assets/kit.js" defer></script>
+<script src="/assets/kit-more.js" defer></script>
+<!-- /HEAD -->
+<link rel="stylesheet" href="/assets/docs.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-h">
+  <div class="wrap site-h-in">
+    <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs" aria-current="page">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<div class="toc-bar">
+  <div class="wrap">
+    <details class="toc-m">
+      <summary><span>Sections</span><span class="toc-cur"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 9.5 12 15l5.5-5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+      <nav aria-label="Sections">
+        <ul class="toc-list">
+          <li><span class="toc-g">Start</span>
+            <ul>
+              <li><a href="#what">What Porthole is</a></li>
+              <li><a href="#getting-started">Getting started</a>
+                <ul>
+                  <li><a href="#app">Install the app</a></li>
+                  <li><a href="#install">Install the daemon</a></li>
+                  <li><a href="#pair">Pair a phone</a></li>
+                  <li><a href="#revoke">Revoke a phone</a></li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li><span class="toc-g">Using Porthole</span>
+            <ul>
+              <li><a href="#sessions">Sessions</a></li>
+              <li><a href="#feed">The feed</a></li>
+              <li><a href="#since">Since you left</a></li>
+              <li><a href="#questions">Questions</a></li>
+              <li><a href="#approvals">Approvals</a></li>
+              <li><a href="#terminal">The terminal</a></li>
+              <li><a href="#changes">Changes</a></li>
+              <li><a href="#details">Session details</a></li>
+              <li><a href="#start">Start and resume</a></li>
+              <li><a href="#notifications">Notifications</a></li>
+              <li><a href="#mute">Mute a session</a></li>
+              <li><a href="#preview">Preview a dev server</a></li>
+              <li><a href="#capture">Screen capture</a></li>
+              <li><a href="#themes">Themes</a></li>
+            </ul>
+          </li>
+          <li><span class="toc-g">Builds and updates</span>
+            <ul>
+              <li><a href="#builds">Builds from your projects</a></li>
+              <li><a href="#updates">Updates</a></li>
+            </ul>
+          </li>
+          <li><span class="toc-g">When something breaks</span>
+            <ul>
+              <li><a href="#failsafe">The failsafe</a></li>
+              <li><a href="#trouble">Troubleshooting</a></li>
+            </ul>
+          </li>
+          <li><span class="toc-g">Reference</span>
+            <ul>
+              <li><a href="#cli">portholed commands</a></li>
+              <li><a href="#security">Security and privacy</a></li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+    </details>
+  </div>
+</div>
+
+<div class="wrap docs">
+
+<nav class="toc" aria-label="Sections">
+  <ul class="toc-list">
+    <li><span class="toc-g">Start</span>
+      <ul>
+        <li><a href="#what">What Porthole is</a></li>
+        <li><a href="#getting-started">Getting started</a>
+          <ul>
+            <li><a href="#app">Install the app</a></li>
+            <li><a href="#install">Install the daemon</a></li>
+            <li><a href="#pair">Pair a phone</a></li>
+            <li><a href="#revoke">Revoke a phone</a></li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+    <li><span class="toc-g">Using Porthole</span>
+      <ul>
+        <li><a href="#sessions">Sessions</a></li>
+        <li><a href="#feed">The feed</a></li>
+        <li><a href="#since">Since you left</a></li>
+        <li><a href="#questions">Questions</a></li>
+        <li><a href="#approvals">Approvals</a></li>
+        <li><a href="#terminal">The terminal</a></li>
+        <li><a href="#changes">Changes</a></li>
+        <li><a href="#details">Session details</a></li>
+        <li><a href="#start">Start and resume</a></li>
+        <li><a href="#notifications">Notifications</a></li>
+        <li><a href="#mute">Mute a session</a></li>
+        <li><a href="#preview">Preview a dev server</a></li>
+        <li><a href="#capture">Screen capture</a></li>
+        <li><a href="#themes">Themes</a></li>
+      </ul>
+    </li>
+    <li><span class="toc-g">Builds and updates</span>
+      <ul>
+        <li><a href="#builds">Builds from your projects</a></li>
+        <li><a href="#updates">Updates</a></li>
+      </ul>
+    </li>
+    <li><span class="toc-g">When something breaks</span>
+      <ul>
+        <li><a href="#failsafe">The failsafe</a></li>
+        <li><a href="#trouble">Troubleshooting</a></li>
+      </ul>
+    </li>
+    <li><span class="toc-g">Reference</span>
+      <ul>
+        <li><a href="#cli">portholed commands</a></li>
+        <li><a href="#security">Security and privacy</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+<article class="doc">
+
+<header class="doc-head">
+  <h1>The Porthole manual</h1>
+  <p class="lead">How to set up the daemon, pair a phone, and use everything the app does after that. The phone and the computer on this page are drawn to match the real app and Claude Code, and they step through the real flows; Previous and Next under each one go a step at a time.</p>
+</header>
+
+<!-- =============================================================== what -->
+<section class="d-sec" id="what">
+  <h2><a href="#what">What Porthole is</a></h2>
+  <div class="prose">
+    <p>Two pieces. <strong>portholed</strong> is a small daemon on the Linux computer where Claude Code runs. <strong>Porthole</strong> is the Android app. They talk over your tailnet only: the daemon binds the computer's Tailscale addresses and nothing else, identifies the phone through Tailscale's own WhoIs, and admits a new phone only with a pairing code you read off the computer's screen. There is no account and no Porthole server; your sessions travel only between your phone and your computer.</p>
+    <p>What the phone gets: every running session with what it is doing, a feed of the conversation and its tool calls, Claude's questions as tappable choices, approvals, a real terminal, the git diff of what changed, notifications when something finishes or needs you, and the ability to start or resume sessions, open a dev server, and install builds of the Android apps you are working on.</p>
+  </div>
+  <pre class="d-diagram d-fig" aria-label="Porthole on the phone connects over the tailnet to portholed on the computer, which works with tmux and Claude Code. A second path, Tailscale SSH, reaches a shell when portholed is down."><code>Porthole  ── WebSocket, port 8737 ──►  portholed ──►  tmux ──►  claude
+(phone)                  your tailnet    ├ reads the transcripts
+                                         ├ receives the approval hook
+                                         └ bridges the tmux pane
+          ── Tailscale SSH ──────────►  a shell, when portholed is down</code></pre>
+  <div class="prose">
+    <p>Session state comes from three places, each doing what it is best at: Claude Code's transcript (the history), a Claude Code hook (approval requests), and the tmux pane (the terminal, and what is on screen right now).</p>
+  </div>
+  <div class="note warn"><strong>Being plain about what this is.</strong> A phone paired with Porthole can act as you on that computer: run commands, read and write files, answer and approve. That is the product, not a side effect. Pair your own phone, and revoke it if you lose the device.</div>
+
+  <h3 id="needs">What it needs</h3>
+  <div class="prose">
+    <ul>
+      <li>A Linux computer with systemd user services and tmux, running Claude Code <em>inside tmux</em> - <code>porthole</code> starts it there for you. tmux is where the phone types; a Claude Code outside tmux can be watched but not sent prompts.</li>
+      <li>Tailscale on the computer and on the phone, signed into the same tailnet.</li>
+      <li>An Android phone with Android 10 or newer.</li>
+      <li>portholed on the computer, from the steps below. Go builds it from source; without Go, the installer uses the release binary for Linux on amd64 or arm64.</li>
+    </ul>
+    <p>There is no iOS app, and the daemon runs on Linux only.</p>
+  </div>
+</section>
+
+<!-- ==================================================== getting started -->
+<section class="d-sec" id="getting-started">
+  <h2><a href="#getting-started">Getting started</a></h2>
+  <div class="prose">
+    <p>Once per computer: Tailscale on both devices, the app on the phone, the daemon on the computer, then pairing. The app's first run walks through the same steps, and every command it shows can be copied.</p>
+  </div>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="onboarding"><noscript><img class="pk-still-img" src="/assets/frames/onboarding.webp" width="1160" height="811" alt="The computer's terminal after portholed pair, showing a QR code and the code 482 913, and the phone's Pair screen with the code typed in."></noscript></div>
+  </div>
+
+  <ol class="gs">
+    <li class="gs-step" id="tailscale">
+      <div class="gs-t">
+        <h3>Tailscale on both devices</h3>
+        <p><b>On the phone.</b> Install Tailscale and sign in. Porthole does not embed Tailscale; the official app's VPN already routes the tailnet.</p>
+        <p><b>On the computer.</b> Install Tailscale, sign into the same tailnet, and turn on Tailscale SSH:</p>
+        <div class="cmd" data-copy><code>tailscale up --ssh</code></div>
+        <p class="small muted"><code>--ssh</code> is what the phone falls back to if portholed ever stops answering (see <a href="#failsafe">The failsafe</a>). Your tailnet's access rules must also allow SSH to this computer.</p>
+      </div>
+      <figure class="gs-f"><div class="pk-phone" data-screen="tailscale" aria-label="Porthole's Tailscale screen: Tailscale is installed, with the command for the computer." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-tailscale.webp" width="380" height="820" alt="Porthole's Tailscale screen."></noscript></div></figure>
+    </li>
+
+    <li class="gs-step" id="app">
+      <div class="gs-t">
+        <h3>Install the app</h3>
+        <p><b>On the phone.</b> Download <code>porthole.apk</code> from the latest GitHub release and open it. Android asks once to allow installs from your browser. After that, Porthole tells you about new releases itself (see <a href="#updates">Updates</a>).</p>
+        <div class="cluster">
+          <a class="btn btn-primary" href="https://github.com/ShrimpScript/porthole/releases/latest/download/porthole.apk">Download porthole.apk</a>
+          <a class="btn" href="https://github.com/ShrimpScript/porthole/releases/latest">Latest release</a>
+        </div>
+        <p>Open Porthole and tap <b>Get started</b>. <b>What you'll need</b> lists the three things on your side: Tailscale, Claude Code inside tmux, and portholed. There is no account to create.</p>
+      </div>
+      <figure class="gs-f"><div class="pk-phone" data-screen="needs" aria-label="What you'll need: Tailscale, Claude Code inside tmux, and portholed." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-needs.webp" width="380" height="820" alt="What you'll need."></noscript></div></figure>
+    </li>
+
+    <li class="gs-step" id="install">
+      <div class="gs-t">
+        <h3>Install the daemon</h3>
+        <p><b>On the computer.</b> Clone the repository, read the installer, see what it would do, then run it:</p>
+        <div class="cmd" data-copy><code>git clone https://github.com/ShrimpScript/porthole</code></div>
+        <div class="cmd" data-copy><code>cd porthole</code></div>
+        <div class="cmd" data-copy><code>./tools/install.sh --dry-run</code></div>
+        <div class="cmd" data-copy><code>./tools/install.sh</code></div>
+        <div class="cmd" data-copy><code>sudo loginctl enable-linger $USER</code></div>
+        <p>The last line keeps the daemon running after you log out, which is exactly when you are away. The installer is deliberately not a <code>curl | sh</code> one-liner: it installs a background service that can run commands as you, and a hook in your Claude Code settings.</p>
+        <p><b>On the phone.</b> <b>Set up the computer</b> shows the same commands, each one copyable.</p>
+      </div>
+      <figure class="gs-f"><div class="pk-phone" data-screen="setup" aria-label="Set up the computer: install portholed, start Claude Code inside tmux, get a pairing code." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-setup.webp" width="380" height="820" alt="Set up the computer."></noscript></div></figure>
+    </li>
+
+    <li class="gs-step" id="tmux">
+      <div class="gs-t">
+        <h3>Start Claude Code with porthole</h3>
+        <p><b>On the computer,</b> in your project's folder, run <code>porthole</code> where you would run <code>claude</code>. It starts Claude Code inside tmux, in a session named after the folder, so the phone can see its terminal and type to it. Running it again in the same folder brings that session back instead of starting a second one, and arguments go straight to Claude Code (<code>porthole --resume</code>). Already working inside tmux? Plain <code>claude</code> works there too.</p>
+        <div class="cmd" data-copy><code>porthole</code></div>
+      </div>
+    </li>
+
+    <li class="gs-step" id="doctor">
+      <div class="gs-t">
+        <h3>Check the computer</h3>
+        <p><b>On the computer.</b> <code>portholed doctor</code> checks everything the phone will depend on, one line each, in the order you would fix them:</p>
+        <div class="cmd" data-copy><code>portholed doctor</code></div>
+<pre class="d-out"><code>ok    tmux: tmux 3.5a
+ok    tailscale: running as workstation.tailnet.ts.net (192.0.2.10)
+ok    key expiry: this computer: disabled, it will not expire
+ok    ssh failsafe: Tailscale SSH is on; the phone can open a shell and restart this daemon
+ok    after a reboot: lingering is on: the daemon starts without anyone logging in
+ok    sleep: not once since it booted (6 days); a sleeping computer is unreachable from the phone
+ok    disk: 412 GB free of 931 GB where transcripts and state live
+ok    claude: 2.1.270 (Claude Code)
+ok    sessions: 3 running now, 3 of them in tmux (registry ~/.claude/sessions)
+ok    transcripts: 12 project directories under ~/.claude/projects
+ok    changes: git version 2.51.0 (what changed, on the phone)
+ok    capture: grim, wf-recorder
+ok    daemon: portholed 0.26.0 answering, 1 paired device(s), 1 connected now
+ok    service: portholed.service active, starts at login
+warn  approvals: hook not registered: approvals stay at the desk (portholed install-hooks)
+info  builds: 1 published in ~/.config/porthole/builds</code></pre>
+        <p><code>fail</code> is something the phone cannot work without, <code>warn</code> is a feature the phone will not have, and <code>info</code> is context. The daemon's log: <code>journalctl --user -u portholed -f</code>.</p>
+      </div>
+    </li>
+
+    <li class="gs-step" id="connect">
+      <div class="gs-t">
+        <h3>Which computer?</h3>
+        <p><b>On the phone.</b> Type the computer's name on your tailnet, such as <code>workstation</code>, or its Tailscale IP address, and tap <b>Check connection</b>. Porthole checks that portholed is actually answering before it asks you for a code: <b>Found Porthole on workstation</b>.</p>
+      </div>
+      <figure class="gs-f"><div class="pk-phone" data-screen="connect" aria-label="Which computer? workstation, found." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-connect.webp" width="380" height="820" alt="Which computer?"></noscript></div></figure>
+    </li>
+
+    <li class="gs-step" id="authorize">
+      <div class="gs-t">
+        <h3>Authorize</h3>
+        <p><b>On the phone.</b> <b>Authorize Porthole</b> lists exactly what this phone will be able to do on that computer: run commands, read and write files, approve tool calls, and read session history; and, when the computer offers them, capture your screen, share a dev server, and start Claude Code. Read it, then tap <b>Authorize</b>.</p>
+      </div>
+      <figure class="gs-f"><div class="pk-phone" data-screen="consent" aria-label="Authorize Porthole: the list of what this phone will be able to do on workstation." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-consent.webp" width="380" height="820" alt="Authorize Porthole."></noscript></div></figure>
+    </li>
+
+    <li class="gs-step" id="pair">
+      <div class="gs-t">
+        <h3>Pair</h3>
+        <p><b>On the computer.</b> Run <code>portholed pair</code>. It prints a QR code and a 6-digit code. The code works once and expires after five minutes; run the command again for a new one. <code>-no-qr</code> prints the code alone, and <code>-png FILE</code> also saves the QR code as an image.</p>
+        <div class="cmd" data-copy><code>portholed pair</code></div>
+        <p><b>On the phone.</b> Tap <b>Scan the QR</b>, or type the six digits, then <b>Pair</b>. Scanning fills in both the address and the code, so nothing is typed. The phone's own camera can open the QR code too: the app fills in the form and waits for you to press Pair. It never connects on a link's say-so.</p>
+        <p class="small muted">Scanning uses Google's code scanner from Play services; typing the code avoids it. See the <a href="/privacy">privacy policy</a>.</p>
+      </div>
+      <figure class="gs-f"><div class="pk-phone" data-screen="pair" aria-label="Pair with workstation: Scan the QR, or type the pairing code." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-pair.webp" width="380" height="820" alt="Pair with workstation."></noscript></div></figure>
+    </li>
+
+    <li class="gs-step" id="tour">
+      <div class="gs-t">
+        <h3>The tour, then your sessions</h3>
+        <p><b>On the phone.</b> Paired. A four-page tour shows the feed, approvals, the terminal and the failsafe, with a working example on each page; <b>Skip</b> goes straight to your sessions. The tour stays in Settings under Help, as How Porthole works.</p>
+      </div>
+      <figure class="gs-f"><div class="pk-phone" data-screen="tour" aria-label="How Porthole works: the tour's page about the feed." style="--pk-w:208px"><noscript><img class="pk-still-img" src="/assets/frames/screen-tour.webp" width="380" height="820" alt="How Porthole works."></noscript></div></figure>
+    </li>
+  </ol>
+
+  <h3>What the installer does</h3>
+  <div class="prose">
+    <ol>
+      <li>Checks for <code>tailscale</code> and <code>tmux</code> and stops if either is missing, looks for <code>claude</code>, and checks that Tailscale is connected.</li>
+      <li>Builds <code>portholed</code> with Go if Go is installed. Otherwise it downloads the binary from the latest release and refuses it unless it matches the release's <code>SHA256SUMS</code>. It installs to <code>~/.local/bin</code>.</li>
+      <li>Creates <code>~/.config/porthole</code> for the device list, published builds and captures, then installs and starts a systemd user service, <code>portholed.service</code>, enabled at login. The unit runs with <code>ProtectSystem=strict</code>; the only path it can write is that directory.</li>
+      <li>Checks whether lingering is on, and tells you the <code>loginctl</code> line if it is not.</li>
+      <li>Registers the PermissionRequest hook in <code>~/.claude/settings.json</code> (see <a href="#approvals">Approvals</a>). Undo it at any time with <code>portholed uninstall-hooks</code>.</li>
+    </ol>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Option</th><th scope="col">What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>--dry-run</code></td><td>Prints every action and changes nothing.</td></tr>
+        <tr><td><code>--prebuilt</code></td><td>Uses the release binary (Linux amd64 or arm64), checked against <code>SHA256SUMS</code>, even when Go is installed.</td></tr>
+        <tr><td><code>--no-hooks</code></td><td>Skips the Claude Code hook. Remote approvals stay off until you run <code>portholed install-hooks</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="revoke">Revoke a phone</h3>
+  <div class="prose">
+<pre><code>portholed devices          <span class="c"># who is paired, with an ID per device</span>
+portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live connection, at once</span></code></pre>
+    <p>Revoking works whether or not the phone cooperates. The phone shows <b>This device was revoked</b> and offers to pair again. <b>Unpair this phone</b> in Settings forgets the computer on the phone's side only; to cut the phone off from the computer's side as well, run <code>portholed revoke</code> there.</p>
+  </div>
+
+  <h3 id="computers">More than one computer</h3>
+  <div class="prose">
+    <p>Settings &rsaquo; Another computer &rsaquo; <b>Add a computer</b> pairs the phone with a second computer that runs portholed. Its sessions join the list, named after the computer they run on, and a computer that cannot be reached is kept apart from the rest. Each computer has its own pairing and is forgotten on its own.</p>
+  </div>
+</section>
+
+<!-- =========================================================== sessions -->
+<section class="d-sec" id="sessions">
+  <h2><a href="#sessions">Sessions</a></h2>
+  <div class="prose">
+    <p>The list shows every running Claude Code on the computer, one row per process, plus the most recent transcript in directories where nothing runs. It is sorted by attention: <strong>Needs you</strong> (a question waiting on you), then <strong>Live</strong> (working sessions first, with what each one is doing and for how long), then <strong>Recent</strong>.</p>
+  </div>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="sessions"><noscript><img class="pk-still-img" src="/assets/frames/sessions.webp" width="1160" height="811" alt="Three Claude Code sessions in tmux panes on the computer, and the phone's list with Needs you, Live and Recent."></noscript></div>
+  </div>
+  <div class="prose">
+    <p>Each live row names its tmux session, so two sessions in the same directory stay apart. Sessions are identified by the process that writes each transcript (Claude Code keeps a registry of them), so a second Claude started in the same folder is a second row with its own feed, never a merge. A session's feed follows only its own restart in the same tmux pane.</p>
+    <p>The ring on each row is honest state: a closed ring is live, a turning ring is working, an amber ring is waiting on you, a dim ring is idle. The ring in the header is the connection to the computer: connected, reconnecting, or dropped. Nothing pulses to look alive. A dot beside a title marks a session that did something since you last opened it.</p>
+    <p>The timer on a working row counts the whole turn, not the current tool call. A local command such as <code>/model</code>, <code>/effort</code> or a <code>!</code> shell command is not a turn, and does not make a session read as working.</p>
+  </div>
+  <h3 id="widget">Widget and quick tile</h3>
+  <div class="prose">
+    <p>A home-screen widget lists the sessions and what each one is doing; a quick-settings tile shows the count. Both say how old their view is when the app is not connected, and neither claims to be connected once the app's process has been gone for more than a couple of minutes. Settings &rsaquo; Home screen adds the widget; the tile is in the quick-settings edit list, under Porthole.</p>
+  </div>
+</section>
+
+<!-- =============================================================== feed -->
+<section class="d-sec" id="feed">
+  <h2><a href="#feed">The feed</a></h2>
+  <div class="prose">
+    <p>Open a session for its feed. Every row comes from a record in Claude Code's own transcript; a record that cannot be mapped is left out, never invented. Rows: your prompts (on the right), Claude's replies as rendered markdown, each tool call with a verb and its target (&ldquo;Ran npm test&rdquo;, &ldquo;Edited session.ts&rdquo;), each result with how long the call took, images Claude looked at or sent, and the CLI's own turn line. Long replies fold; tap to unfold. Tap a tool row for the full output, with Copy and Share.</p>
+  </div>
+  <div class="d-phones" role="group" aria-label="Two session screens" tabindex="0">
+    <figure>
+      <div class="pk-phone" data-screen="session" aria-label="A finished session: the prompt, tool calls with their durations, Claude's reply, the turn line and the quick replies."><noscript><img class="pk-still-img" src="/assets/frames/screen-session.webp" width="380" height="820" alt="A finished session."></noscript></div>
+      <figcaption>A finished turn, with quick replies above the composer.</figcaption>
+    </figure>
+    <figure>
+      <div class="pk-phone" data-screen="session-working" aria-label="A session at work: the working strip with its timer and Interrupt."><noscript><img class="pk-still-img" src="/assets/frames/screen-session-working.webp" width="380" height="820" alt="A session at work."></noscript></div>
+      <figcaption>While Claude works: the working strip, and Interrupt.</figcaption>
+    </figure>
+  </div>
+  <div class="prose">
+    <ul>
+      <li><strong>Working strip.</strong> While a turn runs: the CLI's own working line, elapsed time, tokens, and an Interrupt button (Esc).</li>
+      <li><strong>Earlier.</strong> The feed opens with the last sixty rows; the pill at the top loads more without losing your place.</li>
+      <li><strong>New below.</strong> If you scrolled up while rows arrived, a pill counts them; tap it to jump.</li>
+      <li><strong>Since you left.</strong> A session that ran on without you opens on a line across the feed; see <a href="#since">Since you left</a>.</li>
+      <li><strong>Sending.</strong> Type, tap the slash button for Claude Code's commands with their descriptions, or attach a photo. The keyboard's send key submits. Prompts are typed into the session's tmux pane exactly as written.</li>
+      <li><strong>Quick replies.</strong> When Claude is idle and nothing is being asked, a row of one-tap sends sits above the composer: Continue, Yes, No, Looks good. The pencil edits the four.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================== since -->
+<section class="d-sec" id="since">
+  <h2><a href="#since">Since you left</a></h2>
+  <div class="d-split">
+    <div class="prose">
+      <p>In the list, a dot beside a title marks a session with activity you have not seen. Open it, and a session that ran on while you were away lands on a line across the feed: <b>3 turns since you left &middot; 4h ago</b>. The line sits above the first row that arrived after your last visit, so everything below it happened while you were gone, in order.</p>
+      <p>With three or more new rows, the feed opens on the line rather than at the bottom. A turn that is still running is not counted yet; until it ends, the line says <b>Since you left</b>.</p>
+      <p>When you last opened each session is kept on the phone, and only there.</p>
+      <p>The model chip in the header opens <a href="#details">Session details</a>, which is also where a session is <a href="#mute">muted</a>.</p>
+    </div>
+    <div class="d-side">
+      <div class="pk-scene" data-scene="since"><noscript><img class="pk-still-img" src="/assets/frames/since.webp" width="407" height="777" alt="A session opened on the line: 3 turns since you left, 4h ago."></noscript></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================== questions -->
+<section class="d-sec" id="questions">
+  <h2><a href="#questions">Questions, answered by tap</a></h2>
+  <div class="prose">
+    <p>When Claude Code asks you to choose (its AskUserQuestion tool), the picker on the computer's screen appears on the phone as a card above the composer, with every option, its description, and the picker's own &ldquo;Type something&rdquo;. The card is read off the live tmux screen, so it shows what the picker shows. Tap an option and the daemon presses that number in the picker.</p>
+  </div>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="question"><noscript><img class="pk-still-img" src="/assets/frames/question.webp" width="1160" height="811" alt="Claude Code in tmux asks which theme new users should get; the same question is on the phone, and a tap on option 2 answers it."></noscript></div>
+  </div>
+  <div class="prose">
+    <p>Multi-select questions show ticks that move as you toggle, then Next. Several questions in one call walk through in order and end on the CLI's review screen, where &ldquo;Submit answers&rdquo; is one more tap. A tap after you answered at the desk is refused, not typed into the prompt.</p>
+    <p>The session sorts under <strong>Needs you</strong> the moment a picker is up, and a notification says what is being asked. The feed keeps the question and your answer as history: &ldquo;Claude asked &hellip;&rdquo;, then &ldquo;Answered: Always light&rdquo;.</p>
+  </div>
+</section>
+
+<!-- ========================================================== approvals -->
+<section class="d-sec" id="approvals">
+  <h2><a href="#approvals">Approvals</a></h2>
+  <div class="prose">
+    <p>When Claude Code asks permission to run a tool, the request reaches the phone as a card over the session: what Claude wants to do, the command in full exactly as it will run, the directory, and how long is left. <b>Allow</b> or <b>Deny</b>. Nothing is ever approved on your behalf, and there is no &ldquo;always allow&rdquo;: a request the phone does not answer within 90 seconds falls back to the prompt at the desk.</p>
+  </div>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="approval"><noscript><img class="pk-still-img" src="/assets/frames/approval.webp" width="1160" height="811" alt="Claude Code waits on a permission prompt for npm publish on the computer; the phone shows the approval card with Deny and Allow."></noscript></div>
+  </div>
+  <div class="prose">
+    <p>This needs the hook. <code>portholed install-hooks</code> adds a PermissionRequest hook to your Claude Code settings (<code>~/.claude/settings.json</code>), keeping whatever is already there; <code>portholed uninstall-hooks</code> removes exactly that entry. The installer registers it unless you pass <code>--no-hooks</code>.</p>
+    <p>The hook fails open: if the daemon is down, Claude Code behaves as if the hook were not there. If you run Claude Code with permissions bypassed, there is nothing to approve and the hook is idle.</p>
+  </div>
+</section>
+
+<!-- =========================================================== terminal -->
+<section class="d-sec" id="terminal">
+  <h2><a href="#terminal">The terminal</a></h2>
+  <div class="prose">
+    <p>Not a chat box pretending. The Terminal tab is a VT100/xterm emulator attached to the session's tmux window, showing the same screen you would see at the desk, at the desk's own width: vim and btop look like vim and btop. The phone's view is a mirror in the same tmux session group, so opening it never resizes the window on the computer.</p>
+  </div>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="terminal"><noscript><img class="pk-still-img" src="/assets/frames/terminal.webp" width="1160" height="811" alt="Claude Code in tmux on the computer and the phone's Terminal tab showing the same window, with the key row."></noscript></div>
+  </div>
+  <div class="prose">
+    <p>The key row is built for Claude Code rather than for a generic server: <kbd>Esc</kbd>, <kbd>Tab</kbd>, <kbd>⇧Tab</kbd> (permission modes), <kbd>Ctrl</kbd>, <kbd>Alt</kbd>, <kbd>^C</kbd>, the <kbd>/</kbd>, <kbd>@</kbd> and <kbd>!</kbd> menus, the arrows, <kbd>^B</kbd> (the tmux prefix), and a panel with Home, End, PgUp, PgDn, Del, F1 to F12, the symbols a phone keyboard hides, and the common Ctrl combinations. Modifiers are sticky: tap to arm for the next key, tap again to lock, tap again to clear. Armed and locked look different, so a locked Ctrl never surprises you.</p>
+    <p>Fit shrinks the whole window to the phone; minus and plus set the text size, and bigger text scrolls sideways rather than rewrapping. The default size is in Settings &rsaquo; Terminal. Tap the screen to raise the keyboard. Turn the phone sideways and a live session opens in the terminal, since landscape means you turned it to type.</p>
+    <p><b>Scrolling back.</b> Drag up or down with one finger to walk the window's history. It is tmux's own scrollback (copy mode), so the pane at the desk scrolls with it, as it would with a mouse wheel; a chip shows how far back you are and returns to the live screen, and typing returns there first. <b>Full screen</b> (the corner button) hides the header and the system bars; a swipe from the edge shows them, and Back leaves full screen. When the window is resized at the desk, the phone's grid follows within a couple of seconds.</p>
+  </div>
+</section>
+
+<!-- ============================================================ changes -->
+<section class="d-sec" id="changes">
+  <h2><a href="#changes">Changes</a></h2>
+  <div class="d-split">
+    <div class="prose">
+      <p>The Changes icon in a session's header opens what git sees in the session's directory: every changed file with its status (new, modified, deleted, renamed) and its added and removed line counts. Tap a file for its diff against the last commit, line by line, additions and removals tinted, with sideways scrolling for long lines. Untracked files show as additions; renames are paired with their old path.</p>
+      <p>The list is fetched when you open it and when you refresh it, never on a timer.</p>
+      <p>The daemon runs only read-only git commands (<code>status</code>, <code>diff</code>, <code>rev-parse</code>), only in a listed session's directory, and bounds the output (80 files, 96 KB per file), so a stray 64 MB log costs nothing. A failure is reported as a failure, not as a clean tree.</p>
+    </div>
+    <div class="d-side">
+      <div class="pk-scene" data-scene="changes"><noscript><img class="pk-still-img" src="/assets/frames/changes.webp" width="407" height="777" alt="The Changes sheet over a finished session: six files with lines added and removed."></noscript></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ details -->
+<section class="d-sec" id="details">
+  <h2><a href="#details">Session details and switches</a></h2>
+  <div class="prose">
+    <p>The chip in a session's header shows the model and how full the context is, such as <b class="nw">Opus 5 &middot; 6%</b>. Tap it for Session details; when the header has no chip yet, the <em>i</em> opens the same sheet. From the top:</p>
+    <ul>
+      <li>the model and the permission mode;</li>
+      <li>the context window: what the last request carried, out of the model's window;</li>
+      <li>tokens this session: input, output, thinking, cache read and cache written;</li>
+      <li>when Claude Code has written its own accounting: the API-equivalent cost and time, and lines added and removed;</li>
+      <li>activity: turns, your prompts, replies, tool calls, and the tools used most;</li>
+      <li>when the session started and last did something;</li>
+      <li>the switches, this session's notifications, and one-tap <code>/cost</code>, <code>/context</code>, <code>/status</code> and <code>/usage</code>, which open in the Terminal view where the CLI prints its answer.</li>
+    </ul>
+  </div>
+  <div class="d-phones" role="group" aria-label="Two views of Session details" tabindex="0">
+    <figure>
+      <div class="pk-phone" data-screen="details" aria-label="Session details at the top: the model and mode chips, the context window, tokens and activity."><noscript><img class="pk-still-img" src="/assets/frames/screen-details.webp" width="380" height="820" alt="Session details at the top."></noscript></div>
+      <figcaption>The top of the sheet.</figcaption>
+    </figure>
+    <figure>
+      <div class="pk-phone" data-screen="details-switches" aria-label="Session details scrolled to the model, effort and permission switches and the notifications switch."><noscript><img class="pk-still-img" src="/assets/frames/screen-details-switches.webp" width="380" height="820" alt="Session details at the switches."></noscript></div>
+      <figcaption>Switches, and this session's notifications.</figcaption>
+    </figure>
+  </div>
+  <div class="prose">
+    <p>The switches type the CLI's own commands or press its keys:</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Switch</th><th scope="col">What a tap does</th><th scope="col">Where the current value comes from</th></tr></thead>
+      <tbody>
+        <tr><td>Model</td><td><code>/model fable</code>, <code>opus</code>, <code>sonnet</code> or <code>haiku</code></td><td>the latest reply in the transcript</td></tr>
+        <tr><td>Effort</td><td><code>/effort low</code>, <code>medium</code>, <code>high</code> or <code>xhigh</code></td><td>the CLI's own effort line, shown after a turn; before that, the saved default, and the row says so</td></tr>
+        <tr><td>Permissions</td><td>Shift-Tab, which cycles bypass &rarr; auto &rarr; manual &rarr; accept edits &rarr; plan</td><td>the CLI's bottom line</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>The highlight follows the CLI's confirmation, not the tap. Model and effort changes also become your defaults for new sessions, because the CLI saves them; the sheet says so under the switches.</p>
+  </div>
+</section>
+
+<!-- ============================================================== start -->
+<section class="d-sec" id="start">
+  <h2><a href="#start">Start and resume from the phone</a></h2>
+  <div class="prose">
+    <p>A session whose Claude Code has stopped shows a card with two choices. <strong>Resume</strong> continues that transcript; <strong>New session</strong> starts fresh in the same directory. The daemon uses the tmux window that already sits in that directory when it holds an idle shell, and opens a new window there otherwise; it never types into a window running something else. Only directories that already hold a transcript are offered: the phone names a session, never a path.</p>
+  </div>
+</section>
+
+<!-- ====================================================== notifications -->
+<section class="d-sec" id="notifications">
+  <h2><a href="#notifications">Notifications</a></h2>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="notify"><noscript><img class="pk-still-img" src="/assets/frames/notify.webp" width="1160" height="811" alt="Three Claude Code sessions in tmux, and Porthole's notifications in the phone's shade: a question, a finished turn with Reply, and a working timer."></noscript></div>
+  </div>
+  <div class="prose">
+    <ul>
+      <li><strong>Working.</strong> While a turn runs in a session you are not looking at: an ongoing notification with a running timer and what the session is doing, promoted to the status bar where Android allows it.</li>
+      <li><strong>Done.</strong> When the turn ends: &ldquo;Done &middot; worked for 4m 12s&rdquo;, with <strong>Reply</strong>, which sends the session's next prompt from the shade without opening the app.</li>
+      <li><strong>Asking you.</strong> The moment Claude asks a question: a high-priority notification with the question. It clears when the question is answered.</li>
+      <li><strong>Usage limit.</strong> When the CLI reports a limit, with what it says it will do next. A usage limit that stops a task is always announced.</li>
+      <li><strong>Your computer is back.</strong> After the connection was down for two minutes or more, when the computer answers again and the app is not on screen.</li>
+    </ul>
+    <p>None of them are posted for the session on screen. Settings &rsaquo; Notifications turns the working and done notifications off; questions ring whenever Android allows Porthole's notifications at all. To silence one session instead, <a href="#mute">mute it</a>.</p>
+    <p>Settings &rsaquo; While you are away says whether Android's battery optimisation can cut Porthole's connection while the phone is idle, which is when notifications stop arriving, and opens the battery settings to exempt it.</p>
+  </div>
+</section>
+
+<!-- =============================================================== mute -->
+<section class="d-sec" id="mute">
+  <h2><a href="#mute">Mute a session</a></h2>
+  <div class="d-split">
+    <div class="prose">
+      <p>A loop that finishes a turn every four minutes trains you to ignore the status bar. Open that session's details and turn off <b>Tell me about this session</b>. It goes silent: no working timer, no finished turn, no question waiting. It stays in the list and in Needs you, because hiding it would be a different thing. Anything it had already posted is withdrawn.</p>
+      <p>Muting is per session and kept on the phone. Settings &rsaquo; Notifications says how many sessions are muted, and <b>Unmute all</b> turns them all back on in one tap.</p>
+    </div>
+    <div class="d-side">
+      <div class="pk-scene" data-scene="since" data-step="4"><noscript><img class="pk-still-img" src="/assets/frames/screen-details-switches.webp" width="380" height="820" alt="Session details at the switches, with the notifications switch: Tell me about this session."></noscript></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ preview -->
+<section class="d-sec" id="preview">
+  <h2><a href="#preview">Preview a dev server</a></h2>
+  <div class="prose">
+    <p>The globe in a session's header lists what is listening on the computer's loopback, such as a Vite or Next dev server or a docs server. Pick one and the daemon shares it through a proxy bound to the tailnet address, gated like everything else, and the phone's browser opens it. Links to <code>localhost:PORT</code> in Claude's replies open the same way. Stop the share from the same sheet; a share whose server has exited closes itself.</p>
+  </div>
+</section>
+
+<!-- ============================================================ capture -->
+<section class="d-sec" id="capture">
+  <h2><a href="#capture">Screen capture</a></h2>
+  <div class="prose">
+    <p>On Wayland computers with <code>grim</code>, the camera in a session's header takes a screenshot of the desktop, which lands in the feed as a row, or watches the screen with a new frame every two seconds. With <code>wf-recorder</code> it also records a 5 or 10 second clip. Only when you ask, and the Authorize screen says so. Captures are kept under <code>~/.config/porthole</code> on the computer.</p>
+  </div>
+</section>
+
+<!-- ============================================================= themes -->
+<section class="d-sec" id="themes">
+  <h2><a href="#themes">Themes</a></h2>
+  <div class="prose">
+    <p>Three, in Settings &rsaquo; Appearance: Porthole's own dark palette, the default and the one on this page; a Claude look, light and dark, with a serif for Claude's replies; and a Gemini look, light and dark. The app follows the system's light or dark setting unless you pin one. In the terminal, set Claude Code's own <code>/theme</code> to match.</p>
+  </div>
+</section>
+
+<!-- ============================================================= builds -->
+<section class="d-sec" id="builds">
+  <h2><a href="#builds">Builds from your projects</a></h2>
+  <div class="prose">
+    <p>If Claude Code is building an Android app on your computer, you can put each build on your phone without a cable or a file transfer. Publish it on the computer and Porthole offers it with an install banner.</p>
+  </div>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="builds"><noscript><img class="pk-still-img" src="/assets/frames/builds.webp" width="1160" height="811" alt="portholed publish on the computer, and the phone offering Shopping list 1.4.0 from its banner."></noscript></div>
+  </div>
+
+  <h3 id="publish">Publish a build</h3>
+  <div class="prose">
+    <div class="cmd" data-copy><code>portholed publish app/build/outputs/apk/release/app-release.apk 1.4.0 shopping-list</code></div>
+    <p>Three arguments: the APK, its version (dotted numbers, like <code>1.4.0</code>), and the app's name as a lowercase slug. The slug becomes the name on the phone: <code>shopping-list</code> shows as Shopping list.</p>
+<pre class="d-out"><code>published Shopping list 1.4.0 as shopping-list-1.4.0.apk (8421376 bytes) to ~/.config/porthole/builds
+paired phones will offer it on their next connection
+or in the phone's browser: http://192.0.2.10:8737/builds/</code></pre>
+    <p>It is an ordinary command, so Claude Code can run it as the last step of a build. To make that a habit, say so in the project's <code>CLAUDE.md</code>, for example: &ldquo;After a release build, run portholed publish with the APK, the versionName and shopping-list.&rdquo; When <code>aapt2</code> is on the PATH or in an Android SDK, publish also reads the APK's own version and warns if it differs from the one you typed.</p>
+  </div>
+
+  <h3 id="install-banner">The install banner</h3>
+  <div class="prose">
+    <p>The phone learns about builds when it connects to the computer. On its next connection it shows a banner above the session list, <b>Shopping list 1.4.0 is on the computer</b>, with <b>Not now</b> and <b>Install</b>. The line under the title says what happens next: it downloads from your computer, then Android asks to install or update it.</p>
+    <p><b>Install</b> downloads the APK from your computer over your tailnet, behind the same pairing gate as everything else, with its progress on the banner, then hands it to Android's installer. The newest build of each app is offered once: after you install it, or tap Not now, the banner stays away until a newer version is published.</p>
+  </div>
+  <div class="d-phones" role="group" aria-label="The install banner and Android's installer" tabindex="0">
+    <figure>
+      <div class="pk-phone" data-screen="banner-build" aria-label="The sessions list with the banner: Shopping list 1.4.0 is on the computer, Not now, Install."><noscript><img class="pk-still-img" src="/assets/frames/screen-banner-build.webp" width="380" height="820" alt="The banner: Shopping list 1.4.0 is on the computer."></noscript></div>
+      <figcaption>The banner, above your sessions.</figcaption>
+    </figure>
+    <figure>
+      <div class="pk-phone" data-screen="install" aria-label="Android's installer asking whether to install Shopping list."><noscript><img class="pk-still-img" src="/assets/frames/screen-install.webp" width="380" height="820" alt="Android's installer asking whether to install Shopping list."></noscript></div>
+      <figcaption>Android asks before every install.</figcaption>
+    </figure>
+    <figure>
+      <div class="pk-phone" data-screen="settings" aria-label="Settings: the computer, Updates, Another computer, and Other apps on the computer with Shopping list and Install."><noscript><img class="pk-still-img" src="/assets/frames/screen-settings.webp" width="380" height="820" alt="Settings, with Other apps on the computer."></noscript></div>
+      <figcaption>Settings keeps every published app one tap away.</figcaption>
+    </figure>
+  </div>
+
+  <h3 id="unknown-apps">Android's one-time permission</h3>
+  <div class="prose">
+    <p>The first time you tap Install, Android has not yet allowed Porthole to install apps. Porthole opens that setting (Install unknown apps) and the banner says &ldquo;Allow Porthole to install apps, then tap again.&rdquo; Allow it, come back, and tap Install again. That permission is asked once. Android's installer still asks before every install or update, so nothing installs silently.</p>
+    <p>Android installs an update only when the new APK is signed with the same key as the version on the phone. A debug build cannot update a release build of the same app; uninstall one first.</p>
+  </div>
+
+  <h3 id="other-apps">Other apps on the computer</h3>
+  <div class="prose">
+    <p>Every app with a published build is listed under Settings &rsaquo; <b>Other apps on the computer</b>, with its version, its size and <b>Install</b>, so a build you put away is still one tap from the phone.</p>
+    <p>A browser on a paired phone can also open <code>http://&lt;computer&gt;:8737/builds/</code>, a plain page listing every published build with Download. It is gated like everything else; any other device gets &ldquo;this device is not paired with portholed&rdquo;.</p>
+  </div>
+  <div class="note"><strong>Porthole itself is not offered this way.</strong> Its own new versions come from GitHub releases; see <a href="#updates">Updates</a>. A paired computer can offer the phone any APK, and Android asks you each time, so pair only computers you control.</div>
+</section>
+
+<!-- ============================================================ updates -->
+<section class="d-sec" id="updates">
+  <h2><a href="#updates">Updates</a></h2>
+  <div class="d-split">
+    <div class="prose">
+      <p>Porthole updates from its GitHub releases.</p>
+      <p><b>The check.</b> At most once a day, when the app opens or comes back to the screen, and whenever you tap <b>Check now</b>, the app asks <code>api.github.com</code> for the latest release of ShrimpScript/porthole. It is one unauthenticated request. It carries nothing about you, the phone or your computer beyond what any web request carries: your IP address reaches GitHub, as it does when you open any web page. Drafts and pre-releases are never offered.</p>
+      <p><b>The banner.</b> When the release is newer than the app, the list shows <b>Porthole 0.27.0 is out</b> with <b>Not now</b> and <b>Update</b>, and under the title the version you have and where the download comes from.</p>
+      <p><b>The download.</b> Update downloads <code>porthole.apk</code> from the release over HTTPS, from GitHub only: a redirect to any other host, or down to plain HTTP, is refused. Then Android's installer asks you. Android installs the update only if it is signed with the same key as the app you have, so a substituted APK is refused whatever its source.</p>
+      <p><b>The switch.</b> Settings &rsaquo; Updates &rsaquo; <b>Check GitHub for new versions</b> turns the check off. The same section shows your version and what the last check found.</p>
+      <p><b>Store builds.</b> A build of the app made for a store has the check compiled out and updates through the store. There is no store listing yet.</p>
+    </div>
+    <div class="d-side">
+      <div class="pk-scene" data-scene="update"><noscript><img class="pk-still-img" src="/assets/frames/update.webp" width="407" height="777" alt="The sessions list with the banner: Porthole 0.27.0 is out."></noscript></div>
+    </div>
+  </div>
+
+  <h3 id="update-daemon">Updating the daemon</h3>
+  <div class="prose">
+    <p>The daemon does not update itself. In the clone, pull and run the installer again; it rebuilds with Go when Go is installed (add <code>--prebuilt</code> for the release binary), then restart the service so the new binary is the one running:</p>
+    <div class="cmd" data-copy><code>git pull</code></div>
+    <div class="cmd" data-copy><code>./tools/install.sh</code></div>
+    <div class="cmd" data-copy><code>systemctl --user restart portholed</code></div>
+    <p>If the computer runs a newer portholed than the app understands, the app says <b>workstation runs a newer Porthole</b>; update the app from Settings &rsaquo; Updates.</p>
+  </div>
+</section>
+
+<!-- =========================================================== failsafe -->
+<section class="d-sec" id="failsafe">
+  <h2><a href="#failsafe">The failsafe</a></h2>
+  <div class="prose">
+    <p>If the daemon stops answering, the app says so: <b>Can't reach workstation</b>, with Retry, <b>Open terminal anyway</b> and <b>Restart the daemon over SSH</b>. While it keeps retrying on its own the card says that too, and it clears itself when the computer answers. The two SSH buttons go over Tailscale SSH, which does not depend on Porthole running. Restart runs <code>systemctl --user restart portholed</code> for you and reconnects. Recovery does not require walking back to the desk.</p>
+  </div>
+  <div class="d-fig">
+    <div class="pk-scene" data-scene="failsafe"><noscript><img class="pk-still-img" src="/assets/frames/failsafe.webp" width="1160" height="811" alt="The daemon's log on the computer, and the phone's failure card offering a restart over SSH."></noscript></div>
+  </div>
+  <div class="d-split">
+    <div class="prose">
+      <p id="failsafe-settings">The same shell is in Settings &rsaquo; <b>If Porthole cannot connect</b> &rsaquo; <b>Open a shell over SSH</b>, so it can be tried while the computer is still in the room. Before a trip that is worth one tap: a login that works at home works from anywhere on the tailnet, and the moment the daemon is down is the wrong time to find out that SSH was never enabled.</p>
+      <p>It needs Tailscale SSH on the computer (<code>tailscale up --ssh</code>, or <code>tailscale set --ssh</code>) and a rule in your tailnet's access controls that allows it. <code>portholed doctor</code> reports it on its <code>ssh failsafe</code> line. If the rule is set to &ldquo;check&rdquo;, Tailscale asks for a browser sign-in every 12 hours and the app tells you; setting the rule to &ldquo;accept&rdquo; removes that.</p>
+      <p>The shell is your login shell, sized to the phone and following rotation and the keyboard, with its own scrollback (drag to scroll) and a full-screen mode. It runs with <code>PORTHOLE_FAILSAFE=1</code> set: if your shell profile attaches to tmux (or anything else) on every SSH login, skip that when the variable is set, so the failsafe stays a plain shell.</p>
+      <p>After a drop of two minutes or more, the app tells you when the computer answers again, so a phone in a pocket does not have to be checked.</p>
+    </div>
+    <div class="d-side">
+      <figure style="margin:0">
+        <div class="pk-phone" data-screen="settings-away" style="--pk-w:300px" aria-label="Settings: While you are away, and If Porthole cannot connect with Open a shell over SSH."><noscript><img class="pk-still-img" src="/assets/frames/screen-settings-away.webp" width="380" height="820" alt="Settings: If Porthole cannot connect, Open a shell over SSH."></noscript></div>
+        <figcaption>The shell from Settings, before anything breaks.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== troubleshoot -->
+<section class="d-sec" id="trouble">
+  <h2><a href="#trouble">Troubleshooting</a></h2>
+  <div class="table-wrap">
+    <table class="t3">
+      <thead><tr><th scope="col">What you see</th><th scope="col">What it means</th><th scope="col">What to do</th></tr></thead>
+      <tbody>
+        <tr><td>&ldquo;Can't reach workstation&rdquo;</td><td>The daemon is not answering on the tailnet address. Tailscale may be off, the computer asleep, or portholed stopped.</td><td><code>portholed doctor</code> at the desk, or Restart the daemon over SSH from the card (see <a href="#failsafe">The failsafe</a>).</td></tr>
+        <tr><td>&ldquo;Not recognised on the tailnet&rdquo;</td><td>The daemon could not identify this phone through Tailscale.</td><td>Check that Tailscale is connected on the phone and that both devices are on the same tailnet.</td></tr>
+        <tr><td>&ldquo;That code didn't work&rdquo;</td><td>The pairing code was wrong or has expired.</td><td>Run <code>portholed pair</code> again for a new one.</td></tr>
+        <tr><td>&ldquo;This device was revoked&rdquo;</td><td>The computer removed this phone.</td><td><code>portholed pair</code> again.</td></tr>
+        <tr><td>&ldquo;Tailscale wants you to sign in again&rdquo;</td><td>The tailnet's SSH rule is set to &ldquo;check&rdquo;.</td><td>Sign in, or set the rule to &ldquo;accept&rdquo; in the Tailscale admin console.</td></tr>
+        <tr><td>&ldquo;workstation runs a newer Porthole&rdquo;</td><td>The daemon is newer than the app.</td><td>Settings &rsaquo; Updates &rsaquo; Check now.</td></tr>
+        <tr><td>&ldquo;Claude Code isn't running here&rdquo;</td><td>The session's transcript exists, but no Claude process is writing it.</td><td>Resume or New session on the card, or start it at the desk inside tmux.</td></tr>
+        <tr><td>&ldquo;This session is not in tmux&rdquo;</td><td>Claude Code runs outside tmux: it can be watched, not typed to.</td><td>Start it with <code>porthole</code> instead of <code>claude</code> next time; <code>portholed doctor</code> lists sessions outside tmux.</td></tr>
+        <tr><td>Two sessions in one folder look merged</td><td>An older Claude Code without a session registry.</td><td>Update Claude Code; the registry (<code>~/.claude/sessions</code>) is what tells them apart.</td></tr>
+        <tr><td>No question card, though the terminal shows a picker</td><td>The screen read failed, or the pane is not the registered one.</td><td>Check that <code>portholed sessions</code> shows the session as live.</td></tr>
+        <tr><td>&ldquo;Claude is not asking anything right now&rdquo;</td><td>You tapped after the picker was answered at the desk.</td><td>Nothing; the tap was refused rather than typed.</td></tr>
+        <tr><td>Approvals never reach the phone</td><td>The hook is not registered, or Claude Code runs with permissions bypassed.</td><td><code>portholed install-hooks</code>; check <code>portholed status</code>.</td></tr>
+        <tr><td>The phone goes quiet while it is idle</td><td>Android's battery optimisation cut the connection.</td><td>Settings &rsaquo; While you are away &rsaquo; Open battery settings.</td></tr>
+        <tr><td>Nothing after you log out, or after a reboot</td><td>Lingering is off, so the user service stops with your session.</td><td><code>sudo loginctl enable-linger $USER</code></td></tr>
+        <tr><td>No banner after <code>portholed publish</code></td><td>The phone learns about builds when it connects, so a build published while it was connected arrives with its next connection. Each version is offered once.</td><td>Open <code>http://&lt;computer&gt;:8737/builds/</code> in the phone's browser to get it now, or install it later from Settings &rsaquo; Other apps on the computer.</td></tr>
+        <tr><td>Android will not install a build</td><td>It is signed with a different key than the version on the phone.</td><td>Uninstall the app on the phone first, then install the build.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================ cli -->
+<section class="d-sec" id="cli">
+  <h2><a href="#cli">portholed commands</a></h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>porthole [ARGS]</code></td><td>Starts Claude Code inside tmux, where the phone can reach it: a session named after the folder, or the one already open there. ARGS go to <code>claude</code>. The same program as <code>portholed</code> (install.sh links the name); <code>portholed claude</code> does the same.</td></tr>
+        <tr><td><code>portholed serve</code></td><td>Runs the daemon, bound to the tailnet addresses only. The user service does this. <code>-port</code> sets the port (8737); <code>-v</code> logs more.</td></tr>
+        <tr><td><code>portholed pair</code></td><td>Prints a single-use 6-digit code and its QR code for a new phone. <code>-no-qr</code> prints the code alone; <code>-png FILE</code> also writes the QR code to a file.</td></tr>
+        <tr><td><code>portholed devices</code></td><td>Lists paired devices: name, tailnet user, when paired, last seen, live connections, and the ID.</td></tr>
+        <tr><td><code>portholed revoke ID</code></td><td>Removes a device and drops its live connections at once.</td></tr>
+        <tr><td><code>portholed status</code></td><td>The daemon's version, paired and connected devices, and whether the approval hook is registered.</td></tr>
+        <tr><td><code>portholed doctor</code></td><td>Checks everything a phone needs on this computer, one line each: tmux, Tailscale, key expiry, SSH, lingering, sleep, disk, Claude Code, sessions, git, capture, the daemon, the service, the hook and builds. Exits with an error if anything failed.</td></tr>
+        <tr><td><code>portholed sessions</code></td><td>Lists Claude Code sessions as the phone will see them. It reads the files directly, so it works while the daemon is down.</td></tr>
+        <tr><td><code>portholed publish APK VERSION APP</code></td><td>Offers a build of an Android app you are working on to paired phones (see <a href="#builds">Builds</a>).</td></tr>
+        <tr><td><code>portholed install-hooks</code></td><td>Registers the PermissionRequest hook in <code>~/.claude/settings.json</code>, keeping everything else in it.</td></tr>
+        <tr><td><code>portholed uninstall-hooks</code></td><td>Removes exactly that hook again.</td></tr>
+        <tr><td><code>portholed replay FILE</code></td><td>Maps a transcript to feed rows, for checking what the phone would show. <code>-feed</code> prints the rows, <code>-json</code> the counts, <code>-limit N</code> only the last N.</td></tr>
+        <tr><td><code>portholed hook</code></td><td>Run by Claude Code when it asks permission; not for you to run.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =========================================================== security -->
+<section class="d-sec" id="security">
+  <h2><a href="#security">Security and privacy</a></h2>
+  <div class="prose">
+    <ul>
+      <li><strong>No LAN, ever.</strong> The daemon binds the computer's tailnet addresses only. The LAN address and localhost refuse the connection.</li>
+      <li><strong>Two gates.</strong> Every connection is identified through tailscaled's WhoIs (which node, which user), and the node must also be on the paired-device list, which only a code shown on the computer can add to. Codes are single-use, expire after five minutes, and allow a limited number of attempts.</li>
+      <li><strong>No browsers.</strong> Any WebSocket request carrying an Origin header is refused, so a web page open on a paired phone cannot drive the daemon.</li>
+      <li><strong>Read-only where it can be.</strong> Discovery reads transcripts and Claude Code's own registry; Changes runs read-only git; captures run only when you ask.</li>
+      <li><strong>Hooks fail open.</strong> A hung daemon never stalls Claude Code at the desk, and a timed-out approval is never an allow.</li>
+      <li><strong>Installs go through Android.</strong> Porthole's updates come from GitHub releases over HTTPS and must be signed with the same key; builds of your projects come from your paired computer. Android asks before every install.</li>
+      <li><strong>No telemetry.</strong> No account, no backend, no analytics. The only place the app reaches besides your computer is GitHub, for its own updates, and that check can be turned off.</li>
+    </ul>
+    <p>The full statements are the <a href="/privacy">privacy policy</a> and <a href="https://github.com/ShrimpScript/porthole/blob/main/SECURITY.md">SECURITY.md</a>, which also says how to report a vulnerability privately.</p>
+  </div>
+</section>
+
+</article>
+</div>
+</main>
+
+<footer class="site-f">
+  <div class="wrap">
+    <div class="site-f-top">
+      <a class="brand" href="/" aria-label="Porthole home">P<svg class="brand-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/ShrimpScript/porthole">GitHub</a>
+        <a href="https://github.com/ShrimpScript/porthole/releases/latest">Releases</a>
+      </nav>
+    </div>
+    <p class="by">Published by ShrimpScript.</p>
+    <p class="tm">Porthole is an independent project and is not affiliated with or endorsed by Anthropic or Tailscale. Claude and Claude Code are trademarks of Anthropic, PBC; Tailscale is a trademark of Tailscale Inc.</p>
+  </div>
+</footer>
+<script>
+// The section being read: marked in the sidebar and named in the phone menu, which closes on a pick.
+(()=>{const L=[...document.querySelectorAll('.toc-list a')],m=document.querySelector('.toc-m'),c=document.querySelector('.toc-cur');
+m.addEventListener('click',e=>{if(e.target.closest('a'))m.open=false});
+if(!window.IntersectionObserver)return;
+const io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){const h='#'+e.target.id;let t='';for(const a of L){const on=a.getAttribute('href')==h;on?a.setAttribute('aria-current','location'):a.removeAttribute('aria-current');if(on)t=a.textContent}c.textContent=t}},{rootMargin:'-30% 0px -65% 0px'});
+document.querySelectorAll('.d-sec').forEach(s=>io.observe(s))})();
+</script>
+</body>
+</html>
