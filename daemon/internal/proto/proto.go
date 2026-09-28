@@ -22,11 +22,11 @@ const (
 	TypePTYClosed         = "pty.closed"
 	TypePTYSize           = "pty.size"
 	TypeError             = "error"
-	TypeImageData         = "image.data" // bytes for an image row, or a fresh capture
-	TypeClipData          = "clip.data"  // a short screen recording
-	TypeChanges           = "changes"    // the answer to changes.get
+	TypeImageData         = "image.data"  // bytes for an image row, or a fresh capture
+	TypeClipData          = "clip.data"   // a short screen recording
+	TypeChanges           = "changes"     // the answer to changes.get
 	TypePromptSent        = "prompt.sent" // a prompt with files was typed; ref names its first upload
-	TypeFiles             = "files"      // the answer to files.get
+	TypeFiles             = "files"       // the answer to files.get
 )
 
 // Frame types, client -> server.

@@ -73,6 +73,21 @@ func nextError(t *testing.T, ctx context.Context, c *websocket.Conn) string {
 	}
 }
 
+// waitGone waits up to two seconds for nothing to match pattern.
+func waitGone(t *testing.T, pattern string) {
+	t.Helper()
+	for i := 0; ; i++ {
+		left, _ := filepath.Glob(pattern)
+		if len(left) == 0 {
+			return
+		}
+		if i == 100 {
+			t.Fatalf("still on disk: %v", left)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func sendJSON(t *testing.T, ctx context.Context, c *websocket.Conn, v any) {
 	t.Helper()
 	b, _ := json.Marshal(v)
@@ -154,9 +169,8 @@ func TestUploadInPiecesReachesThePrompt(t *testing.T) {
 	if e := nextErrorFrame(t, ctx, c); e.Code != "send_failed" || e.Ref != "u1" {
 		t.Fatalf("want send_failed about u1, got %+v", e)
 	}
-	if left, _ := filepath.Glob(filepath.Join(state, "uploads", "*", "*")); len(left) != 0 {
-		t.Fatalf("left on disk: %v", left)
-	}
+	// The refusal goes out first and the files right after it.
+	waitGone(t, filepath.Join(state, "uploads", "*", "*"))
 }
 
 // Photos from apps before 0.32.0 come inside the prompt, one message of hundreds of KB:
@@ -203,18 +217,13 @@ func TestUploadsThatGoWrong(t *testing.T) {
 	if e := nextErrorFrame(t, ctx, c); e.Code != "no_session" || e.Ref != "u2" {
 		t.Fatalf("a session that is not there: %+v", e)
 	}
-	if left, _ := filepath.Glob(filepath.Join(state, "uploads", "*", "*")); len(left) != 0 {
-		t.Fatalf("left after a refusal: %v", left)
-	}
+	waitGone(t, filepath.Join(state, "uploads", "*", "*"))
 
 	pieces(t, ctx, c, "u3", "c.txt", []byte("never used"))
 	sendJSON(t, ctx, c, map[string]any{"type": "upload.chunk", "upload": "u9", "seq": 1, "data": piece})
 	nextErrorFrame(t, ctx, c) // u3 is done by the time this arrives
 	c.Close(websocket.StatusNormalClosure, "")
-	time.Sleep(200 * time.Millisecond)
-	if left, _ := filepath.Glob(filepath.Join(state, "uploads", "*", "*")); len(left) != 0 {
-		t.Fatalf("left after the connection closed: %v", left)
-	}
+	waitGone(t, filepath.Join(state, "uploads", "*", "*"))
 }
 
 func TestTidyUploads(t *testing.T) {
