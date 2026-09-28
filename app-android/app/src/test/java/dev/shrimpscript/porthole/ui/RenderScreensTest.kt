@@ -392,6 +392,41 @@ class RenderScreensTest {
         val screen = rule.onRoot().fetchSemanticsNode().boundsInRoot
         assertTrue("the command runs off the card: ${text.width} of ${screen.width}", text.right <= screen.right && text.width < screen.width)
         save("approval-whole-command")
+        // The countdown as it runs, second by second, for the film that shows this card.
+        for (left in 46 downTo 45) {
+            rule.mainClock.advanceTimeBy(1000)
+            rule.waitForIdle()
+            rule.onNodeWithText("Waiting · ${left}s left").assertIsDisplayed()
+            save("approval-whole-command-$left")
+        }
+    }
+
+    /** The same session a moment after Allow: the card has gone and the turn runs on. */
+    @Test
+    fun approvalAllowedTheTurnRunsOn() {
+        val rows = listOf(
+            row("user", "Ship the release branch to main.", "2026-09-27T14:12:00Z"),
+            row("assistant", "The build passes. I'll move main to the release branch and push it.", "2026-09-27T14:13:10Z"),
+        )
+        rule.setContent {
+            PortholeTheme {
+                SessionScreen(
+                    title = "Release 2.4", branch = "release/2.4 · tmux 1", ring = RingState.Live, live = true,
+                    rows = rows, backfillCount = rows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+                    view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                    terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                    notice = null, onDismissNotice = {},
+                    // the allowed command is what runs now
+                    state = state(working = true).copy(pendingTool = "Bash", workingSince = java.time.Instant.now().minusSeconds(75).toString()),
+                    status = TuiStatus(working = true, text = "", elapsed = "", tokens = "", permissionMode = "", interruptible = true),
+                    caps = listOf("attach", "files"),
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Claude wants to run a command").assertDoesNotExist()
+        rule.onNodeWithText("Running Bash", substring = true).assertIsDisplayed()
+        save("approval-allowed")
     }
 
     private fun changesFixture(): ChangesState {

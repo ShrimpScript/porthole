@@ -1,0 +1,187 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Porthole - The engine room (film, 4:5)</title>
+<link rel="stylesheet" href="ads.css">
+<style>
+/* A 20-second film at 1080 x 1350, drawn by seek(t): the still of the cutaway (film-base.png, 2160 x
+   2700, rendered without its needles and lights) under a camera, with the moving parts drawn
+   over it from the render's map (film-base.png.json), and the phone seen through a porthole.
+   Muted first: the words are on screen, one line at a time. */
+html, body, .frame { width: 1080px; height: 1350px; }
+#world { position: absolute; left: 0; top: 0; width: 2160px; height: 2700px; transform-origin: 0 0; }
+#world > * { position: absolute; left: 0; top: 0; }
+.sea { width: 2160px; background: var(--sea); border-top: 2px solid var(--paper); }
+#iris { position: absolute; inset: 0; pointer-events: none; }
+#glass { position: absolute; inset: 0; background: var(--night); }
+#glass img { position: absolute; }
+#ripple { position: absolute; border-radius: 50%; background: rgba(5, 17, 15, 0.28); }
+.cap { position: absolute; left: var(--margin); top: 76px; font: 600 60px/1.02 "Schibsted Grotesk", sans-serif; letter-spacing: -0.025em; color: var(--paper); white-space: nowrap; }
+#fade { position: absolute; inset: 0; background: var(--night); }
+#end { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 26px; text-align: center; padding-inline: 72px; }
+#end .brand { font-size: 124px; }
+#end .line { font-size: 40px; line-height: 1.25; max-width: 15em; text-wrap: balance; }
+#end .url { font: 400 34px/1 "Iosevka Term", monospace; color: var(--quiet); margin-top: 22px; }
+</style>
+<div class="frame">
+  <div id="world">
+    <div class="sea" id="sea"></div>
+    <img src="renders/film-base.png" alt="">
+    <svg id="over" width="2160" height="2700" viewBox="0 0 2160 2700"></svg>
+  </div>
+  <svg id="iris" width="1080" height="1350" viewBox="0 0 1080 1350">
+    <defs><clipPath id="glassClip"><circle id="clipC" cx="540" cy="700" r="0"/></clipPath></defs>
+    <foreignObject x="0" y="0" width="1080" height="1350" clip-path="url(#glassClip)">
+      <div id="glass" xmlns="http://www.w3.org/1999/xhtml"><img class="ph" data-from="0" src="renders/phone-flat.png" alt=""><img class="ph" data-from="8.4" src="renders/phone-flat-46.png" alt=""><img class="ph" data-from="9.4" src="renders/phone-flat-45.png" alt=""><img class="ph" data-from="10.5" src="renders/phone-flat-allowed.png" alt=""><div id="ripple"></div></div>
+    </foreignObject>
+    <g id="rim"></g>
+  </svg>
+  <p class="cap" id="cap"></p>
+  <div id="fade"></div>
+  <div id="end">
+    <span class="brand">P<svg viewBox="0 0 16 16"><circle id="endRing" cx="8" cy="8" r="6.95" pathLength="100"/></svg>rthole</span>
+    <p class="line">A window into the computer you left running.</p>
+    <p class="url">porthole-one.vercel.app</p>
+  </div>
+</div>
+<script src="renders/film-base.map.js"></script>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const $ = (id) => document.getElementById(id);
+const make = (parent, name, attrs) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const inOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;      // camera
+const out = (t) => 1 - Math.pow(1 - t, 5);                                              // UI: settles, never overshoots
+const span = (t, a, b) => clamp((t - a) / (b - a));
+
+// ---- the map: where things are in base.png ------------------------------------------------
+let M;
+const TEAL = '#3FD4C0', AMBER = '#E7B84A', PAPER = '#E8F0EE', DARK = '#07100F';
+const over = $('over');
+const needles = [], lights = [];
+let tube, tubeLen = 0;
+
+function build(map) {
+  M = map;
+  $('sea').style.top = (M.Waterline[1]) + 'px';
+  $('sea').style.height = (2700 - M.Waterline[1]) + 'px';
+  for (let k = 0; k < 3; k++) {
+    const l = M[`Light${k}`];
+    lights.push(make(over, 'rect', { x: l[0], y: l[1], width: l[2] - l[0], height: l[3] - l[1], fill: TEAL, stroke: PAPER, 'stroke-width': 4 }));
+    const g = M[`Gauge${k}`];
+    needles.push(make(over, 'line', { x1: g.at[0], y1: g.at[1], x2: g.at[0], y2: g.at[1], stroke: PAPER, 'stroke-width': 5, 'stroke-linecap': 'round' }));
+    make(over, 'circle', { cx: g.at[0], cy: g.at[1], r: 5, fill: PAPER });
+  }
+  // the speaking tube's path, engine room first; the pulse is one bright dash along it
+  const d = M.TubePath.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  tube = make(over, 'path', { d, fill: 'none', stroke: PAPER, 'stroke-width': 11, 'stroke-linecap': 'round', opacity: 0 });
+  tubeLen = tube.getTotalLength();
+  tube.setAttribute('stroke-dasharray', `70 ${tubeLen + 200}`);
+}
+
+// ---- the rim of the porthole the phone is seen through --------------------------------------
+function rim(cx, cy, r) {
+  const g = $('rim');
+  g.innerHTML = '';
+  if (r < 2) { $('clipC').setAttribute('r', 0); return; }
+  const w = Math.max(3, r * 0.0625);                     // the rim's width, in proportion
+  make(g, 'circle', { cx, cy, r: r - w / 2, fill: 'none', stroke: '#22463F', 'stroke-width': w });
+  make(g, 'circle', { cx, cy, r, fill: 'none', stroke: PAPER, 'stroke-width': 3 });
+  make(g, 'circle', { cx, cy, r: r - w, fill: 'none', stroke: PAPER, 'stroke-width': 2 });
+  if (r > 120) for (let k = 0; k < 14; k++) {
+    const a = (k + 0.5) / 14 * Math.PI * 2;
+    make(g, 'circle', { cx: cx + (r - w / 2) * Math.cos(a), cy: cy + (r - w / 2) * Math.sin(a), r: Math.max(2, w * 0.12), fill: '#17352F', stroke: PAPER, 'stroke-width': 1 });
+  }
+  $('clipC').setAttribute('cx', cx); $('clipC').setAttribute('cy', cy); $('clipC').setAttribute('r', Math.max(0, r - w));
+}
+
+// ---- the film --------------------------------------------------------------------------------
+// The phone seen through the porthole: phone-flat.png at about 0.95, its card (centre 612, 2086)
+// at (540, 700) of the frame; its Allow button is (629, 2261)-(1081, 2393) in the image.
+// While it holds, the phone drifts in by 3%, so the shot never stands dead still.
+const S0 = 0.95;
+const place = (t) => {
+  const S = S0 * (1 + 0.03 * inOut(span(t, 7.0, 11.4)));
+  const PX = 540 - 612 * S, PY = 700 - 2086 * S;
+  return { S, PX, PY, ALLOW: { x: PX + 629 * S, y: PY + 2261 * S, w: 452 * S, h: 132 * S } };
+};
+const CAPS = [
+  [0.3, 3.9, 'Your agents work below deck.'],
+  [4.0, 7.3, 'One stops to ask you.'],
+  [12.3, 15.6, 'Allow, and it runs on.'],
+];
+const DURATION = 20;
+
+function camera(t) {
+  // [time, centre x, centre y, zoom] - eased between
+  const keys = [[0, 1080, 1350, 1.0], [4.4, 1110, 1335, 1.07], [6.9, 700, 1215, 2.1], [12.0, 700, 1215, 2.1], [14.4, 1080, 1350, 1.0], [20, 1095, 1345, 1.03]];
+  for (let i = 1; i < keys.length; i++) {
+    const [t0, x0, y0, z0] = keys[i - 1], [t1, x1, y1, z1] = keys[i];
+    if (t <= t1) { const e = inOut(span(t, t0, t1)); return [lerp(x0, x1, e), lerp(y0, y1, e), lerp(z0, z1, e)]; }
+  }
+  const k = keys[keys.length - 1];
+  return [k[1], k[2], k[3]];
+}
+
+function seek(t) {
+  const [cx, cy, z] = camera(t);
+  const sc = 0.5 * z, tx = 540 - cx * sc, ty = 675 - cy * sc;
+  $('world').style.transform = `translate(${tx}px, ${ty}px) scale(${sc})`;
+
+  // Engines: the first two run (needles hunting a little); the third stops at 3.9 s to ask,
+  // amber, its needle falling; it is answered at 13.6 s and runs again.
+  const stopped = span(t, 3.9, 4.5) * (1 - span(t, 13.7, 14.5));
+  for (let k = 0; k < 3; k++) {
+    const g = M[`Gauge${k}`];
+    let a = -40 + 14 * k + 7 * Math.sin(t * (4.1 + k) + k * 1.7);           // degrees from up, running
+    if (k === 2) a = lerp(a, -128, out(stopped));                           // at rest: down to the left
+    const r = g.r * 0.72, rad = a * Math.PI / 180;
+    needles[k].setAttribute('x2', g.at[0] + r * Math.sin(rad));
+    needles[k].setAttribute('y2', g.at[1] - r * Math.cos(rad));
+    lights[k].setAttribute('fill', k === 2 && t >= 3.9 && t < 13.6 ? AMBER : TEAL);
+  }
+
+  // The request goes up the speaking tube (4.4-6.4 s) and the answer comes down (12.1-13.6 s).
+  const up = span(t, 4.4, 6.4), down = span(t, 12.0, 13.5);
+  if (up > 0 && up < 1) { tube.setAttribute('opacity', 1); tube.setAttribute('stroke-dashoffset', -inOut(up) * tubeLen); }
+  else if (down > 0 && down < 1) { tube.setAttribute('opacity', 1); tube.setAttribute('stroke-dashoffset', -(1 - inOut(down)) * tubeLen); }
+  else tube.setAttribute('opacity', 0);
+
+  // The porthole opens from the phone in the person's hand (6.8-7.8 s) and closes back into it
+  // (11.2-12.0 s), easing in and out both ways: it neither pops nor lands at full speed.
+  const phone = [M.Screen[0] * sc + tx, M.Screen[1] * sc + ty];
+  const open = inOut(span(t, 6.8, 7.8)) * (1 - inOut(span(t, 11.2, 12.0)));
+  rim(lerp(phone[0], 540, open), lerp(phone[1], 700, open), lerp(8, 640, open) * (open > 0.001 ? 1 : 0));
+  const { S, PX, PY, ALLOW } = place(t);
+  // the app's own screens: the countdown as it ticks, then the screen once Allow is pressed
+  const shots = [...document.querySelectorAll('.ph')];
+  const shown = shots.filter((im) => t >= +im.dataset.from).pop();
+  for (const im of shots) Object.assign(im.style, { width: 1236 * S + 'px', left: PX + 'px', top: PY + 'px', visibility: im === shown ? 'visible' : 'hidden' });
+  // Allow, pressed at 10.1 s: the ripple a Material button draws, inside the button; at 10.5 s
+  // the card goes, as it does in the app, and the turn runs on
+  const press = span(t, 10.1, 10.5);
+  const rp = $('ripple');
+  if (press > 0 && t < 10.5) {
+    const R = lerp(10, ALLOW.w * 0.62, out(press));
+    Object.assign(rp.style, { display: 'block', left: ALLOW.x + ALLOW.w * 0.45 - R + 'px', top: ALLOW.y + ALLOW.h / 2 - R + 'px', width: 2 * R + 'px', height: 2 * R + 'px',
+      clipPath: `inset(${R - ALLOW.h / 2 + 2}px ${R - ALLOW.w * 0.55 + 2}px ${R - ALLOW.h / 2 + 2}px ${R - ALLOW.w * 0.45 + 2}px round 24px)` });
+  } else rp.style.display = 'none';
+
+  // One line of words at a time, each held long enough to read.
+  const c = CAPS.find(([a, b]) => t >= a && t < b);
+  const cap = $('cap');
+  if (c) { cap.textContent = c[2]; cap.style.opacity = Math.min(span(t, c[0], c[0] + 0.35), 1 - span(t, c[1] - 0.35, c[1])); }
+  else cap.style.opacity = 0;
+
+  // The end: the boat goes to night first (15.8-16.4 s), then the ring draws itself closed round
+  // the "o" (16.3-17.1 s) as the words come up - nothing is laid over the drawing.
+  $('fade').style.opacity = inOut(span(t, 15.8, 16.4));
+  $('end').style.opacity = out(span(t, 16.4, 17.0));
+  $('endRing').style.strokeDasharray = '100 100';
+  $('endRing').style.strokeDashoffset = 100 * (1 - inOut(span(t, 16.3, 17.1)));
+}
+
+// the map arrives as a script (renders/film-base.map.js sets window.MAP): a page opened from disk may not fetch
+window.ready = Promise.resolve().then(() => { build(window.MAP); seek(0); return DURATION; });
+window.seek = seek;
+</script>

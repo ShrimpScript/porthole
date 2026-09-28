@@ -350,6 +350,23 @@ if os.environ.get("MAP"):
     ahead = (co.matrix_world.to_quaternion() @ Vector((0, 0, -1)))
     ahead.z = 0
     marks["Horizon"] = px(co.location + ahead.normalized() * 1e5 - Vector((0, 0, co.location.z)))
+    # for animation drawn over a still: each gauge's centre and radius, each status light's
+    # corners, and the speaking tube's path as a polyline, all in pixels
+    for k in range(3):
+        g = bpy.data.objects.get(f"Gauge{k}")
+        if g:
+            c = centre(g)
+            edge = px(c + Vector((0.1, 0, 0)))
+            mid = px(c)
+            marks[f"Gauge{k}"] = {"at": mid, "r": abs(edge[0] - mid[0])}
+        lt = bpy.data.objects.get(f"Session{k}")
+        if lt:
+            pts = [px(lt.matrix_world @ Vector(cn)) for cn in lt.bound_box]
+            marks[f"Light{k}"] = [min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)]
+    tb = bpy.data.objects.get("SpeakingTube")
+    if tb and tb.type == "CURVE":
+        spl = tb.data.splines[0]
+        marks["TubePath"] = [px(tb.matrix_world @ Vector(pt.co[:3])) for pt in spl.points]
     # each lit porthole, and the point on the water under it, where its reflection starts
     for ob in scene.objects:
         if ob.name.startswith("PortGlass") and ob.data.materials[0].name == "Lit" and not ob.hide_render:
