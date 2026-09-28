@@ -38,6 +38,7 @@ import dev.shrimpscript.porthole.net.Usage
 import dev.shrimpscript.porthole.terminal.TerminalEmulator
 import dev.shrimpscript.porthole.ui.theme.PortholeTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -311,6 +312,46 @@ class RenderScreensTest {
         rule.waitForIdle()
         assertEquals(listOf("/rename Login work"), sent)
         rule.onNodeWithText("Fix the flaky login test").assertIsDisplayed() // the list updates it, not the field
+    }
+
+    /**
+     * An approval as the app shows it, over the session it came from, with a command long
+     * enough to wrap: every character of it is on the card, the dangerous end included.
+     * The frame is also the one the ads use, so they show the real card, not a drawing.
+     */
+    @Test
+    fun approvalShowsTheWholeCommand() {
+        val command = "npm run build && git checkout main && git reset --hard release/2.4 && git push --force origin main"
+        val rows = listOf(
+            row("user", "Ship the release branch to main.", "2026-09-27T14:12:00Z"),
+            row("assistant", "The build passes. I'll move main to the release branch and push it.", "2026-09-27T14:13:10Z"),
+        )
+        rule.setContent {
+            PortholeTheme {
+                androidx.compose.foundation.layout.Box {
+                    SessionScreen(
+                        title = "Release 2.4", branch = "release/2.4 · tmux 1", ring = RingState.Live, live = true,
+                        rows = rows, backfillCount = rows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+                        view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                        terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                        notice = null, onDismissNotice = {}, state = state(working = true),
+                        status = TuiStatus(working = true, text = "Waiting for approval", elapsed = "", tokens = "", permissionMode = "", interruptible = false),
+                        caps = listOf("attach", "files"),
+                    )
+                    ApprovalOverlay(
+                        dev.shrimpscript.porthole.net.Approval("toolu_ad", "s1", "Bash", command, "~/code/shop", expiresInSeconds = 48),
+                        onAllow = {}, onDeny = {}, onExpired = {},
+                    )
+                }
+            }
+        }
+        rule.mainClock.advanceTimeBy(1500)
+        rule.waitForIdle()
+        // Wrapped, not one line running off the card: the end is in view without scrolling.
+        val text = rule.onNodeWithText(command, substring = true).fetchSemanticsNode().boundsInRoot
+        val screen = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        assertTrue("the command runs off the card: ${text.width} of ${screen.width}", text.right <= screen.right && text.width < screen.width)
+        save("approval-whole-command")
     }
 
     private fun changesFixture(): ChangesState {

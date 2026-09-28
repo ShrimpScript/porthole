@@ -2,7 +2,6 @@ package dev.shrimpscript.porthole.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,8 +36,9 @@ import kotlinx.coroutines.delay
  * The feature that justifies the app: a tool call waiting on you, from anywhere.
  *
  * Rules, all load-bearing:
- *  - the command is shown verbatim and in full, scrollable, never truncated. A
- *    shortened `rm -rf …` is an unapprovable prompt.
+ *  - the command is shown verbatim and in full, wrapped so the whole of it is in view,
+ *    never truncated and never on one line that scrolls sideways: the dangerous part of
+ *    a long command is usually its end. It scrolls down only past the card's height.
  *  - there is no default and no pre-focused button.
  *  - neither button is visually louder than the command itself.
  *  - letting it expire is not an answer: it falls back to the prompt at the desk.
@@ -125,7 +125,6 @@ fun ApprovalCardBody(
                 approval.command.ifBlank { "(no command)" },
                 style = PortholeType.mono,
                 color = c.text,
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
             )
             if (approval.cwd.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
