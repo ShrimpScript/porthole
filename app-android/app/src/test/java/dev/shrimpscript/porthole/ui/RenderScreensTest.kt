@@ -147,6 +147,39 @@ class RenderScreensTest {
         save("session-question")
     }
 
+    /** The question the ads show: a real decision mid-task, answered with a tap. */
+    @Test
+    fun sessionScreenAsksWhichTableName() {
+        val rows = listOf(
+            row("user", "Move orders older than two years out of the orders table. Ask me anything you need first.", "2026-09-14T09:52:00Z"),
+            row("assistant", "I'll copy them to a new table, check the counts match, then delete them from orders.", "2026-09-14T09:52:40Z"),
+            row("turn", "Worked for 41s", "2026-09-14T09:53:21Z"),
+            row("assistant", "The copy script is ready. One question before I run it.", "2026-09-14T09:59:10Z"),
+        )
+        val screenQ = ScreenQuestion(
+            header = "Table", text = "Which name for the new table?", multi = false,
+            options = listOf(ScreenOption(1, "orders_archive", "like the other archive tables", false), ScreenOption(2, "orders_2024", "one table per year", false)),
+            typed = 3, review = false, index = 1, total = 1,
+        )
+        rule.setContent {
+            PortholeTheme {
+                SessionScreen(
+                    title = "Orders cleanup", branch = "main · tmux work", ring = RingState.Live, live = true,
+                    rows = rows, backfillCount = rows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+                    view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                    terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                    notice = null, onDismissNotice = {}, state = state(working = true),
+                    status = TuiStatus(working = true, text = "", elapsed = "", tokens = "", permissionMode = "bypass permissions on", interruptible = false, question = screenQ),
+                    caps = listOf("changes", "preview"), quickReplies = listOf("Continue", "Yes", "No", "Looks good"),
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Which name for the new table?").assertIsDisplayed()
+        rule.onNodeWithText("1. orders_archive").assertIsDisplayed()
+        save("table-question")
+    }
+
     @Test
     fun sessionScreenIdleShowsQuickReplies() {
         val rows = listOf(
