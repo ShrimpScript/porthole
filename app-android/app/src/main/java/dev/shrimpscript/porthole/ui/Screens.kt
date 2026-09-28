@@ -400,6 +400,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                                 if (s.workingSince > 0 && now > 0) append(elapsedLabel(now - s.workingSince)).append(" · ")
                                 append(s.doing.ifBlank { "working" }).append(" · ")
                             }
+                            if (s.agents > 0) append(if (s.agents == 1) "1 agent" else "${s.agents} agents").append(" · ")
                             if (s.machine.isNotBlank()) append(s.machine).append(" · ")
                             if (s.branch.isNotBlank()) append(s.branch).append(" · ")
                             append(

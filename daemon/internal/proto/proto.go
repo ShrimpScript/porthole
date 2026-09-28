@@ -15,6 +15,7 @@ const (
 	TypeSessionStatus     = "session.status"  // what the CLI's own screen says it is doing
 	TypeSessionTurn       = "session.turn"    // a turn finished in some live session
 	TypeSessionWorking    = "session.working" // a live session started/stopped working, or changed tool
+	TypeSessionAgents     = "session.agents"  // the attached session's subagents and their progress
 	TypePermissionRequest = "permission.request"
 	TypeState             = "state"
 	TypePTYData           = "pty.data"

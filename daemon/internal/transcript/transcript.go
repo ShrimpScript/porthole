@@ -76,6 +76,17 @@ type Row struct {
 	Media    string `json:"media,omitempty"`
 	// Questions is set on a question row: what Claude asked and the choices offered.
 	Questions []Question `json:"questions,omitempty"`
+	// Agent is set on the row of an Agent (or Task) call: the subagent it started. Its
+	// progress arrives separately, in session.agents frames, matched by ToolID.
+	Agent *AgentCall `json:"agent,omitempty"`
+}
+
+// AgentCall is what an Agent call asked for, from its input.
+type AgentCall struct {
+	Type        string `json:"type,omitempty"` // subagent_type
+	Description string `json:"description,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Background  bool   `json:"background,omitempty"`
 }
 
 // Usage is token accounting summed over assistant messages.
@@ -200,7 +211,7 @@ type Result struct {
 // verbs says what happened in the user's language, not the tool's name.
 var verbs = map[string]string{
 	"Read": "Read", "Edit": "Edited", "Write": "Wrote", "NotebookEdit": "Edited notebook",
-	"Bash": "Ran", "Grep": "Searched", "Glob": "Globbed", "Task": "Delegated",
+	"Bash": "Ran", "Grep": "Searched", "Glob": "Globbed", "Task": "Delegated", "Agent": "Delegated",
 	"WebFetch": "Fetched", "WebSearch": "Searched the web", "TodoWrite": "Updated the plan",
 	"Skill": "Loaded skill", "Artifact": "Published", "SendUserFile": "Sent a file",
 }
@@ -342,7 +353,7 @@ func target(tool string, input map[string]any) string {
 	case "Grep", "Glob":
 		s, _ := str("pattern")
 		return s
-	case "Task":
+	case "Task", "Agent": // Agent is the current name of what was Task
 		s, _ := str("description")
 		return s
 	case "WebFetch", "WebSearch":
@@ -588,7 +599,15 @@ func ParseFrom(r io.Reader, prev State) (*Result, error) {
 							continue
 						}
 					}
-					res.add(Row{Kind: KindTool, Glyph: "▸", Text: text, TS: ts, Detail: detail, ToolID: str(m["id"])})
+					row := Row{Kind: KindTool, Glyph: "▸", Text: text, TS: ts, Detail: detail, ToolID: str(m["id"])}
+					if (name == "Agent" || name == "Task") && input != nil {
+						bg, _ := input["run_in_background"].(bool)
+						row.Agent = &AgentCall{Type: str(input["subagent_type"]), Description: str(input["description"]), Model: str(input["model"]), Background: bg}
+						if p, ok := input["prompt"].(string); ok {
+							row.Detail = p // what it was asked, for the drill-in
+						}
+					}
+					res.add(row)
 					// A picture Claude sent to the person is worth showing, not just naming.
 					if name == "SendUserFile" && input != nil {
 						if files, ok := input["files"].([]any); ok {

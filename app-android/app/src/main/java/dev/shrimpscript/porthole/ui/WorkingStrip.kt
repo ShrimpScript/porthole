@@ -42,6 +42,9 @@ fun WorkingStrip(
     canInterrupt: Boolean,
     onInterrupt: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Subagents at work; > 0 shows a chip that opens them. */
+    agentsRunning: Int = 0,
+    onAgents: () -> Unit = {},
 ) {
     val c = Porthole.colors
     val working = (status?.working == true) || (state?.working == true)
@@ -81,8 +84,9 @@ fun WorkingStrip(
                 val meta = listOfNotNull(elapsed, status?.tokens?.ifBlank { null }).joinToString(" · ")
                 if (meta.isNotEmpty()) Text(meta, style = PortholeType.meta, color = c.faint)
             }
+            if (agentsRunning > 0) AgentsChip(agentsRunning, onAgents)
             if (canInterrupt) {
-                GhostButton("Interrupt", onInterrupt, Modifier.width(110.dp))
+                GhostButton("Interrupt", onInterrupt, Modifier.width(if (agentsRunning > 0) 96.dp else 110.dp))
             }
         }
     }

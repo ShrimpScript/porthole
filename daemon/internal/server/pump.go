@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -630,7 +631,37 @@ func (s *Server) attach(ctx context.Context, w *writer, att *attachment, id stri
 	if si.TmuxName != "" {
 		go s.pollStatus(wctx, w, id, captureTarget(si))
 	}
+	go s.pollAgents(wctx, w, id, func() string { att.mu.Lock(); defer att.mu.Unlock(); return att.path })
 	s.log.Info("device attached to session", "session", si.Title, "rows", len(res.Rows))
+}
+
+// agentsFrame is the attached session's subagents: what each was asked and how far it has got.
+type agentsFrame struct {
+	proto.Frame
+	SessionID string          `json:"session_id"`
+	Agents    []session.Agent `json:"agents"`
+}
+
+// pollAgents follows the attached session's subagents: their transcripts grow while the
+// session's own may sit still (a background agent works on after the call returned). A
+// frame goes out when anything about them changes, and once at the start if there are any.
+func (s *Server) pollAgents(ctx context.Context, w *writer, id string, path func() string) {
+	t := time.NewTicker(2 * time.Second)
+	defer t.Stop()
+	var last []byte
+	for {
+		agents := session.Agents(path())
+		b, _ := json.Marshal(agents)
+		if !bytes.Equal(b, last) && (len(agents) > 0 || last != nil) {
+			last = b
+			_ = w.send(ctx, agentsFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeSessionAgents}, SessionID: id, Agents: agents})
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 // spinnerLine is the CLI's working line: a spinner glyph, a verb ending in an ellipsis,

@@ -39,6 +39,31 @@ data class Row(
     val media: String = "",
     /** A question row: what Claude asked and the choices, in the CLI's own order. */
     val questions: List<Question> = emptyList(),
+    /** An Agent call's row: the subagent it started (its progress comes in [AgentInfo]s, matched by [toolId]). */
+    val agent: AgentCall? = null,
+)
+
+/** What an Agent call asked for. */
+data class AgentCall(val type: String, val description: String, val model: String, val background: Boolean)
+
+/**
+ * One subagent of the attached session, as the computer reads it from the agent's own
+ * transcript. [state] is "running", "done" or "stopped".
+ */
+data class AgentInfo(
+    val id: String,
+    val toolId: String,
+    val type: String,
+    val description: String,
+    val model: String,
+    val background: Boolean,
+    val depth: Int,
+    val parent: String,
+    val state: String,
+    val startedMs: Long,
+    val lastActiveMs: Long,
+    val tools: Int,
+    val doing: String,
 )
 
 /** One question from Claude's AskUserQuestion, as the CLI shows it: numbered options, then "Type something". */
@@ -196,6 +221,8 @@ data class SessionInfo(
      * tool asking for input, a sandbox request... (a menu left open at the desk does not count).
      */
     val waiting: Boolean = false,
+    /** How many of its subagents are at work. */
+    val agents: Int = 0,
     /** Claude Code's reason while [waiting]: "permission prompt", "input needed", "sandbox request"...; may be blank. */
     val waitingFor: String = "",
     /** The tmux session Claude runs in ("work", "0"); what tells two sessions in one directory apart. */
@@ -361,6 +388,10 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
     private val _status = MutableStateFlow<TuiStatus?>(null)
     val status: StateFlow<TuiStatus?> = _status
+
+    /** The attached session's subagents, as the computer last read them. */
+    private val _agents = MutableStateFlow<List<AgentInfo>>(emptyList())
+    val agents: StateFlow<List<AgentInfo>> = _agents
 
     /** Image bytes by ref. Bounded: the newest 24 stay, older ones are fetched again. */
     private val _images = MutableStateFlow<Map<String, ByteArray>>(emptyMap())
@@ -618,6 +649,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         _backfillCount.value = 0
         _state.value = null
         _status.value = null
+        _agents.value = emptyList()
         send("""{"type":"session.attach","session_id":"$sessionId"}""")
     }
 
@@ -627,6 +659,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         _attached.value = null
         _state.value = null
         _status.value = null
+        _agents.value = emptyList()
     }
 
     /** Enter or Escape, typed into the session. The daemon refuses anything else. */
@@ -890,6 +923,24 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     imageRef = r.optString("image_ref"),
                     media = r.optString("media"),
                     questions = parseQuestions(r.optJSONArray("questions")),
+                    agent = r.optJSONObject("agent")?.let { a ->
+                        AgentCall(a.optString("type"), a.optString("description"), a.optString("model"), a.optBoolean("background"))
+                    },
+                )
+            )
+        }
+    }
+
+    private fun parseAgents(arr: org.json.JSONArray?): List<AgentInfo> = buildList {
+        for (i in 0 until (arr?.length() ?: 0)) {
+            val a = arr!!.getJSONObject(i)
+            add(
+                AgentInfo(
+                    id = a.optString("id"), toolId = a.optString("tool_id"), type = a.optString("type"),
+                    description = a.optString("description"), model = a.optString("model"), background = a.optBoolean("background"),
+                    depth = a.optInt("depth", 1).coerceAtLeast(1), parent = a.optString("parent"), state = a.optString("state"),
+                    startedMs = parseIsoMs(a.optString("started")), lastActiveMs = parseIsoMs(a.optString("last_active")),
+                    tools = a.optInt("tools"), doing = a.optString("doing"),
                 )
             )
         }
@@ -987,6 +1038,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                                     asking = s.optString("asking"),
                                     waiting = s.optBoolean("waiting"),
                                     waitingFor = s.optString("waiting_for"),
+                                    agents = s.optInt("agents"),
                                     tmuxName = s.optString("tmux"),
                                     pane = s.optString("pane"),
                                 )
@@ -1011,6 +1063,8 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     _rows.value = rows
                     _loadedEpoch.value = _loadedEpoch.value + 1
                     parseState(obj.optJSONObject("state"))?.let { _state.value = it }
+                    // another session's agents must not linger: one with none gets no agents frame
+                    if (_attached.value != obj.optString("session_id")) _agents.value = emptyList()
                     _attached.value = obj.optString("session_id")
                 }
                 "session.event" -> {
@@ -1025,6 +1079,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                 "session.started" -> _started.tryEmit(
                     StartedEvent(obj.optString("session_id"), obj.optString("tmux"), obj.optString("mode"), obj.optString("pane"), obj.optString("cwd"))
                 )
+                "session.agents" -> if (obj.optString("session_id") == _attached.value) _agents.value = parseAgents(obj.optJSONArray("agents"))
                 "session.working" -> _working.tryEmit(
                     WorkingEvent(obj.optString("session_id"), obj.optString("title"), obj.optBoolean("working"),
                         parseIsoMs(obj.optString("since")), obj.optString("doing"), asking = obj.optString("asking"))

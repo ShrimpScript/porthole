@@ -233,3 +233,19 @@ func TestEnvelopesTheCLIWritesForLocalAndShellCommands(t *testing.T) {
 		}
 	}
 }
+
+// Current Claude Code names the subagent tool Agent (it was Task): its row says what was
+// delegated and carries the call, so the phone can follow the agent it started.
+func TestAnAgentCallIsDelegatedWork(t *testing.T) {
+	res := parse(t, `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_9","name":"Agent","input":{"description":"Fix the flaky test","subagent_type":"general-purpose","model":"sonnet","run_in_background":true,"prompt":"The login test fails one run in five."}}]}}`)
+	if len(res.Rows) != 1 {
+		t.Fatalf("want one row, got %+v", res.Rows)
+	}
+	r := res.Rows[0]
+	if r.Text != "Delegated Fix the flaky test" || r.ToolID != "toolu_9" || r.Detail != "The login test fails one run in five." {
+		t.Errorf("row: %+v", r)
+	}
+	if r.Agent == nil || r.Agent.Type != "general-purpose" || r.Agent.Model != "sonnet" || !r.Agent.Background || r.Agent.Description != "Fix the flaky test" {
+		t.Errorf("agent call: %+v", r.Agent)
+	}
+}

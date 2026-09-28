@@ -491,6 +491,7 @@ private fun PortholeApp(
     val clips by key(active) { active.clips.collectAsState() }
     LaunchedEffect(Unit) { vm.fleet.cacheDir = context.cacheDir }
     val liveStatus by key(active) { active.status.collectAsState() }
+    val sessionAgents by key(active) { active.agents.collectAsState() }
     val tuiStatus = when (limitDemo) {
         "waiting" -> dev.shrimpscript.porthole.net.TuiStatus(false, "", "", "", "bypass permissions on", false,
             limitText = "Usage limit reached · continuing automatically at 3:45pm · esc to cancel", limitResumeAt = "3:45pm", limitWaiting = true)
@@ -1228,6 +1229,7 @@ private fun PortholeApp(
                             onDismissNotice = { sc.clearNotice() },
                             state = sessionState,
                             status = tuiStatus,
+                            agents = sessionAgents,
                             onInterrupt = { sc.interrupt(s.id) },
                             onCommand = { cmd ->
                                 sc.sendPrompt(s.id, cmd.name)

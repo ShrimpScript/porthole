@@ -43,6 +43,8 @@ type Info struct {
 	// the phone's approval card. WaitingFor is the CLI's reason, as it says it.
 	Waiting    bool   `json:"waiting,omitempty"`
 	WaitingFor string `json:"waiting_for,omitempty"`
+	// Agents is how many of its subagents are at work right now.
+	Agents     int    `json:"agents,omitempty"`
 	TmuxName   string `json:"tmux,omitempty"`
 	Pane       string `json:"pane,omitempty"` // the pane Claude runs in, from the CLI's registry; keystrokes go here
 	Window     string `json:"-"`              // its tmux window id, for the terminal mirror
@@ -603,6 +605,9 @@ func List() ([]Info, error) {
 		}
 		if p.Status == "waiting" && p.WaitingFor != "dialog open" {
 			si.Waiting, si.WaitingFor = true, p.WaitingFor
+		}
+		if path != "" {
+			si.Agents = RunningAgents(path)
 		}
 		rememberPane(si.ID, si.Pane)
 		if at, seen := byID[si.ID]; seen {
