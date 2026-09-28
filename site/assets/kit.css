@@ -143,6 +143,18 @@
 .run .pk-draw { animation: pk-draw 720ms var(--pk-settle) both; }
 @keyframes pk-draw { from { stroke-dashoffset: var(--c); } }
 
+/* The working icon, the screw: twelve frames over a third of a turn at 0.85 turns a second. */
+.spin.screw g { animation: pk-f12 392ms step-end infinite; }
+.spin.screw g:nth-child(1) { opacity: 1; animation-delay: 0ms; }
+.spin.screw g:nth-child(2) { animation-delay: -359.3ms; } .spin.screw g:nth-child(3) { animation-delay: -326.7ms; }
+.spin.screw g:nth-child(4) { animation-delay: -294ms; } .spin.screw g:nth-child(5) { animation-delay: -261.3ms; }
+.spin.screw g:nth-child(6) { animation-delay: -228.7ms; } .spin.screw g:nth-child(7) { animation-delay: -196ms; }
+.spin.screw g:nth-child(8) { animation-delay: -163.3ms; } .spin.screw g:nth-child(9) { animation-delay: -130.7ms; }
+.spin.screw g:nth-child(10) { animation-delay: -98ms; } .spin.screw g:nth-child(11) { animation-delay: -65.3ms; }
+.spin.screw g:nth-child(12) { animation-delay: -32.7ms; }
+@keyframes pk-f12 { 0% { opacity: 1; } 8.334% { opacity: 0; } 100% { opacity: 0; } }
+.screw-still { display: block; flex: none; }
+.strip { --sb: var(--su); }
 /* The CLI's spinner, drawn: six frames of 140 ms. */
 .spin { display: block; flex: none; }
 .spin g { opacity: 0; animation: pk-f6 840ms step-end infinite; }

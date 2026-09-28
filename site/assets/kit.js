@@ -51,9 +51,53 @@ const spokes = (n, len, rot, r = 8, sw = 1.8, dot = true) => {
   }
   return (dot ? `<circle cx="8" cy="8" r="${n ? 1.08 : 1.98}"/>` : '') + (n ? `<path d="${d}" stroke-width="${sw}" stroke-linecap="round"/>` : '');
 };
-const SPIN = [[6, 1, 0], [8, .9, 0], [6, 1, 30], [4, .9, 0], [4, .6, 0], [0, 0, 0]].map(f => `<g>${spokes(...f)}</g>`).join('');
-const spinner = (col = 'ac') => `<svg class="spin" width="16" height="16" viewBox="0 0 16 16" fill="var(--${col})" stroke="var(--${col})" aria-hidden="true">${SPIN}</svg>`;
-const star = () => `<svg class="spin" width="14" height="14" viewBox="1 1 14 14" stroke="var(--fa)" aria-hidden="true">${spokes(6, 1, 0, 7, 1.6, false)}</svg>`;
+/*
+ * The working icon as Spinner() draws it (ui/Screw.kt): the engine room's screw, three-quarter on.
+ * The same geometry, computed once here: three swept, pitched blades, each with two trailing
+ * copies, the disc their tips sweep, and the hub. Depth is colour, the accent mixed toward what is
+ * behind it (--sb, the ground unless a card says otherwise). Three blades repeat every third of a
+ * turn, so twelve frames across 120 degrees, switched by CSS, are the whole motion.
+ */
+const SCREW = (() => {
+  const TAU = Math.PI * 2, F = 5, N = 12, PITCH = 0.35;
+  const out = [];
+  for (let i = 0; i <= N; i++) {
+    const s = i / N, r = 0.2 + 0.8 * s, hw = 0.3 * Math.sin(Math.PI * s ** 0.8) * (1 - 0.22 * s);
+    const mid = 0.42 * s * s, off = hw / Math.max(r, 0.25);
+    out.push([r, mid, off, hw]);
+  }
+  const blade = (th) => [
+    ...out.map(([r, m, o, hw]) => [r * Math.cos(th + m + o), r * Math.sin(th + m + o), PITCH * hw]),
+    ...out.slice().reverse().map(([r, m, o, hw]) => [r * Math.cos(th + m - o), r * Math.sin(th + m - o), -PITCH * hw]),
+  ];
+  const [cy, sy, cx, sx] = [Math.cos(0.62), Math.sin(0.62), Math.cos(0.32), Math.sin(0.32)];
+  const disc = ([x, y, z]) => [cy * x + sy * z, sx * sy * x + cx * y - sx * cy * z, -cx * sy * x + sx * y + cx * cy * z];
+  const R = 7.04, C = 8;
+  const proj = (p) => { const q = disc(p), k = F / (F - q[2]); return [C + q[0] * R * k, C + q[1] * R * k, q[2]]; };
+  const area = (pts) => Math.abs(pts.reduce((a, p, i) => { const q = pts[(i + 1) % pts.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+  const flat = area(blade(0));
+  const d = (pts) => 'M' + pts.map((p) => p[0].toFixed(2) + ' ' + p[1].toFixed(2)).join('L') + 'Z';
+  const mix = (a) => `fill:color-mix(in srgb,var(--ink) ${Math.round(Math.min(1, a) * 100)}%,var(--sb,var(--g)))`;
+  const ring = (rr, z, n) => Array.from({ length: n + 1 }, (_, i) => proj([rr * Math.cos(i / n * TAU), rr * Math.sin(i / n * TAU), z]));
+  const discPath = `<path d="${d(ring(1, 0, 48)).slice(0, -1)}" style="fill:none;stroke:color-mix(in srgb,var(--ink) 28%,var(--sb,var(--g)))" stroke-width=".72"/>`;
+  const hub = `<path d="${d(ring(0.2, 0.06, 24))}" style="fill:var(--ink)"/>`;
+  const frame = (spin, trails) => {
+    const groups = [0, 1, 2].map((k) => (trails ? [[0.26, 0.2], [0.13, 0.38], [0, 1]] : [[0, 1]]).map(([lag, fade]) => {
+      const pts = blade(spin - lag + k * TAU / 3).map(proj);
+      const z = pts.reduce((a, p) => a + p[2], 0) / pts.length;
+      const facing = Math.min(1, area(pts) / (flat * R * R * 0.82));
+      return { pts, z, a: fade * (0.5 + 0.5 * (0.6 * facing + 0.4 * Math.min(1, Math.max(0, (z + 1) / 2)))) };
+    }));
+    groups.sort((g, h) => g[g.length - 1].z - h[h.length - 1].z);
+    return discPath + groups.flat().map((b) => `<path d="${d(b.pts)}" style="${mix(b.a)}"/>`).join('') + hub;
+  };
+  return {
+    turning: Array.from({ length: 12 }, (_, f) => `<g>${frame(0.3 + f / 12 * TAU / 3, true)}</g>`).join(''),
+    still: frame(0.3, false),
+  };
+})();
+const spinner = (col = 'ac') => `<svg class="spin screw" width="16" height="16" viewBox="0 0 16 16" style="--ink:var(--${col})" aria-hidden="true">${SCREW.turning}</svg>`;
+const star = () => `<svg class="screw-still" width="14" height="14" viewBox="0 0 16 16" style="--ink:var(--fa)" aria-hidden="true">${SCREW.still}</svg>`;
 
 /* Ticking numbers: data-tick is the value when drawn; while a scene plays it counts on (f 'd' counts down). */
 const fmt = (v, f) => {

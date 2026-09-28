@@ -34,9 +34,6 @@ fun toolIcon(text: String): ImageVector = when {
     else -> Icons.Outlined.Build
 }
 
-/** The CLI's own spinner frames, in its order. */
-val SPINNER_FRAMES = listOf("✻", "✽", "✶", "✳", "✢", "·")
-
 /** "claude-fable-5-1" -> "Fable 5.1". Unknown ids are shown as they are. */
 fun modelShortName(id: String): String {
     if (id.isBlank()) return ""

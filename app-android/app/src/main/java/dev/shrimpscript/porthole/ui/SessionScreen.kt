@@ -353,7 +353,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                     .padding(14.dp),
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    if (starting) Spinner(color = c.accent)
+                                    if (starting) Spinner(color = c.accent, background = c.surface)
                                     else Icon(Icons.Outlined.Info, contentDescription = null, tint = c.muted, modifier = Modifier.size(18.dp))
                                     Text(
                                         when {
@@ -998,7 +998,7 @@ fun FeedRowView(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StarMark()
+                ScrewMark()
                 val t = clockTime(r.ts)
                 Text(
                     if (t.isNotEmpty()) "${r.text} · done $t" else r.text,

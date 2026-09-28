@@ -401,6 +401,40 @@ class RenderScreensTest {
         }
     }
 
+    /** The working icon, the screw: sizes, a turn in eighths, on the ground and on a card, and at rest. */
+    @Test
+    fun screwAtEverySizeAndThroughATurn() {
+        rule.setContent {
+            PortholeTheme {
+                val c = dev.shrimpscript.porthole.ui.theme.Porthole.colors
+                androidx.compose.foundation.layout.Column(
+                    androidx.compose.ui.Modifier.background(c.ground).padding(16.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                ) {
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp), verticalAlignment = androidx.compose.ui.Alignment.Bottom) {
+                        for (s in listOf(16, 20, 32, 48)) ScrewAt(0.8f, trails = true, size = s.dp)
+                        ScrewAt(0.8f, trails = true, size = 160.dp)
+                    }
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+                        for (k in 0 until 8) ScrewAt(k * 2f * Math.PI.toFloat() / 24f, trails = true, size = 48.dp)
+                    }
+                    androidx.compose.foundation.layout.Row(
+                        androidx.compose.ui.Modifier.background(c.surface).padding(12.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Spinner(background = c.surface)
+                        androidx.compose.material3.Text("Running Bash…", color = c.text)
+                        ScrewMark(background = c.surface)
+                        androidx.compose.material3.Text("Worked for 41s", color = c.faint)
+                    }
+                }
+            }
+        }
+        rule.waitForIdle()
+        save("screw")
+    }
+
     /** The same session a moment after Allow: the card has gone and the turn runs on. */
     @Test
     fun approvalAllowedTheTurnRunsOn() {

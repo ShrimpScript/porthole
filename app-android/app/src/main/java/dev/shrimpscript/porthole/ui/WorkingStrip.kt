@@ -1,14 +1,9 @@
 package dev.shrimpscript.porthole.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
-import kotlin.math.cos
-import kotlin.math.sin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,45 +25,9 @@ import dev.shrimpscript.porthole.net.TuiStatus
 import dev.shrimpscript.porthole.ui.theme.Porthole
 import dev.shrimpscript.porthole.ui.theme.PortholeShape
 import dev.shrimpscript.porthole.ui.theme.PortholeType
-import dev.shrimpscript.porthole.ui.theme.motionEnabled
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.OffsetDateTime
-
-/**
- * The CLI's spinner, drawn rather than typeset. The glyphs ✻ ✽ ✶ ✳ ✢ · come from three
- * different fonts with three different centres and widths, so as text the dot sat low
- * and every frame change nudged the layout. Each frame here is a star of n spokes (or a
- * dot) in a fixed 16dp box, centred by construction. Static when animations are off.
- */
-@Composable
-fun Spinner(modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = Porthole.colors.accent) {
-    val on = motionEnabled()
-    var i by remember { mutableIntStateOf(0) }
-    LaunchedEffect(on) {
-        if (!on) return@LaunchedEffect
-        while (true) { delay(140); i = (i + 1) % SPINNER_FRAMES.size }
-    }
-    // spokes, spoke length fraction, rotation degrees; the last frame is the dot
-    // No 45-degree four-spoke frame: it reads as a close mark next to "Running…".
-    val frames = listOf(Triple(6, 1f, 0f), Triple(8, 0.9f, 0f), Triple(6, 1f, 30f), Triple(4, 0.9f, 0f), Triple(4, 0.6f, 0f), Triple(0, 0f, 0f))
-    val (spokes, len, rot) = frames[i]
-    Canvas(modifier.size(16.dp)) {
-        val c = center
-        val r = size.minDimension / 2f
-        val stroke = 1.8.dp.toPx()
-        if (spokes == 0) {
-            drawCircle(color, radius = stroke * 1.1f, center = c)
-            return@Canvas
-        }
-        drawCircle(color, radius = stroke * 0.6f, center = c)
-        for (k in 0 until spokes) {
-            val a = Math.toRadians((rot + k * 360f / spokes).toDouble())
-            val end = Offset(c.x + (r * len) * cos(a).toFloat(), c.y + (r * len) * sin(a).toFloat())
-            drawLine(color, c, end, strokeWidth = stroke, cap = StrokeCap.Round)
-        }
-    }
-}
 
 /**
  * "Is it doing anything?" - answered from two real sources: the transcript's turn state
@@ -117,7 +75,7 @@ fun WorkingStrip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Spinner()
+            Spinner(background = c.surface)
             Column(Modifier.weight(1f)) {
                 Text(text, style = PortholeType.secondary, color = c.text)
                 val meta = listOfNotNull(elapsed, status?.tokens?.ifBlank { null }).joinToString(" · ")
@@ -132,18 +90,6 @@ fun WorkingStrip(
 
 /** Sortable "since" for the sessions list. */
 fun epochOf(iso: String): Long = runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrDefault(Instant.EPOCH).toEpochMilli()
-
-/** The spinner's resting star, for the turn summary. */
-@Composable
-fun StarMark(modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = Porthole.colors.faint) {
-    Canvas(modifier.size(14.dp)) {
-        val c = center; val r = size.minDimension / 2f; val stroke = 1.6.dp.toPx()
-        for (k in 0 until 6) {
-            val a = Math.toRadians((k * 60f).toDouble())
-            drawLine(color, c, Offset(c.x + r * cos(a).toFloat(), c.y + r * sin(a).toFloat()), strokeWidth = stroke, cap = StrokeCap.Round)
-        }
-    }
-}
 
 /**
  * A usage limit, as the CLI reports it. Claude Code (2.1.234+) waits and continues on
