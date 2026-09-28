@@ -401,6 +401,85 @@ class RenderScreensTest {
         }
     }
 
+    private fun agentRow(id: String, text: String, type: String, bg: Boolean, ts: String) = Row(
+        kind = "tool", glyph = "▸", text = "Delegated $text", metric = "", detail = "", truncated = false, ts = ts, toolId = id,
+        agent = dev.shrimpscript.porthole.net.AgentCall(type, text, "", bg),
+    )
+
+    private fun agent(id: String, tool: String, desc: String, state: String, startedAgo: Long, tools: Int, doing: String,
+                      depth: Int = 1, parent: String = "", type: String = "general-purpose", model: String = "", bg: Boolean = true) =
+        dev.shrimpscript.porthole.net.AgentInfo(
+            id, tool, type, desc, model, bg, depth, parent, state,
+            startedMs = System.currentTimeMillis() - startedAgo * 1000,
+            lastActiveMs = System.currentTimeMillis() - (if (state == "running") 2 else startedAgo / 3) * 1000,
+            tools = tools, doing = doing,
+        )
+
+    private val agentsFixture = listOf(
+        agent("a1", "t1", "Find why the login test flakes", "running", 130, 12, "Bash: npm test -- login"),
+        agent("a2", "t2", "Map the config loading", "done", 400, 23, "Read: config.ts", type = "Explore", model = "haiku", bg = false),
+        agent("a3", "t9", "Check the retry helper", "running", 40, 4, "Grep: retryWithBackoff", depth = 2, parent = "a1", model = "sonnet"),
+    )
+
+    private val agentRows = listOf(
+        row("user", "The login test fails about one run in five. Find out why, and check where config loads.", "2026-09-28T09:40:00Z"),
+        row("assistant", "I'll look at both at once: one agent on the flaky test, one mapping the config.", "2026-09-28T09:40:20Z"),
+        agentRow("t1", "Find why the login test flakes", "general-purpose", true, "2026-09-28T09:40:22Z"),
+        agentRow("t2", "Map the config loading", "Explore", false, "2026-09-28T09:40:23Z"),
+    )
+
+    @androidx.compose.runtime.Composable
+    private fun AgentsSession(working: Boolean, agents: List<dev.shrimpscript.porthole.net.AgentInfo>) {
+        SessionScreen(
+            title = "Login flake", branch = "main · tmux work", ring = RingState.Live, live = true,
+            rows = agentRows, backfillCount = agentRows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+            view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+            terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+            notice = null, onDismissNotice = {},
+            state = state(working = working).copy(pendingTool = if (working) "Agent" else ""),
+            status = TuiStatus(working = working, text = if (working) "Waiting on 1 agent…" else "", elapsed = "", tokens = "", permissionMode = "", interruptible = working),
+            caps = listOf("attach", "files"), agents = agents,
+        )
+    }
+
+    /** Work handed to agents: a card per Agent call with its agent's progress, and the strip's count. */
+    @Test
+    fun agentsAtWorkInTheFeed() {
+        rule.setContent { PortholeTheme { AgentsSession(working = true, agents = agentsFixture) } }
+        rule.waitForIdle()
+        rule.onNodeWithText("Find why the login test flakes").assertIsDisplayed()
+        rule.onNodeWithText("12 tools · Bash: npm test -- login", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Done in", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("2 agents").assertIsDisplayed()   // the running one and its own agent
+        save("agents-feed")
+    }
+
+    /** The turn has ended but a background agent works on: a strip says so. */
+    @Test
+    fun backgroundAgentsOutliveTheTurn() {
+        rule.setContent { PortholeTheme { AgentsSession(working = false, agents = agentsFixture) } }
+        rule.waitForIdle()
+        rule.onNodeWithText("2 agents are working").assertIsDisplayed()
+        save("agents-background")
+    }
+
+    /** Every agent, the ones at work first, an agent's own agents under it. */
+    @Test
+    fun agentsSheetListsEveryAgent() {
+        rule.setContent {
+            PortholeTheme {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(top = 24.dp)) {
+                    AgentsList(agentsFixture, System.currentTimeMillis())
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("2 at work · 3 in this session").assertIsDisplayed()
+        rule.onNodeWithText("Check the retry helper").assertIsDisplayed()
+        rule.onNodeWithText("Explore · Haiku", substring = true).assertExists()
+        save("agents-sheet")
+    }
+
     /** The working icon, the screw: sizes, a turn in eighths, on the ground and on a card, and at rest. */
     @Test
     fun screwAtEverySizeAndThroughATurn() {

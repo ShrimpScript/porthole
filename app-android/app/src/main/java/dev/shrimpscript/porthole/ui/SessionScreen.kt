@@ -161,6 +161,8 @@ fun SessionScreen(
     onDismissNotice: () -> Unit,
     state: SessionState? = null,
     status: TuiStatus? = null,
+    /** The session's subagents, read by the computer from their own transcripts. */
+    agents: List<dev.shrimpscript.porthole.net.AgentInfo> = emptyList(),
     onInterrupt: () -> Unit = {},
     onCommand: (CliCommand) -> Unit = {},
     onKey: (String) -> Unit = {},
@@ -207,6 +209,7 @@ fun SessionScreen(
     var showStats by remember { mutableStateOf(false) }
     var showPreview by remember { mutableStateOf(false) }
     var showChanges by remember { mutableStateOf(false) }
+    var showAgents by remember { mutableStateOf(false) }
     var editReplies by remember { mutableStateOf(false) }
     var termFull by remember { mutableStateOf(false) }
     // Feedback the eyes need not be on the screen for: a tick when a turn finishes here,
@@ -329,6 +332,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
 
                             imageFor = { images[it] }, clipFor = { clips[it] }, onNeedImage = onNeedImage,
                             onOpenImage = { viewImage = it }, onOpenClip = { viewClip = it },
+                            agents = agents, onAgents = { showAgents = true },
                         ) { detail = it }
                         if (status?.limitHit == true) {
                             LimitCard(
@@ -337,11 +341,21 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             )
                             LayoutSpacer(Modifier.height(8.dp))
                         } else {
-                            WorkingStrip(
-                                state = state, status = status,
-                                canInterrupt = live && canSend,
-                                onInterrupt = onInterrupt,
-                            )
+                            val agentsAtWork = agents.filter { it.state == "running" }
+                            val turnOpen = (status?.working == true) || (state?.working == true)
+                            if (turnOpen) {
+                                WorkingStrip(
+                                    state = state, status = status,
+                                    canInterrupt = live && canSend,
+                                    onInterrupt = onInterrupt,
+                                    agentsRunning = agentsAtWork.size,
+                                    onAgents = { showAgents = true },
+                                )
+                            } else if (agentsAtWork.isNotEmpty()) {
+                                // the turn has ended but background agents work on
+                                AgentsStrip(agentsAtWork) { showAgents = true }
+                                LayoutSpacer(Modifier.height(8.dp))
+                            }
                         }
                         if (!live) {
                             LayoutSpacer(Modifier.height(8.dp))
@@ -515,6 +529,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                 hostLabel = hostLabel.ifBlank { "the computer" }, state = preview,
                 onRefresh = onPreviewRefresh, onOpen = onPreviewOpen, onStop = onPreviewClose,
             ) { showPreview = false }
+            if (showAgents) AgentsSheet(agents) { showAgents = false }
             if (showStats && state != null) {
                 StatsSheet(
                     title = title, state = state, status = status,
@@ -631,6 +646,9 @@ private fun Feed(
     asking: Boolean = false,
     /** The session's last activity as of the previous visit; "" the first time. */
     lastSeen: String = "",
+    /** The session's subagents: an Agent call's row shows its agent's progress. */
+    agents: List<dev.shrimpscript.porthole.net.AgentInfo> = emptyList(),
+    onAgents: () -> Unit = {},
     onOpen: (FeedRow) -> Unit,
 ) {
     val c = Porthole.colors
@@ -742,7 +760,9 @@ private fun Feed(
                         onNeedImage = { onNeedImage(r.imageRef) }, onOpenImage = { onOpenImage(r) }, onOpenClip = { onOpenClip(r) },
                         duration = if (r.kind == "tool" && done) tookLabel(took[r.toolId] ?: -1L) else "",
                         dim = done && i < lastToolIndex,
-                        answered = r.kind == "question" && (done || !working))
+                        answered = r.kind == "question" && (done || !working),
+                        agentInfo = if (r.agent != null) agents.firstOrNull { it.toolId == r.toolId } else null,
+                        onAgents = onAgents)
                 }
                 if (composing) item(key = "composing") { ComposingChip(verb) }
             }
@@ -862,6 +882,9 @@ fun FeedRowView(
     dim: Boolean = false,
     /** A question row whose answer has landed (or whose turn ended): choices are no longer live. */
     answered: Boolean = false,
+    /** An Agent call's row: its agent, as last read. */
+    agentInfo: dev.shrimpscript.porthole.net.AgentInfo? = null,
+    onAgents: () -> Unit = {},
 ) {
     val c = Porthole.colors
     Appear(enabled = animate) {
@@ -938,7 +961,7 @@ fun FeedRowView(
                 }
             }
 
-            "tool" -> Row(
+            "tool" -> if (r.agent != null) AgentCard(r.agent, r.text, agentInfo, pending, onAgents) else Row(
                 Modifier
                     .fillMaxWidth()
                     .clickable(enabled = r.detail.isNotBlank()) { onOpen(r) },
