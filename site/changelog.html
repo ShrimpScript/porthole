@@ -115,6 +115,18 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.33.0" class="v">0.33.0</span>
+        <h2>Needs you, for permissions too</h2>
+        <div class="rel-date"><span>28 September 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>A session stopped on a permission prompt is under Needs you.</b> Until now only a question put a session there. Now so does anything Claude Code itself reports it is stopped on you for: a permission prompt, a tool asking for input, a sandboxed command asking for the network. The row moves to the top with the amber ring and says what it wants ("waiting for you: Bash: git push --force origin main"). It stays there for as long as it waits, including after the approval card on the phone has timed out and gone back to the desk. A menu left open at the desk, such as <code>/model</code>, does not count. Mac and Linux alike.</li>
+            <li><b>Fix: a long command ran off the approval card.</b> The command sat on one line that scrolled sideways, so its end, usually the part that matters, was out of view. It now wraps, so all of it is on the card.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
         <span id="v0.32.0" class="v">0.32.0</span>
         <h2>Send a file from the phone</h2>
         <div class="rel-date"><span>27 September 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>

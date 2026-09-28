@@ -82,6 +82,9 @@ class RenderScreensTest {
         val sessions = listOf(
             SessionInfo("q1", "Add dark mode to settings", "/srv/app", "main", "2026-09-14T10:00:00Z", live = true, working = true,
                 model = "claude-fable-5-1", workingSince = now - 65_000, doing = "AskUserQuestion", asking = "Which colour?", tmuxName = "0", pane = "%0"),
+            // Stopped on a permission prompt: no question in the transcript, only the CLI's "waiting".
+            SessionInfo("p1", "Ship the release branch", "/srv/shop", "release/2.4", "2026-09-14T09:59:00Z", live = true, working = true,
+                model = "claude-fable-5-1", workingSince = now - 20 * 60_000, doing = "Bash: git push --force origin main", waiting = true, waitingFor = "permission prompt", tmuxName = "2", pane = "%2"),
             SessionInfo("w1", "Fix flaky login test", "/srv/api", "HEAD", "2026-09-14T09:58:00Z", live = true, working = true,
                 model = "claude-fable-5-1", workingSince = now - 12_000, doing = "Bash: ./gradlew test", tmuxName = "1", pane = "%1"),
             SessionInfo("l1", "Migrate to Postgres 16", "/srv/api", "main", "2026-09-14T09:30:00Z", live = true, working = false,
@@ -96,6 +99,10 @@ class RenderScreensTest {
         rule.waitForIdle()
         rule.onNodeWithText("Needs you").assertIsDisplayed()
         rule.onNodeWithText("asking you: Which colour? · main · live · tmux 0 · Fable 5.1").assertIsDisplayed()
+        // The one held on a permission prompt is under Needs you too, above Live, saying what it wants to run.
+        val held = rule.onNodeWithText("waiting for you: Bash: git push --force origin main · release/2.4 · live · tmux 2 · Fable 5.1").fetchSemanticsNode().boundsInRoot
+        val liveLabel = rule.onNodeWithText("Live").fetchSemanticsNode().boundsInRoot
+        assertTrue("the waiting session sits under Needs you, above Live", held.bottom <= liveLabel.top)
         rule.onNodeWithText("Recent").assertIsDisplayed()
         save("sessions")
     }

@@ -140,6 +140,7 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
           <h3 id="sessions-h">Every session, with the ones waiting on you first</h3>
           <p>One row for each Claude Code running on the computer, grouped into Needs you, Live and Recent. A working row says what the session is doing and for how long. When a turn ends, a dot marks the row until you look. Open it for the feed: your prompts, Claude's replies, and every tool call with how long it took.</p>
           <ul class="facts">
+            <li>A session stopped on a question or a permission prompt goes to the top, saying what it wants.</li>
             <li>Each row names its tmux session, so two sessions in one folder stay apart.</li>
             <li>More than one computer in the same list, with one that cannot be reached kept apart.</li>
           </ul>

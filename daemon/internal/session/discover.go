@@ -36,12 +36,19 @@ type Info struct {
 	WorkingSince time.Time `json:"working_since,omitempty"`
 	Doing        string    `json:"doing,omitempty"`
 	Asking       string    `json:"asking,omitempty"` // the question Claude is waiting on the person to answer
-	TmuxName     string    `json:"tmux,omitempty"`
-	Pane         string    `json:"pane,omitempty"` // the pane Claude runs in, from the CLI's registry; keystrokes go here
-	Window       string    `json:"-"`              // its tmux window id, for the terminal mirror
-	Name         string    `json:"name,omitempty"` // the CLI's own session name
-	Transcript   string    `json:"-"`
-	Size         int64     `json:"-"`
+	// Waiting means the CLI has stopped on the person: a permission prompt, a tool asking
+	// for input, a sandbox or worker request, or a proposed goal - its registry status
+	// "waiting", less the menus someone left open at the desk ("dialog open"). A permission
+	// prompt leaves no mark in the transcript, so this is the only sign of one that outlasts
+	// the phone's approval card. WaitingFor is the CLI's reason, as it says it.
+	Waiting    bool   `json:"waiting,omitempty"`
+	WaitingFor string `json:"waiting_for,omitempty"`
+	TmuxName   string `json:"tmux,omitempty"`
+	Pane       string `json:"pane,omitempty"` // the pane Claude runs in, from the CLI's registry; keystrokes go here
+	Window     string `json:"-"`              // its tmux window id, for the terminal mirror
+	Name       string `json:"name,omitempty"` // the CLI's own session name
+	Transcript string `json:"-"`
+	Size       int64  `json:"-"`
 }
 
 // peek reads session metadata without parsing the whole transcript. Transcripts can reach
@@ -593,6 +600,9 @@ func List() ([]Info, error) {
 		// (on a question or a permission prompt) leave the transcript's reading alone.
 		if notWorking(p.Status) {
 			si.Working, si.WorkingSince, si.Doing, si.Asking = false, time.Time{}, "", ""
+		}
+		if p.Status == "waiting" && p.WaitingFor != "dialog open" {
+			si.Waiting, si.WaitingFor = true, p.WaitingFor
 		}
 		rememberPane(si.ID, si.Pane)
 		if at, seen := byID[si.ID]; seen {

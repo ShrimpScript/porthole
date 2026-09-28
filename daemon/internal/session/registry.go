@@ -23,10 +23,14 @@ type Proc struct {
 	Cwd       string
 	Name      string // the CLI's own name for the session ("proj-9a"), as /resume shows it
 	Status    string // "busy", "waiting", "idle" or "shell", as the CLI reports it
-	TmuxSess  string // tmux session name; "" when Claude runs outside tmux
-	Window    string // tmux window id, "@3"
-	Pane      string // tmux pane id, "%7"
-	StartedAt time.Time
+	// WaitingFor is the CLI's reason while Status is "waiting": "permission prompt", "input
+	// needed" (a tool asking the person), "sandbox request", "worker request", "goal
+	// proposal", or "dialog open" (a menu such as /model left open). Empty from older CLIs.
+	WaitingFor string
+	TmuxSess   string // tmux session name; "" when Claude runs outside tmux
+	Window     string // tmux window id, "@3"
+	Pane       string // tmux pane id, "%7"
+	StartedAt  time.Time
 }
 
 // SessionsDir is the registry directory, beside the transcripts.
@@ -44,15 +48,16 @@ func procsIn(dir string, alive func(pid int, start string) bool) []Proc {
 			continue
 		}
 		var r struct {
-			PID       int    `json:"pid"`
-			SessionID string `json:"sessionId"`
-			Cwd       string `json:"cwd"`
-			ProcStart string `json:"procStart"`
-			Kind      string `json:"kind"`
-			Tmux      string `json:"tmux"`
-			Name      string `json:"name"`
-			Status    string `json:"status"`
-			StartedAt int64  `json:"startedAt"`
+			PID        int    `json:"pid"`
+			SessionID  string `json:"sessionId"`
+			Cwd        string `json:"cwd"`
+			ProcStart  string `json:"procStart"`
+			Kind       string `json:"kind"`
+			Tmux       string `json:"tmux"`
+			Name       string `json:"name"`
+			Status     string `json:"status"`
+			WaitingFor string `json:"waitingFor"`
+			StartedAt  int64  `json:"startedAt"`
 		}
 		if json.Unmarshal(b, &r) != nil || r.PID <= 0 || r.SessionID == "" {
 			continue
@@ -65,7 +70,7 @@ func procsIn(dir string, alive func(pid int, start string) bool) []Proc {
 		if !alive(r.PID, r.ProcStart) {
 			continue
 		}
-		p := Proc{PID: r.PID, SessionID: r.SessionID, Cwd: r.Cwd, Name: r.Name, Status: r.Status}
+		p := Proc{PID: r.PID, SessionID: r.SessionID, Cwd: r.Cwd, Name: r.Name, Status: r.Status, WaitingFor: r.WaitingFor}
 		if r.StartedAt > 0 {
 			p.StartedAt = time.UnixMilli(r.StartedAt)
 		}

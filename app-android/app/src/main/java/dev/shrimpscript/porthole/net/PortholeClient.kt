@@ -191,6 +191,13 @@ data class SessionInfo(
     val doing: String = "",
     /** The question Claude is waiting on the person to answer; "" when none. */
     val asking: String = "",
+    /**
+     * Stopped on the person, by the computer's Claude Code's own account: a permission prompt, a
+     * tool asking for input, a sandbox request... (a menu left open at the desk does not count).
+     */
+    val waiting: Boolean = false,
+    /** Claude Code's reason while [waiting]: "permission prompt", "input needed", "sandbox request"...; may be blank. */
+    val waitingFor: String = "",
     /** The tmux session Claude runs in ("work", "0"); what tells two sessions in one directory apart. */
     val tmuxName: String = "",
     /** The tmux pane it runs in ("%7"), when the computer's Claude Code registers one. */
@@ -202,7 +209,19 @@ data class SessionInfo(
     val machineDown: Boolean = false,
     /** The socket's state as a word while [machineDown]: connecting, reconnecting, refused, not connected. */
     val machineState: String = "",
-)
+) {
+    /** Belongs under Needs you: a question on screen, or anything else Claude Code is stopped on the person for. */
+    val needsYou: Boolean get() = asking.isNotBlank() || waiting
+
+    /**
+     * What it is waiting for, in a few words: for a permission prompt, the tool call it is holding
+     * ("Bash: git push"), which is the last one the transcript shows; otherwise Claude Code's reason.
+     */
+    val waitingWhat: String get() = when {
+        waitingFor.isBlank() || waitingFor == "permission prompt" -> doing.ifBlank { waitingFor }
+        else -> waitingFor
+    }
+}
 
 /**
  * An app build the phone can install: one published on the computer (a path there), or
@@ -966,6 +985,8 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                                     workingSince = parseIsoMs(s.optString("working_since")),
                                     doing = s.optString("doing"),
                                     asking = s.optString("asking"),
+                                    waiting = s.optBoolean("waiting"),
+                                    waitingFor = s.optString("waiting_for"),
                                     tmuxName = s.optString("tmux"),
                                     pane = s.optString("pane"),
                                 )

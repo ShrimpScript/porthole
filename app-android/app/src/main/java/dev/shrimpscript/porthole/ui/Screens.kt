@@ -247,7 +247,7 @@ fun SessionsScreen(
             // Keys must be unique or the lazy list throws. The daemon promises one row per
             // session now; this keeps an older one from being able to close the app.
             val sessions = sessions.distinctBy { it.machineId + "/" + it.id }
-            val needs = sessions.filter { it.live && it.asking.isNotBlank() }
+            val needs = sessions.filter { it.live && it.needsYou }
             val live = sessions.filter { (it.live || it.tmux) && it !in needs && !it.machineDown }.sortedWith(compareByDescending<SessionInfo> { it.working }.thenByDescending { it.live })
             val idle = sessions.filter { !it.live && !it.tmux && !it.machineDown }
             // A computer the phone cannot reach right now: its rows, as last seen, apart.
@@ -365,8 +365,8 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
         ) {
             // The only ring that spins on this screen is a session that is working.
             Ring(
-                state = when { s.asking.isNotBlank() -> RingState.NeedsYou; s.working -> RingState.Connecting; s.live -> RingState.Live; else -> RingState.Idle }, size = 18.dp,
-                label = when { s.asking.isNotBlank() -> "asking you"; s.working -> "working"; s.live -> "live"; else -> "idle" },
+                state = when { s.needsYou -> RingState.NeedsYou; s.working -> RingState.Connecting; s.live -> RingState.Live; else -> RingState.Idle }, size = 18.dp,
+                label = when { s.asking.isNotBlank() -> "asking you"; s.waiting -> "waiting for you"; s.working -> "working"; s.live -> "live"; else -> "idle" },
                 modifier = Modifier.padding(top = 2.dp).sharedAcrossRoutes("ring-${s.id}"),
             )
             Column(Modifier.weight(1f)) {
@@ -383,13 +383,17 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                     if (unseen) Box(Modifier.size(7.dp).background(c.accent, PortholeShape.pill).semantics { contentDescription = "new since you looked" })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (s.working && s.asking.isBlank()) {
+                    if (s.working && !s.needsYou) {
                         Spinner(Modifier.padding(end = 2.dp))
                     }
                     Text(
                         buildString {
                             if (s.asking.isNotBlank()) {
                                 append("asking you: ").append(s.asking).append(" · ")
+                            } else if (s.waiting) {
+                                append("waiting for you")
+                                if (s.waitingWhat.isNotBlank()) append(": ").append(s.waitingWhat)
+                                append(" · ")
                             } else if (s.working) {
                                 // Time first: it is the number that decides whether to wait, and a
                                 // long command must never push it off the row.
@@ -414,7 +418,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                             if (m.isNotBlank()) append(" · ").append(m)
                         },
                         style = PortholeType.secondary,
-                        color = when { s.asking.isNotBlank() -> c.accent; s.working -> c.text; else -> c.muted },
+                        color = when { s.needsYou -> c.accent; s.working -> c.text; else -> c.muted },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

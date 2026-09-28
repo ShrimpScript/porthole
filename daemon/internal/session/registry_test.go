@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -250,5 +251,59 @@ func TestListCollapsesOneSessionResumedTwice(t *testing.T) {
 	}
 	if kept.Pane != "%9" {
 		t.Errorf("the newest process should win, got pane %q", kept.Pane)
+	}
+}
+
+// A permission prompt leaves nothing in the transcript; the CLI's registry says "waiting",
+// and that is what puts the session under Needs you - but not a menu left open at the desk.
+func TestListMarksASessionWaitingOnThePerson(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", root)
+	sessions := filepath.Join(root, "sessions")
+	if err := os.MkdirAll(sessions, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	start := ownStart(t)
+	cwd := filepath.Join(root, "proj")
+	regs := map[string][2]string{ // id -> status, waitingFor
+		"perm":  {"waiting", "permission prompt"},
+		"mcp":   {"waiting", "input needed"},
+		"old":   {"waiting", ""}, // an older CLI gives no reason
+		"menu":  {"waiting", "dialog open"},
+		"runs":  {"busy", ""},
+		"rests": {"idle", ""},
+	}
+	for id, r := range regs {
+		b := fmt.Sprintf(`{"pid":%d,"sessionId":%q,"cwd":%q,"procStart":%q,"kind":"interactive","tmux":"w:@1.%%1","status":%q,"waitingFor":%q,"startedAt":1789344486512}`,
+			os.Getpid(), id, cwd, start, r[0], r[1])
+		if err := os.WriteFile(filepath.Join(sessions, id+".json"), []byte(b), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list, err := List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Info{}
+	for _, si := range list {
+		got[si.ID] = si
+	}
+	want := map[string]bool{"perm": true, "mcp": true, "old": true, "menu": false, "runs": false, "rests": false}
+	for id, w := range want {
+		if got[id].Waiting != w {
+			t.Errorf("%s: waiting = %v, want %v (%+v)", id, got[id].Waiting, w, got[id])
+		}
+	}
+	if got["perm"].WaitingFor != "permission prompt" || got["menu"].WaitingFor != "" {
+		t.Errorf("the reason goes out only with a wait: perm %q, menu %q", got["perm"].WaitingFor, got["menu"].WaitingFor)
+	}
+	// On the wire: the phone reads "waiting" and "waiting_for", and neither is sent when false.
+	on, _ := json.Marshal(got["perm"])
+	off, _ := json.Marshal(got["runs"])
+	if !strings.Contains(string(on), `"waiting":true`) || !strings.Contains(string(on), `"waiting_for":"permission prompt"`) {
+		t.Errorf("waiting session JSON: %s", on)
+	}
+	if strings.Contains(string(off), `"waiting`) {
+		t.Errorf("a session not waiting should not say so: %s", off)
 	}
 }
