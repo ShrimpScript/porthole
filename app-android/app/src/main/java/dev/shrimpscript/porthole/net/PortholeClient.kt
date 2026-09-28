@@ -74,6 +74,15 @@ data class ChangesState(
     val error: String = "",
 )
 
+/**
+ * Files in the session's directory that match what follows an "@" in the composer, best
+ * first; with nothing typed yet, the newest. [query] is the one this answers.
+ */
+data class FilesState(
+    val sessionId: String, val query: String, val files: List<String>,
+    val truncated: Boolean = false, val error: String = "",
+)
+
 /** A picture attached to a prompt from the phone. */
 data class Attachment(val name: String, val media: String, val bytes: ByteArray)
 
@@ -375,6 +384,12 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     private val _notice = MutableStateFlow<String?>(null)
     val notice: StateFlow<String?> = _notice
 
+    /** The last files.get sent: answers arrive in any order, and only this one's is wanted. */
+    @Volatile private var filesAsked: Pair<String, String>? = null
+    private val _files = MutableStateFlow<FilesState?>(null)
+    /** The last answer to [getFiles]; cleared on attach. */
+    val files: StateFlow<FilesState?> = _files
+
     private val _changes = MutableStateFlow<ChangesState?>(null)
     /** The last answer to [getChanges]; null until asked, and cleared on attach. */
     val changes: StateFlow<ChangesState?> = _changes
@@ -532,6 +547,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
     fun attach(sessionId: String) {
         _changes.value = null
+        _files.value = null
         _rows.value = emptyList()
         _attached.value = null
         _backfillCount.value = 0
@@ -614,6 +630,12 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
     /** Ask for the page of history before what the feed holds. */
     fun loadEarlier() = send(JSONObject().put("type", "session.earlier").put("before", fileRows).toString())
+
+    /** Ask for files in the session's directory matching [query], for an @ mention. Answered by a `files` frame. */
+    fun getFiles(sessionId: String, query: String) {
+        filesAsked = sessionId to query
+        send(JSONObject().put("type", "files.get").put("session_id", sessionId).put("query", query).toString())
+    }
 
     /** Ask what git sees changed in the session's directory. Answered by a `changes` frame. */
     fun getChanges(sessionId: String) {
@@ -903,6 +925,17 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                 "session.turn" -> _turns.tryEmit(
                     TurnEvent(obj.optString("session_id"), obj.optString("title"), obj.optString("text"))
                 )
+                "files" -> {
+                    // An answer to an earlier query, overtaken by typing: the list would
+                    // go back a letter, or empty, and stay that way.
+                    if (filesAsked != obj.optString("session_id") to obj.optString("query")) return
+                    val arr = obj.optJSONArray("files")
+                    _files.value = FilesState(
+                        sessionId = obj.optString("session_id"), query = obj.optString("query"),
+                        files = buildList { for (i in 0 until (arr?.length() ?: 0)) add(arr!!.getString(i)) },
+                        truncated = obj.optBoolean("truncated"), error = obj.optString("error"),
+                    )
+                }
                 "changes" -> {
                     val arr = obj.optJSONArray("files")
                     _changes.value = ChangesState(

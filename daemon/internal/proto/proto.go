@@ -25,6 +25,7 @@ const (
 	TypeImageData         = "image.data" // bytes for an image row, or a fresh capture
 	TypeClipData          = "clip.data"  // a short screen recording
 	TypeChanges           = "changes"    // the answer to changes.get
+	TypeFiles             = "files"      // the answer to files.get
 )
 
 // Frame types, client -> server.
@@ -45,6 +46,7 @@ const (
 	TypeSessionKey       = "session.key"    // Enter or Escape, nothing else
 	TypeSessionAnswer    = "session.answer" // drive the question picker: option digit, typed text, Right (advance), Enter (submit)
 	TypeChangesGet       = "changes.get"    // what git sees changed in the session's directory
+	TypeFilesGet         = "files.get"      // files in the session's directory matching a query, for an @ mention
 	TypeClientReport     = "client.report"  // the phone telling the computer why it died
 	TypeImageGet         = "image.get"
 	TypeCaptureStill     = "capture.still"
@@ -72,6 +74,7 @@ const (
 	CapStart     = "start"   // start or resume Claude Code in a project directory from the phone
 	CapChanges   = "changes" // the working tree's diff, from git, for a session's directory
 	CapSSHKey    = "ssh_key" // can put the phone's own key in authorized_keys, for the failsafe
+	CapFiles     = "files"   // answers files.get: file names for the composer's @ mentions
 )
 
 type Frame struct {

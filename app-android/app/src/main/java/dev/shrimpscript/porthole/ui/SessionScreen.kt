@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Difference
 import dev.shrimpscript.porthole.net.ChangesState
+import dev.shrimpscript.porthole.net.FilesState
 import androidx.compose.foundation.border
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -170,6 +171,9 @@ fun SessionScreen(
     /** What git sees changed in the session's directory; null until asked. */
     changes: ChangesState? = null,
     onChangesRefresh: () -> Unit = {},
+    /** Files matching an @ mention being typed; [onFiles] asks for a query's. */
+    files: FilesState? = null,
+    onFiles: (String) -> Unit = {},
     /** One-tap sends shown when Claude is idle; editable by long-press. */
     quickReplies: List<String> = emptyList(),
     onQuickReplies: (List<String>) -> Unit = {},
@@ -347,6 +351,28 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                     }
                                 }
                             }
+                        }
+                        // A file named with "@": the daemon lists the session's files as the
+                        // name is typed, and a tap puts the path in the draft.
+                        val mention = remember(draft, canSend) { if ("files" in caps && canSend) trailingMention(draft) else null }
+                        LaunchedEffect(mention) {
+                            if (mention != null) {
+                                if (mention.isNotEmpty()) kotlinx.coroutines.delay(120) // a pause in typing, not every key
+                                onFiles(mention)
+                            }
+                        }
+                        // The answer for what is typed; while that is on its way, the last
+                        // answer narrowed to what still fits, so the list does not blink.
+                        val fileList = files?.takeIf { mention != null && it.error.isEmpty() }?.let { f ->
+                            when {
+                                f.query == mention -> f.files
+                                mention!!.startsWith(f.query) -> f.files.filter { it.contains(mention, ignoreCase = true) }.ifEmpty { null }
+                                else -> null
+                            }
+                        }
+                        if (mention != null && fileList != null) {
+                            LayoutSpacer(Modifier.height(8.dp))
+                            FileSuggestions(fileList, mention) { path -> draft = insertMention(draft, path) }
                         }
                         val suggestions = remember(draft) { matchingCommands(draft) }
                         if (suggestions.isNotEmpty()) {
@@ -1039,6 +1065,12 @@ private fun Composer(
     // closes with the next keystroke.
     var tools by remember { mutableStateOf(false) }
     LaunchedEffect(value) { tools = false }
+    // The field keeps its own cursor. When the draft is changed from outside - a command or
+    // a file picked from the list above - the cursor goes to the end, where typing goes on;
+    // a plain string field would leave it where the finger last was, mid-word.
+    var field by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(value, androidx.compose.ui.text.TextRange(value.length))) }
+    val shown = if (field.text == value) field
+        else androidx.compose.ui.text.input.TextFieldValue(value, androidx.compose.ui.text.TextRange(value.length))
     val folded = value.isNotEmpty() && !tools
     Row(
         Modifier
@@ -1110,8 +1142,10 @@ private fun Composer(
                 )
             }
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
+                value = shown,
+                // Every edit goes up, even one that returns to the text of the last frame:
+                // skipping those would let the next recomposition throw an edit away.
+                onValueChange = { field = it; onValueChange(it.text) },
                 enabled = enabled,
                 // Five lines, then it scrolls: past that the draft is better read than seen whole,
                 // and the feed above it is what the person is answering.

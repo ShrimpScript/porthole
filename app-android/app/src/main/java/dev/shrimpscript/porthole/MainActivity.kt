@@ -465,6 +465,7 @@ private fun PortholeApp(
     val earlierEpoch by key(active) { active.earlierEpoch.collectAsState() }
     val loadedEpoch by key(active) { active.loadedEpoch.collectAsState() }
     val changes by key(active) { active.changes.collectAsState() }
+    val files by key(active) { active.files.collectAsState() }
     var quickReplies by remember {
         mutableStateOf(prefs.getString("quick_replies", null)?.split("\n") ?: listOf("Continue", "Yes", "No", "Looks good"))
     }
@@ -1195,6 +1196,8 @@ private fun PortholeApp(
                             onAnswer = { a -> sc.answer(s.id, a.option, a.text, a.advance, a.submit) },
                             changes = changes?.takeIf { it.sessionId == s.id },
                             onChangesRefresh = { sc.getChanges(s.id) },
+                            files = files?.takeIf { it.sessionId == s.id },
+                            onFiles = { q -> sc.getFiles(s.id, q) },
                             quickReplies = quickReplies,
                             onQuickReplies = { quickReplies = it; prefs.edit().putString("quick_replies", it.joinToString("\n")).apply() },
                             onSend = { text ->

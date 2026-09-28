@@ -14,12 +14,15 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assert
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import dev.shrimpscript.porthole.net.ChangedFile
 import dev.shrimpscript.porthole.net.ChangesState
 import dev.shrimpscript.porthole.net.Question
@@ -207,6 +210,56 @@ class RenderScreensTest {
         rule.waitForIdle()
         rule.onNodeWithContentDescription("Attach a photo").assertIsDisplayed()
         rule.onNodeWithContentDescription("Slash commands").assertIsDisplayed()
+    }
+
+    /**
+     * An @ mention: typing it asks the daemon for the session's files, the list shows them
+     * by name with the folder beneath, and a tap puts the path in the draft with a space.
+     */
+    @Test
+    fun mentionOffersTheSessionsFiles() {
+        val asked = mutableListOf<String>()
+        var files by androidx.compose.runtime.mutableStateOf<dev.shrimpscript.porthole.net.FilesState?>(null)
+        rule.setContent {
+            PortholeTheme {
+                SessionScreen(
+                    title = "Add dark mode to settings", branch = "main · tmux 0", ring = RingState.Live, live = true,
+                    rows = listOf(row("user", "Where is the settings screen?", "2026-09-28T09:58:00Z")),
+                    backfillCount = 1, loaded = true, canSend = true, onSend = {}, onBack = {},
+                    view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                    terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                    notice = null, onDismissNotice = {}, state = state(working = false),
+                    status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "bypass permissions on", interruptible = false),
+                    caps = listOf("files"),
+                    files = files,
+                    onFiles = { q ->
+                        asked += q
+                        files = dev.shrimpscript.porthole.net.FilesState("s", q, listOf(
+                            "app/src/main/java/dev/app/ui/SettingsScreen.kt",
+                            "app/src/main/java/dev/app/ui/SettingsViewModel.kt",
+                            "docs/settings.md",
+                        ))
+                    },
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Tidy up @sett")
+        rule.mainClock.advanceTimeBy(400)
+        rule.waitForIdle()
+        assertEquals("sett", asked.last())
+        rule.onNodeWithText("SettingsScreen.kt").assertIsDisplayed()
+        rule.onNodeWithText("docs").assertIsDisplayed()
+        save("session-mention")
+        rule.onNodeWithContentDescription("app/src/main/java/dev/app/ui/SettingsScreen.kt").performClick()
+        rule.waitForIdle()
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction())
+            .assert(androidx.compose.ui.test.hasText("Tidy up @app/src/main/java/dev/app/ui/SettingsScreen.kt "))
+        rule.onAllNodesWithText("SettingsViewModel.kt").assertCountEquals(0) // the mention is finished
+        // The cursor went to the end: the next letters follow the path, not land inside it.
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("now")
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction())
+            .assert(androidx.compose.ui.test.hasText("Tidy up @app/src/main/java/dev/app/ui/SettingsScreen.kt now"))
     }
 
     private fun changesFixture(): ChangesState {

@@ -97,6 +97,7 @@ type clientFrame struct {
 	Cwd         string        `json:"cwd"`        // session.new: the folder to start Claude Code in
 	Pane        string        `json:"pane"`       // session.trust: the pane asking
 	Trust       bool          `json:"trust"`      // session.trust: trust the folder, or quit
+	Query       string        `json:"query"`      // files.get: what follows the "@" so far
 }
 
 type promptImage struct {
@@ -266,6 +267,8 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 			s.clientReport(f.Text, deviceName)
 		case proto.TypeChangesGet:
 			go s.changes(ctx, w, f.SessionID) // git on a big tree can take a moment
+		case proto.TypeFilesGet:
+			go s.files(ctx, w, f.SessionID, f.Query) // the first listing of a big tree can too
 		case proto.TypePreviewList:
 			s.previewList(ctx, w)
 		case proto.TypePreviewOpen:

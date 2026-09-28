@@ -66,8 +66,11 @@ type Server struct {
 	// What each live session's screen is asking right now, from the turn watcher's
 	// scan of its pane (the transcript only records a question once answered).
 	askMu       sync.Mutex
-	asking      map[string]string // session id -> question text ("" when none; absent when unscanned)
-	changesBusy map[string]bool   // session id -> a changes.get is running
+	asking      map[string]string                                     // session id -> question text ("" when none; absent when unscanned)
+	changesBusy map[string]bool                                       // session id -> a changes.get is running
+	filesMu     sync.Mutex                                            // one directory listing at a time, for files.get
+	filesCache  map[string]*fileList                                  // directory -> its files, for a few seconds
+	listFiles   func(context.Context, string) ([]string, bool, error) // nil: the real listing
 }
 
 // screenAsking is the question the session's pane showed on the last scan, and whether
@@ -369,9 +372,10 @@ func detectCaps() []string {
 	if platform.CanListListeners() {
 		caps = append(caps, proto.CapPreview) // finding dev servers maps sockets to processes
 	}
-	if _, err := exec.LookPath("git"); err == nil {
+	if gitUsable() {
 		caps = append(caps, proto.CapChanges)
 	}
+	caps = append(caps, proto.CapFiles) // git's list in a repository, a walk outside one
 	if _, err := exec.LookPath("tmux"); err == nil {
 		caps = append(caps, proto.CapStart) // starting Claude needs a tmux to put it in
 	}
