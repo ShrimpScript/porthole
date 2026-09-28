@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Porthole - The whole command (4:5)</title>
+<link rel="stylesheet" href="ads.css">
+<style>
+html, body, .frame { width: 1080px; height: 1350px; }
+/* The ground is the hull's side: its rubbing strake, a row of portholes (one cut by the left
+   edge, one running off the right), and through the big one the phone, drawn flat in the
+   boat's own line, with the app's real approval card. */
+.frame { background: var(--hull); }
+.strake { position: absolute; left: 0; right: 0; top: 262px; height: 26px; background: var(--house); border-block: 1px solid var(--paper); }
+.big { left: calc(720px - 400px); top: calc(720px - 400px); }
+.small { left: calc(-40px - 190px); top: calc(720px - 190px); }
+/* phone-flat.png is 1236 x 2600, the phone's box (9, 22)-(1230, 2579); shown at 0.5, the card's
+   centre (620, 2078) 84 px below the glass's centre, so the phone's foot sits just inside it */
+.big .glass img { width: calc(1236px * 0.5); left: calc(364px - 620px * 0.5); top: calc(448px - 2078px * 0.5); }
+.sub { position: absolute; left: var(--margin); width: 560px; top: 1152px; font: 400 22px/1.35 "Schibsted Grotesk", sans-serif; color: var(--quiet); }
+</style>
+<div class="frame">
+  <h1>A small window.<br>The whole command.</h1>
+  <div class="strake"></div>
+  <div class="port small" data-r="190" data-rim="26" data-bolts="8"><div class="glass"></div></div>
+  <div class="port big" data-r="400" data-rim="36" data-bolts="12"><div class="glass"><img src="renders/phone-flat.png" alt=""></div></div>
+  <p class="sub">Every command in full, with its folder<br>and a countdown. There is no “always allow”.</p>
+  <footer>
+    <span class="brand">P<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.95"/></svg>rthole</span>
+    <span class="line">Claude Code on your computer, from your Android phone.</span>
+  </footer>
+</div>
+<script src="port.js"></script>

@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Porthole - A deck chair (4:5)</title>
+<link rel="stylesheet" href="ads.css">
+<style>
+html, body, .frame { width: 1080px; height: 1350px; }
+.sea { position: absolute; left: 0; right: 0; top: 1298.5px; bottom: 0; background: var(--sea); border-top: 1px solid var(--paper); }
+/* The detail: a porthole beside the person, magnifying the card on their phone's screen - the
+   app's own pixels (question-card.png: sb-question.png from y 1360 down, 1078 wide) at 0.5,
+   centred on (328, 1600) of the screen: the question and both options inside the glass, the
+   "Type something" row below its edge, nothing of the feed above the card. */
+.port { left: calc(310px - 212px); top: calc(440px - 212px); }
+.port .glass img { width: calc(1078px * 0.5); left: calc(188px - 328px * 0.5); top: calc(188px - (1600px - 1360px) * 0.5); }
+/* the boat's name, painted on the hull under the strake and following its sheer */
+.name { position: absolute; left: 322px; top: 936px; transform: rotate(3.7deg); transform-origin: left center; font-size: 48px; }
+</style>
+<div class="frame">
+  <div class="sea"></div>
+  <img class="fill" src="renders/deck.png" alt="">
+  <h1>Claude had a question.<br>You had a deck chair.</h1>
+
+  <svg class="fill" viewBox="0 0 1080 1350" style="z-index: 3">
+    <!-- from the phone's corner (map: Screen 741, 617) to the porthole's rim -->
+    <line x1="720" y1="594" x2="509" y2="514" stroke="#E8F0EE" stroke-width="1"/>
+  </svg>
+  <div class="dot" style="left: 726px; top: 596px; z-index: 3"></div>
+  <div class="port" data-r="212" data-rim="24" data-bolts="10" style="z-index: 3"><div class="glass"><img src="renders/question-card.png" alt=""></div></div>
+
+  <span class="brand name">P<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.95"/></svg>rthole</span>
+  <footer style="justify-content: flex-end"><span class="line">Answer with a tap. The work stays on your computer.</span></footer>
+</div>
+<script src="port.js"></script>

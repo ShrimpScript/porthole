@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Porthole - At sea (16:9)</title>
+<link rel="stylesheet" href="ads.css">
+<style>
+html, body, .frame { width: 1200px; height: 675px; }
+/* The render is 2400 x 1350, shown at 0.36 css px per pixel (its lines were drawn for that
+   size); its horizon, at y 415 in the render, lands on the sea's edge at y 300. */
+.boat { position: absolute; left: 262px; top: 150.6px; width: 864px; height: 486px; }
+.words { position: absolute; left: var(--margin); bottom: var(--margin); display: grid; gap: 14px; }
+</style>
+<div class="frame">
+  <svg id="sea" class="fill" viewBox="0 0 1200 675"></svg>
+  <img class="boat" src="renders/night-reflection.png" alt="">
+  <svg id="glints" class="fill" viewBox="0 0 1200 675"></svg>
+  <img class="boat" src="renders/night.png" alt="">
+  <div class="words">
+    <span class="brand">P<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.95"/></svg>rthole</span>
+    <p class="line">A window into the computer you left running.</p>
+  </div>
+</div>
+<script>
+// Everything on the water, as an engraver would cut it: flat sea, the horizon as one detail
+// line, the moon, a loose path of strokes under it, and a few teal strokes under each lit
+// porthole. Seeded, so every capture is the same picture.
+const NS = 'http://www.w3.org/2000/svg';
+let seed = 11;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const put = (svg, name, attrs) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); document.getElementById(svg).appendChild(e); };
+const HORIZON = 300, MOON = { x: 1082, y: 112, r: 21 };
+put('sea', 'rect', { x: 0, y: HORIZON, width: 1200, height: 675 - HORIZON, fill: '#0B1D1A' });
+put('sea', 'rect', { x: 0, y: HORIZON - 0.5, width: 1200, height: 1, fill: '#E8F0EE' });
+put('sea', 'circle', { cx: MOON.x, cy: MOON.y, r: MOON.r, fill: '#E8F0EE' });
+// the moon's path: rows further apart as they come toward us, each row one or two strokes
+// of uneven length, some rows missing - light on moving water, not a ruler
+let y = HORIZON + 3;
+while (y < 675) {
+  const t = (y - HORIZON) / (675 - HORIZON);
+  if (rnd() > 0.18) {
+    const span = (6 + 80 * t) * (0.4 + 0.6 * rnd());
+    const pieces = t > 0.35 && rnd() > 0.45 ? 2 : 1;
+    let x = MOON.x - span / 2 + (rnd() - 0.5) * 22 * t;
+    for (let k = 0; k < pieces; k++) {
+      const w = span / pieces * (0.35 + 0.6 * rnd());
+      put('sea', 'rect', { x, y, width: w, height: t > 0.5 ? 1.5 : 1, fill: '#E8F0EE' });
+      x += span / pieces + 4 + 10 * rnd();
+    }
+  }
+  y += 3 + 26 * t * t + 5 * rnd() * t;
+}
+// under each lit porthole (from the render's map: where the water is beneath it), two short
+// teal strokes of unequal length, the lower one set off to the side
+for (const [px, py] of [[462, 461], [744, 477]]) {
+  const w1 = 10 + 5 * rnd(), w2 = 5 + 5 * rnd(), side = rnd() > 0.5 ? 1 : -1;
+  put('glints', 'rect', { x: px - w1 / 2, y: py + 5, width: w1, height: 1.5, fill: '#3FD4C0' });
+  put('glints', 'rect', { x: px - w2 / 2 + side * (4 + 4 * rnd()), y: py + 13 + 5 * rnd(), width: w2, height: 1.5, fill: '#3FD4C0' });
+}
+</script>

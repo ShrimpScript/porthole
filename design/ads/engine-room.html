@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Porthole - The engine room (4:5)</title>
+<link rel="stylesheet" href="ads.css">
+<style>
+html, body, .frame { width: 1080px; height: 1350px; }
+/* the sea: flat, behind the boat, from the waterline (y 841 in the render's map) down; its
+   surface is the detail-weight line the hull's own waterline continues */
+.sea { position: absolute; left: 0; right: 0; top: 840.5px; bottom: 0; background: var(--sea); border-top: 1px solid var(--paper); }
+</style>
+<div class="frame">
+  <div class="sea"></div>
+  <img class="fill" src="renders/aft.png" alt="">
+
+  <h1>Your agents work<br>below deck.</h1>
+
+  <!-- the person on deck: the leader stops just above the phone in their hand (map: Screen 297, 583) -->
+  <p class="call left" style="left: 72px; width: 213px; top: 290px;"><b>You, on deck</b>Every session, and<br>what it is asking.</p>
+  <div class="lead v" style="left: 297px; top: 290px; height: 268px;"></div>
+  <div class="dot" style="left: 297.5px; top: 561px;"></div>
+
+  <!-- the speaking tube's mouth on deck (map: 444, 577) -->
+  <p class="call" style="left: 456px; width: 320px; top: 290px;"><b>Your Tailscale network</b>Encrypted end to end.<br>No Porthole server in between.</p>
+  <div class="lead v" style="left: 444px; top: 290px; height: 284px;"></div>
+  <div class="dot" style="left: 444.5px; top: 577px;"></div>
+
+  <!-- the middle engine (map: 731, 861): the leader runs down through the hull into the sea -->
+  <div class="dot" style="left: 731.5px; top: 861px;"></div>
+  <div class="lead v" style="left: 731px; top: 866px; height: 138px;"></div>
+  <p class="call left" style="left: 250px; width: 469px; top: 990px;"><b>Your computer</b>Claude Code runs here, in tmux.<br>Two sessions working, one waiting on you.</p>
+
+  <footer>
+    <span class="brand">P<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.95"/></svg>rthole</span>
+    <span class="line">A window into the computer you left running.</span>
+  </footer>
+</div>
