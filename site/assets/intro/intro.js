@@ -164,6 +164,9 @@ async function start() {
     word('Sessions', ink), word('Questions', ink), word('Approvals', ink),
     word('Terminal', { ...ink, weight: 700, face: MONO, tracking: 0 }),
   ]);
+  // And the name, as the title sets it, in two parts either side of its ring.
+  const name = { height: 0.07, weight: 600, fill: '#DDE6E3', tracking: -0.045, lit: true };
+  const nameReady = Promise.all([word('P', name), word('rthole', name)]);
   const [gltf, manifest, ...maps] = await Promise.all([
     new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(base + 'phone.glb'),
     fetch(base + 'tex/manifest.json').then(r => r.json()),
@@ -275,6 +278,30 @@ async function start() {
     new THREE.MeshStandardMaterial({ color: '#2E9C8D', emissive: TEAL, emissiveIntensity: 0.08, roughness: 0.8, transparent: true, opacity: 0, depthWrite: false }));
   cursor.renderOrder = -1;
   wTerminal.add(cursor);
+  // The name, for the hand-off: the phone glides into the middle of it and stands in for its
+  // "o", with its own screen showing the ring at the height of the letters.
+  const [nP, nR] = await nameReady;
+  const nameLetters = [...nP.userData.letters, ...nR.userData.letters];
+  for (const l of nameLetters) { l.renderOrder = -1; l.material.opacity = 0; }
+  scene.add(nP, nR);
+  const RING_Y = (manifest.screen.h / 2 - 228) * PX;   // the welcome screen's ring, above the phone's centre
+  const NZ = -0.2;
+  let lock = null;
+  // Spaced so the phone fills the gap exactly as the camera sees it, and the camera set to
+  // centre the whole name, not just the phone.
+  function layoutName() {
+    const z = small() ? 1.1 : 0.66;
+    const visW = 2 * (z - NZ) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+    const gap = 0.072 * (z - NZ) / z + 0.014;
+    const wP = nP.userData.width, wR = nR.userData.width;
+    const k = Math.min(1, ((small() ? 0.92 : 0.8) * visW - gap) / (wP + wR));
+    const lean = -NZ / z;                  // how far the phone's shadow on the name slides with the camera
+    const gapX = -lean * k * (wR - wP) / 2 / (1 + lean);
+    nP.scale.setScalar(k); nR.scale.setScalar(k);
+    nP.position.set(gapX - gap / 2 - k * wP / 2, 0, NZ);
+    nR.position.set(gapX + gap / 2 + k * wR / 2, 0, NZ);
+    lock = { z, x: gapX + k * (wR - wP) / 2 };
+  }
   const WZ = -0.12;
   // As large as the frame allows at their depth, and no larger than they were drawn.
   function layoutWords() {
@@ -315,6 +342,7 @@ async function start() {
     camera.updateProjectionMatrix();
     dust.material.uniforms.uScale.value = renderer.getPixelRatio();
     layoutWords();
+    layoutName();
   }
   addEventListener('resize', resize);
   resize();
@@ -588,20 +616,39 @@ async function start() {
   const END = intro.duration();
 
   // ---------------------------------------------------------------- scroll ---
-  // Down the page, the camera goes into the screen, and the screen becomes the page.
-  // Every tween states where it starts, so scrubbing back always returns to the rest pose.
+  // Down the page: the name comes up, the phone glides into it as its "o", and the camera
+  // goes through the ring on its screen, which becomes the page. Every tween states where it
+  // starts, so scrubbing back always returns to the rest pose.
   const scroll = gsap.timeline({ paused: true, defaults: { ease: 'none', immediateRender: false } });
-  scroll.fromTo(ui.hero, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -40, duration: 0.25 }, 0)
+  const glide = { duration: 0.38, ease: 'power2.inOut' };
+  scroll.fromTo(ui.hero, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -40, duration: 0.2 }, 0)
     .fromTo(ui.cue, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.1 }, 0)
-    .fromTo(spin.rotation, { y: R.rotY, x: R.rotX }, { y: 0, x: 0, duration: 0.45, ease: 'power2.inOut' }, 0.05)
-    .fromTo(phone.position, { x: R.x, y: R.y }, { x: 0, y: 0, duration: 0.45, ease: 'power2.inOut' }, 0.05)
-    .fromTo(look, { x: R.look.x, y: R.look.y, z: R.look.z }, { x: 0, y: 0, z: 0, duration: 0.45, ease: 'power2.inOut' }, 0.05)
-    .fromTo(camera.position, { x: R.cam.x, y: R.cam.y, z: R.cam.z }, { x: 0, y: 0, z: 0.3, duration: 0.45, ease: 'power2.inOut' }, 0.05)
-    .fromTo(camera.position, { z: 0.3 }, { z: 0.085, duration: 0.4, ease: 'power2.in' }, 0.5)
-    .fromTo(spot, { intensity: 2.6 }, { intensity: 0.8, duration: 0.4 }, 0.5)
+    .fromTo(spin.rotation, { y: R.rotY, x: R.rotX }, { y: 0, x: 0, ...glide }, 0.04)
+    .fromTo(phone.position, { x: R.x, y: R.y }, { x: 0, y: -RING_Y, ...glide }, 0.04)
+    .fromTo(look, { x: R.look.x, y: R.look.y, z: R.look.z }, { x: () => lock.x, y: 0, z: 0, ...glide }, 0.04)
+    .fromTo(camera.position, { x: R.cam.x, y: R.cam.y, z: R.cam.z }, { x: () => lock.x, y: 0, z: () => lock.z, ...glide }, 0.04)
+    // Its screen goes back to the ring.
+    .set(nextMat, { map: S.welcome }, 0.16)
+    .fromTo(nextMat, { opacity: 0 }, { opacity: 1, duration: 0.1 }, 0.16)
+    .set(screenMat, { map: S.welcome }, 0.26)
+    .set(nextMat, { opacity: 0 }, 0.26)
+    .fromTo(nameLetters.map(l => l.position), { y: i => nameLetters[i].userData.home.y - 0.03 },
+      { y: i => nameLetters[i].userData.home.y, duration: 0.2, ease: 'power3.out', stagger: 0.014 }, 0.19)
+    .fromTo(nameLetters.map(l => l.material), { opacity: 0 }, { opacity: 1, duration: 0.12, stagger: 0.014 }, 0.19)
+    // Held, then through the ring.
+    // Square on to the ring well before the camera is close: this near, a millimetre off
+    // shows as a hand's width on the screen.
+    .fromTo(camera.position, { x: () => lock.x }, { x: 0, duration: 0.22, ease: 'power2.inOut' }, 0.5)
+    .fromTo(look, { x: () => lock.x }, { x: 0, duration: 0.22, ease: 'power2.inOut' }, 0.5)
+    .fromTo(camera.position, { y: 0, z: () => lock.z }, { y: 0, z: FACE + 0.03, duration: 0.42, ease: 'power2.inOut' }, 0.5)
+    .fromTo(spot, { intensity: 2.6 }, { intensity: 0.8, duration: 0.4 }, 0.52)
+    // The camera ends up inside the beam: its haze would only fog the screen.
+    .fromTo(beam.material.uniforms.uOpacity, { value: 1 }, { value: 0, duration: 0.2 }, 0.6)
+    .fromTo(dust.material.uniforms.uOpacity, { value: 1 }, { value: 0, duration: 0.2 }, 0.6)
+    .fromTo(glass.material, { opacity: 0.3 }, { opacity: 0, duration: 0.15 }, 0.6)
     // Close to the screen, a glow on its text would only blur it.
-    .fromTo(bloom, { strength: 0.55 }, { strength: 0, duration: 0.3 }, 0.45)
-    .fromTo(root.querySelector('.cine-fade'), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2 }, 0.8);
+    .fromTo(bloom, { strength: 0.55 }, { strength: 0, duration: 0.25 }, 0.6)
+    .fromTo(root.querySelector('.cine-fade'), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.16 }, 0.82);
 
   const played = () => { try { localStorage.setItem('porthole-intro', 'seen'); } catch (e) { /* fine */ } };
   let introDone = false;
@@ -661,7 +708,7 @@ async function start() {
     dust.material.uniforms.uTime.value = t;
     // Breathing: a phone held in the light is never quite still.
     spin.position.y = Math.sin(t * 0.8) * 0.0012 * breath.v;
-    for (const g of words) g.visible = g.userData.letters.some(l => l.material.opacity > 0.002);
+    for (const g of [...words, nP, nR]) g.visible = g.userData.letters.some(l => l.material.opacity > 0.002);
     wTerminal.visible ||= cursor.material.opacity > 0.002;
     camera.lookAt(look);
     if (useBloom()) composer.render(); else renderer.render(scene, camera);
@@ -688,5 +735,5 @@ async function start() {
   if (Q.has('t')) { intro.pause(); intro.seek(Math.min(+Q.get('t'), END), false); }
   frame();
   // For stills and checks: the scene's clock and position, from outside.
-  window.__porthole = { intro, scroll, END, renderer, phone, spin, camera, look, words };
+  window.__porthole = { intro, scroll, END, renderer, phone, spin, camera, look, words, name: [nP, nR] };
 }

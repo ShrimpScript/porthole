@@ -224,3 +224,16 @@ main > .section + .section { border-top: 0; }
 .closing .btn:not(.btn-primary) { color: #E8F0EE; border-color: rgb(232 240 238 / .28); background: rgb(255 255 255 / .03); }
 .closing .btn:not(.btn-primary):hover { background: rgb(255 255 255 / .08); }
 .closing + * { margin-top: 0; }
+
+/* Section headings rise into place as they come up the screen, tied to the scroll rather
+   than a timer: only the headings, so the page reads at once and only its structure moves. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .section .head h2, .closing h2 {
+      animation: head-up linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 28%;
+    }
+  }
+}
+@keyframes head-up { from { opacity: .25; transform: translateY(16px); } }
