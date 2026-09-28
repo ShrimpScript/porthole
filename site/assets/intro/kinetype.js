@@ -49,7 +49,9 @@ export async function word(text, { height = 0.05, weight = 650, fill = '#F2F7F6'
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
-  const unit = height / (px * 0.72);      // scene units per canvas pixel (cap height ~0.72 em)
+  // The face's own cap height, measured, so the capitals are exactly `height` tall and centred.
+  const cap = g.measureText('H').actualBoundingBoxAscent || px * 0.72;
+  const unit = height / cap;              // scene units per canvas pixel
   const total = at[text.length] * unit;
   const group = new THREE.Group();
   const letters = [];
@@ -64,7 +66,7 @@ export async function word(text, { height = 0.05, weight = 650, fill = '#F2F7F6'
       : new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, depthWrite: false });
     const m = new THREE.Mesh(geo, mat);
     // Centred on the word's middle, with the cap line centred on the group's origin.
-    m.position.set((at[i] + at[i + 1]) / 2 * unit - total / 2, (h / 2 - base) * unit + height / 2, 0);
+    m.position.set((at[i] + at[i + 1]) / 2 * unit - total / 2, (h / 2 - base + cap / 2) * unit, 0);
     m.userData.home = m.position.clone();
     m.userData.index = letters.length;
     group.add(m);
