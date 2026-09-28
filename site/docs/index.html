@@ -465,7 +465,7 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
       <li><strong>Earlier.</strong> The feed opens with the last sixty rows; the pill at the top loads more without losing your place.</li>
       <li><strong>New below.</strong> If you scrolled up while rows arrived, a pill counts them; tap it to jump.</li>
       <li><strong>Since you left.</strong> A session that ran on without you opens on a line across the feed; see <a href="#since">Since you left</a>.</li>
-      <li><strong>Sending.</strong> Type, tap the slash button for Claude Code's commands with their descriptions, or attach a photo. The keyboard's send key submits. Prompts are typed into the session's tmux pane exactly as written.</li>
+      <li><strong>Sending.</strong> Type, tap the slash button for Claude Code's commands with their descriptions, or attach a photo or a file with the paperclip: a PDF, a log, a spreadsheet, anything up to 10 MB in all per message. The keyboard's send key submits. Prompts are typed into the session's tmux pane exactly as written; attachments are saved in <code>~/.config/porthole/uploads</code> on the computer, never in the project, named in the prompt so Claude can open them, and removed after two weeks. A message whose files could not be sent comes back to the box.</li>
       <li><strong>Files.</strong> Type <code>@</code> and the session's files are listed above the composer, the most recently changed first; keep typing to narrow them by name or by part of the path, and tap one to put its path in the message. Claude Code reads a file named this way along with the prompt. In a git repository the list is git's (tracked files, and new ones that are not ignored); elsewhere it is the folder's files a few levels down, without hidden ones.</li>
       <li><strong>Quick replies.</strong> When Claude is idle and nothing is being asked, a row of one-tap sends sits above the composer: Continue, Yes, No, Looks good. The pencil edits the four.</li>
     </ul>
@@ -555,6 +555,7 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
   <div class="prose">
     <p>The chip in a session's header shows the model and how full the context is, such as <b class="nw">Opus 5 &middot; 6%</b>. Tap it for Session details; when the header has no chip yet, the <em>i</em> opens the same sheet. From the top:</p>
     <ul>
+      <li>the session's name, with a pencil to rename it while Claude Code is running there: it types Claude Code's own <code>/rename</code>, so the name is the same at the desk;</li>
       <li>the model and the permission mode;</li>
       <li>the context window: what the last request carried, out of the model's window;</li>
       <li>tokens this session: input, output, thinking, cache read and cache written;</li>

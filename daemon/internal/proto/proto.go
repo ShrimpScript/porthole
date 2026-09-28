@@ -25,6 +25,7 @@ const (
 	TypeImageData         = "image.data" // bytes for an image row, or a fresh capture
 	TypeClipData          = "clip.data"  // a short screen recording
 	TypeChanges           = "changes"    // the answer to changes.get
+	TypePromptSent        = "prompt.sent" // a prompt with files was typed; ref names its first upload
 	TypeFiles             = "files"      // the answer to files.get
 )
 
@@ -37,6 +38,7 @@ const (
 	TypeSessionNew       = "session.new"     // start a fresh Claude Code in a folder, in a tmux session of its own
 	TypeSessionTrust     = "session.trust"   // daemon: that new session asks whether to trust its folder; phone: the answer
 	TypePromptSend       = "prompt.send"
+	TypeUploadChunk      = "upload.chunk" // a piece of a file for a prompt; the prompt names finished uploads
 	TypePermissionDecide = "permission.decide"
 	TypeHookEvent        = "hook.event"
 	TypePTYInput         = "pty.input"
@@ -69,6 +71,7 @@ const (
 	CapCapture   = "capture" // stills of the desktop (grim)
 	CapRecord    = "record"  // short clips of the desktop (wf-recorder)
 	CapUpload    = "upload"  // images attached to a prompt from the phone
+	CapAttach    = "attach"  // any file attached to a prompt, sent in pieces (upload.chunk), up to 10 MB a message
 	CapADB       = "adb"     // reserved; not advertised yet
 	CapPreview   = "preview" // share a local dev server with the phone over the tailnet
 	CapStart     = "start"   // start or resume Claude Code in a project directory from the phone
@@ -135,6 +138,7 @@ type Error struct {
 	Frame
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	Ref     string `json:"ref,omitempty"` // what it is about, when the phone needs to know
 }
 
 // Error codes the app switches on to pick a failure card.
@@ -160,4 +164,12 @@ func NewHello(version, host, osName, deviceName, sshUser string, caps []string) 
 
 func NewError(code, msg string) Error {
 	return Error{Frame: Frame{V: Version, Type: TypeError}, Code: code, Message: msg}
+}
+
+// NewErrorFor is an error about one thing the phone sent, named by ref (an upload's id),
+// so the phone can tell which message to give back.
+func NewErrorFor(code, msg, ref string) Error {
+	e := NewError(code, msg)
+	e.Ref = ref
+	return e
 }

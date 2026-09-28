@@ -466,6 +466,7 @@ private fun PortholeApp(
     val loadedEpoch by key(active) { active.loadedEpoch.collectAsState() }
     val changes by key(active) { active.changes.collectAsState() }
     val files by key(active) { active.files.collectAsState() }
+    val failedSend by key(active) { active.failedSend.collectAsState() }
     var quickReplies by remember {
         mutableStateOf(prefs.getString("quick_replies", null)?.split("\n") ?: listOf("Continue", "Yes", "No", "Looks good"))
     }
@@ -1197,6 +1198,8 @@ private fun PortholeApp(
                             changes = changes?.takeIf { it.sessionId == s.id },
                             onChangesRefresh = { sc.getChanges(s.id) },
                             files = files?.takeIf { it.sessionId == s.id },
+                            failedSend = failedSend?.takeIf { it.sessionId == s.id },
+                            onFailedShown = { sc.clearFailedSend() },
                             onFiles = { q -> sc.getFiles(s.id, q) },
                             quickReplies = quickReplies,
                             onQuickReplies = { quickReplies = it; prefs.edit().putString("quick_replies", it.joinToString("\n")).apply() },

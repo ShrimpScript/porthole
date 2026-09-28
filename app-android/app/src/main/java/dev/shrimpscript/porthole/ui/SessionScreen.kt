@@ -3,6 +3,9 @@ package dev.shrimpscript.porthole.ui
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +40,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Edit
@@ -171,6 +176,9 @@ fun SessionScreen(
     /** What git sees changed in the session's directory; null until asked. */
     changes: ChangesState? = null,
     onChangesRefresh: () -> Unit = {},
+    /** A message with files that did not go, to put back in the box; [onFailedShown] when it is. */
+    failedSend: dev.shrimpscript.porthole.net.PortholeClient.FailedSend? = null,
+    onFailedShown: () -> Unit = {},
     /** Files matching an @ mention being typed; [onFiles] asks for a query's. */
     files: FilesState? = null,
     onFiles: (String) -> Unit = {},
@@ -240,6 +248,20 @@ fun SessionScreen(
     var viewClip by remember { mutableStateOf<FeedRow?>(null) }
     var watching by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<List<dev.shrimpscript.porthole.net.Attachment>>(emptyList()) }
+    // Why the last picked file was not attached; cleared by the next one that is.
+    var attachError by remember { mutableStateOf<String?>(null) }
+    // A message whose files did not go comes back, so nothing has to be picked again.
+    LaunchedEffect(failedSend) {
+        val f = failedSend ?: return@LaunchedEffect
+        // Typed something since? The message comes back after it, not over it.
+        draft = when {
+            f.text.isBlank() -> draft
+            draft.isBlank() -> f.text
+            else -> draft.trimEnd() + "\n" + f.text
+        }
+        pending = f.attachments + pending.filter { p -> f.attachments.none { it === p } }
+        onFailedShown()
+    }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
 CompositionLocalProvider(LocalUriHandler provides uriHandler) {
@@ -386,11 +408,19 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 }
                             }
                         }
-                        if (pending.isNotEmpty()) {
+                        if (pending.isNotEmpty() || attachError != null) {
                             LayoutSpacer(Modifier.height(6.dp))
-                            Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Several files with long names: the row scrolls rather than squeezing them.
+                            Row(
+                                Modifier
+                                    .horizontalScroll(androidx.compose.foundation.rememberScrollState())
+                                    .padding(horizontal = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                attachError?.let { e -> Chip("$e  ✕") { attachError = null } }
                                 pending.forEach { a ->
-                                    Chip("${a.name} · ${a.bytes.size / 1024} KB  ✕") { pending = pending - a }
+                                    val shown = if (a.name.length > 28) a.name.take(18) + "\u2026" + a.name.takeLast(9) else a.name
+                                    Chip("$shown · ${formatBytes(a.bytes.size.toLong())}  ✕") { pending = pending - a }
                                 }
                             }
                         }
@@ -417,8 +447,21 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             onValueChange = { draft = it },
                             placeholder = if (answering) "Your answer" else "Message $title",
                             enabled = canSend,
-                            canAttach = "upload" in caps,
-                            onAttach = { pending = pending + it },
+                            // An older daemon closes the connection on any photo (its 32 KB
+                            // limit), so attaching needs one that takes files in pieces.
+                            canAttach = "attach" in caps,
+                            canAttachFiles = "attach" in caps,
+                            hasAttachments = pending.isNotEmpty(),
+                            onAttach = { a ->
+                                val total = pending.sumOf { it.bytes.size.toLong() } + a.bytes.size
+                                if (total > ATTACH_LIMIT) {
+                                    attachError = "${a.name} would make ${formatBytes(total)}. A message can carry ${formatBytes(ATTACH_LIMIT.toLong())}."
+                                } else {
+                                    pending = pending + a
+                                    attachError = null
+                                }
+                            },
+                            onAttachError = { attachError = it },
                             reason = when {
                                 !tmux -> "No tmux window for this session on the computer"
                                 !live -> "Claude Code isn't running here - open Terminal and run claude"
@@ -479,6 +522,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                     onDismiss = { showStats = false },
                     onSend = onSend, onKey = onKey,
                     muted = muted, onMuted = onMuted,
+                    canRename = canSend,
                 )
             }
         }
@@ -1040,11 +1084,16 @@ private fun Composer(
     reason: String,
     onSlash: () -> Unit,
     canAttach: Boolean = false,
+    /** The daemon takes any file, not only photos. */
+    canAttachFiles: Boolean = false,
+    /** Files are waiting to go: Send works with no words typed. */
+    hasAttachments: Boolean = false,
     onAttach: (dev.shrimpscript.porthole.net.Attachment) -> Unit = {},
+    onAttachError: (String) -> Unit = {},
     onSend: () -> Unit,
 ) {
     val c = Porthole.colors
-    val ready = enabled && value.isNotBlank()
+    val ready = enabled && (value.isNotBlank() || hasAttachments)
     val context = androidx.compose.ui.platform.LocalContext.current
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
@@ -1059,6 +1108,18 @@ private fun Composer(
         val out = java.io.ByteArrayOutputStream()
         bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
         onAttach(dev.shrimpscript.porthole.net.Attachment("photo-${System.currentTimeMillis() % 100000}.jpg", "image/jpeg", out.toByteArray()))
+    }
+    // Any file, through the system's own picker: no storage permission, and every place a
+    // file can be (the phone, Drive, a USB stick) is in it. Read off the main thread.
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val picked = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { readAttachment(context, uri) }
+            picked.fold(onSuccess = onAttach, onFailure = { onAttachError(it.message ?: "That file could not be read") })
+        }
     }
     // Typing folds the photo and command buttons into one, so the field gets their width
     // (a third more on a typical phone) and wraps later. The fold opens again on a tap and
@@ -1095,20 +1156,42 @@ private fun Composer(
             }
         }
         if (canAttach && !folded) {
-            Box(
-                Modifier
-                    .size(48.dp)
-                    .background(c.raised, PortholeShape.pill)
-                    .clickable(enabled = enabled, role = Role.Button) {
-                        picker.launch(androidx.activity.result.PickVisualMediaRequest(
-                            androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    androidx.compose.material.icons.Icons.Outlined.Image, contentDescription = "Attach a photo",
-                    tint = if (enabled) c.muted else c.faint, modifier = Modifier.size(20.dp),
-                )
+            val photo = {
+                picker.launch(androidx.activity.result.PickVisualMediaRequest(
+                    androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
+            var attachMenu by remember { mutableStateOf(false) }
+            Box {
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .background(c.raised, PortholeShape.pill)
+                        // A daemon that takes files gets a choice; an older one, the photo picker.
+                        .clickable(enabled = enabled, role = Role.Button) { if (canAttachFiles) attachMenu = true else photo() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (canAttachFiles) androidx.compose.material.icons.Icons.Outlined.AttachFile
+                        else androidx.compose.material.icons.Icons.Outlined.Image,
+                        contentDescription = if (canAttachFiles) "Attach a photo or a file" else "Attach a photo",
+                        tint = if (enabled) c.muted else c.faint, modifier = Modifier.size(20.dp),
+                    )
+                }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = attachMenu, onDismissRequest = { attachMenu = false },
+                    containerColor = c.raised,
+                ) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text("Photo", style = PortholeType.body, color = c.text) },
+                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Image, contentDescription = null, tint = c.muted) },
+                        onClick = { attachMenu = false; photo() },
+                    )
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text("File", style = PortholeType.body, color = c.text) },
+                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Description, contentDescription = null, tint = c.muted) },
+                        onClick = { attachMenu = false; filePicker.launch(arrayOf("*/*")) },
+                    )
+                }
             }
         }
         // Claude Code's slash commands, one tap away.

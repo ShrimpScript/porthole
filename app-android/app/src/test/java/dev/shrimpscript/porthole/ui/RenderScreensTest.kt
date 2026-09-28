@@ -7,6 +7,7 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -191,24 +192,24 @@ class RenderScreensTest {
                     terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
                     notice = null, onDismissNotice = {}, state = state(working = false),
                     status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "bypass permissions on", interruptible = false),
-                    caps = listOf("changes", "upload"), quickReplies = listOf("Continue", "Yes", "No", "Looks good"),
+                    caps = listOf("changes", "upload", "attach"), quickReplies = listOf("Continue", "Yes", "No", "Looks good"),
                 )
             }
         }
         rule.waitForIdle()
-        rule.onNodeWithContentDescription("Attach a photo").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Attach a photo or a file").assertIsDisplayed()
         rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput(
             "Good. Now make the toggle remember its state across restarts, and add a test for it"
         )
         rule.waitForIdle()
         rule.onNodeWithContentDescription("Photo and commands").assertIsDisplayed()
-        rule.onAllNodesWithContentDescription("Attach a photo").assertCountEquals(0)
+        rule.onAllNodesWithContentDescription("Attach a photo or a file").assertCountEquals(0)
         rule.onAllNodesWithText("Looks good").assertCountEquals(0)
         save("session-typing")
         // One tap brings the tools back until the next keystroke.
         rule.onNodeWithContentDescription("Photo and commands").performClick()
         rule.waitForIdle()
-        rule.onNodeWithContentDescription("Attach a photo").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Attach a photo or a file").assertIsDisplayed()
         rule.onNodeWithContentDescription("Slash commands").assertIsDisplayed()
     }
 
@@ -260,6 +261,56 @@ class RenderScreensTest {
         rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("now")
         rule.onNode(androidx.compose.ui.test.hasSetTextAction())
             .assert(androidx.compose.ui.test.hasText("Tidy up @app/src/main/java/dev/app/ui/SettingsScreen.kt now"))
+    }
+
+    /** A daemon that takes files offers a choice under the attach button: a photo or any file. */
+    @Test
+    fun attachOffersAPhotoOrAFile() {
+        rule.setContent {
+            PortholeTheme {
+                SessionScreen(
+                    title = "Add dark mode to settings", branch = "main · tmux 0", ring = RingState.Live, live = true,
+                    rows = listOf(row("user", "Here is the crash report.", "2026-09-28T09:58:00Z")),
+                    backfillCount = 1, loaded = true, canSend = true, onSend = {}, onBack = {},
+                    view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                    terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                    notice = null, onDismissNotice = {}, state = state(working = false),
+                    status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "bypass permissions on", interruptible = false),
+                    caps = listOf("upload", "attach"),
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onAllNodesWithContentDescription("Attach a photo").assertCountEquals(0)
+        rule.onNodeWithContentDescription("Attach a photo or a file").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Photo").assertIsDisplayed()
+        rule.onNodeWithText("File").assertIsDisplayed()
+        save("session-attach")
+    }
+
+    /** The pencil beside a live session's name opens a field; Rename sends the CLI's own /rename. */
+    @Test
+    fun renameFromTheDetailsSheet() {
+        val sent = mutableListOf<String>()
+        rule.setContent {
+            PortholeTheme {
+                androidx.compose.foundation.layout.Column(
+                    androidx.compose.ui.Modifier.fillMaxSize().background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(20.dp)
+                ) {
+                    RenameTitle("Fix the flaky login test", canRename = true) { sent += "/rename $it" }
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithContentDescription("Rename this session").performClick()
+        rule.waitForIdle()
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextReplacement("Login   work\n")
+        save("session-rename")
+        rule.onNodeWithText("Rename").performClick()
+        rule.waitForIdle()
+        assertEquals(listOf("/rename Login work"), sent)
+        rule.onNodeWithText("Fix the flaky login test").assertIsDisplayed() // the list updates it, not the field
     }
 
     private fun changesFixture(): ChangesState {

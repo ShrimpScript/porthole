@@ -19,10 +19,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.ui.unit.dp
 import dev.shrimpscript.porthole.net.SessionState
 import dev.shrimpscript.porthole.net.TuiStatus
@@ -53,6 +59,8 @@ fun StatsSheet(
     /** This session's notifications are off. */
     muted: Boolean = false,
     onMuted: (Boolean) -> Unit = {},
+    /** Claude Code is running in the session, so /rename can be typed into it. */
+    canRename: Boolean = false,
 ) {
     val c = Porthole.colors
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -81,7 +89,7 @@ fun StatsSheet(
                 .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(title, style = PortholeType.title, color = c.text)
+            RenameTitle(title, canRename) { name -> onSend("/rename $name") }
 
             // model + mode
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -253,6 +261,69 @@ fun MuteSwitch(muted: Boolean, onMuted: (Boolean) -> Unit) {
             )
         }
     }
+}
+
+/**
+ * The session's name, and a pencil that turns it into a field. Saving types Claude Code's
+ * own /rename into the session, so the name is the CLI's - the same at the desk, in
+ * `claude --resume`, and in this list. Its own composable so it can be drawn without the
+ * modal sheet.
+ */
+@Composable
+fun RenameTitle(title: String, canRename: Boolean, onRename: (String) -> Unit) {
+    val c = Porthole.colors
+    var editing by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    if (!editing) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = PortholeType.title, color = c.text, modifier = Modifier.weight(1f))
+            if (canRename) {
+                IconTarget(
+                    androidx.compose.material.icons.Icons.Outlined.Edit, "Rename this session",
+                    onClick = { editing = true }, tint = c.muted,
+                )
+            }
+        }
+        return
+    }
+    var name by androidx.compose.runtime.saveable.rememberSaveable(stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver) {
+        androidx.compose.runtime.mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(title, androidx.compose.ui.text.TextRange(0, title.length)))
+    }
+    val clean = cleanSessionName(name.text)
+    val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        androidx.compose.foundation.text.BasicTextField(
+            value = name,
+            onValueChange = { name = it },
+            singleLine = true,
+            textStyle = PortholeType.title.copy(color = c.text),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(c.accent),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                if (clean.isNotEmpty()) { onRename(clean); editing = false }
+            }),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(c.raised, PortholeShape.card)
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .focusRequester(focus)
+                .semantics { contentDescription = "Session name" },
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            Pill("Cancel", filled = false) { editing = false }
+            Pill("Rename", filled = clean.isNotEmpty() && clean != title) {
+                if (clean.isNotEmpty() && clean != title) onRename(clean)
+                editing = false
+            }
+        }
+    }
+}
+
+/** A name as /rename can take it: one line, no runs of spaces, not too long for a list row. */
+fun cleanSessionName(raw: String): String {
+    val s = raw.replace(Regex("\\s+"), " ").trim()
+    // Counted in characters as a person sees them, so an emoji is never cut in half.
+    return if (s.codePointCount(0, s.length) <= 80) s else s.substring(0, s.offsetByCodePoints(0, 80)).trimEnd()
 }
 
 @Composable

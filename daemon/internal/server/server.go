@@ -294,6 +294,9 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		s.log.Warn("websocket accept failed", "err", err)
 		return
 	}
+	// A prompt with a photo or a file in it is megabytes; past the limit the library
+	// closes the connection, so the limit is what the phone may send, not its 32 KB.
+	c.SetReadLimit(maxFrameBytes)
 	wr := &writer{c: c}
 	s.track(peer.NodeID, c, wr)
 	s.st.Touch(peer.NodeID)
@@ -355,7 +358,7 @@ func (s *Server) writeSessionList(ctx context.Context, c *websocket.Conn) error 
 // detectCaps advertises only what the machine can do. Capture needs grim (Wayland
 // stills) and recording wf-recorder, or on a Mac the built-in screencapture. Uploads need nothing beyond a writable home.
 func detectCaps() []string {
-	caps := []string{proto.CapSessions, proto.CapPrompt, proto.CapApprovals, proto.CapUpload, proto.CapSSHKey}
+	caps := []string{proto.CapSessions, proto.CapPrompt, proto.CapApprovals, proto.CapUpload, proto.CapAttach, proto.CapSSHKey}
 	if runtime.GOOS == "darwin" {
 		// screencapture ships with macOS and does both.
 		if _, err := exec.LookPath("screencapture"); err == nil {

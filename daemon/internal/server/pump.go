@@ -98,6 +98,13 @@ type clientFrame struct {
 	Pane        string        `json:"pane"`       // session.trust: the pane asking
 	Trust       bool          `json:"trust"`      // session.trust: trust the folder, or quit
 	Query       string        `json:"query"`      // files.get: what follows the "@" so far
+	// upload.chunk: one piece of a file; prompt.send names the finished ones in Uploads.
+	Upload  string   `json:"upload"`
+	Seq     int      `json:"seq"`
+	Last    bool     `json:"last"`
+	Name    string   `json:"name"`
+	Media   string   `json:"media"`
+	Uploads []string `json:"uploads"`
 }
 
 type promptImage struct {
@@ -181,6 +188,8 @@ func (w *writer) send(ctx context.Context, v any) error {
 func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, peer *tailnet.Peer) {
 	att := &attachment{}
 	defer att.stop()
+	ups := newUploads()
+	defer ups.close()
 	go keepalive(ctx, w.c)
 
 	for {
@@ -195,15 +204,56 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 		switch f.Type {
 		case proto.TypeSessionAttach:
 			s.attach(ctx, w, att, f.SessionID)
+		case proto.TypeUploadChunk:
+			// Said once per upload: the pieces after a failed one are dropped quietly.
+			if err := ups.chunk(f.Upload, f.Seq, f.Data, f.Name, f.Media, f.Last); err != nil {
+				_ = w.send(ctx, proto.NewErrorFor("upload_failed", err.Error(), f.Upload))
+			}
 		case proto.TypePromptSend:
 			text := f.Text
-			if len(f.Attachments) > 0 {
-				text = s.attachImages(ctx, w, text, f.Attachments, deviceName)
+			ref := ""
+			if len(f.Uploads) > 0 {
+				ref = f.Uploads[0]
+			}
+			if len(f.Uploads) > 0 || len(f.Attachments) > 0 {
+				// Files for a session that cannot take the prompt would only be kept
+				// for nothing: say so, and let them go.
+				si, ok := s.findSession(f.SessionID)
+				if !ok || !si.Live {
+					ups.discard(f.Uploads)
+					if !ok {
+						_ = w.send(ctx, proto.NewErrorFor("no_session", "that session is no longer here", ref))
+					} else {
+						_ = w.send(ctx, proto.NewErrorFor("not_live", notRunningMessage(si), ref))
+					}
+					continue
+				}
+			}
+			var files []savedFile
+			switch {
+			case len(f.Uploads) > 0:
+				var err error
+				if files, err = ups.take(f.Uploads); err != nil {
+					_ = w.send(ctx, proto.NewErrorFor("upload_failed", err.Error(), ref))
+					continue
+				}
+				s.log.Info("files attached", "from", deviceName, "count", len(files))
+				text = attachedPrompt(text, files)
+			case len(f.Attachments) > 0:
+				text = s.attachFiles(ctx, w, text, f.Attachments, deviceName)
 				if text == "" {
 					continue
 				}
 			}
-			s.sendPrompt(ctx, w, f.SessionID, text, deviceName)
+			if !s.sendPrompt(ctx, w, f.SessionID, text, deviceName, ref) {
+				// Not typed: the phone gets the message back and sends the files again.
+				for _, f := range files {
+					_ = os.Remove(f.path)
+				}
+			} else if ref != "" {
+				// Typed: the phone can let go of the files it kept in case.
+				_ = w.send(ctx, map[string]any{"v": proto.Version, "type": proto.TypePromptSent, "ref": ref})
+			}
 		case proto.TypePTYOpen:
 			s.openTerminal(ctx, w, att, f.SessionID, f.Cols, f.Rows, deviceName)
 		case proto.TypePTYInput:
@@ -909,18 +959,21 @@ func (s *Server) interrupt(ctx context.Context, w *writer, id, device string) {
 // This is deliberately the same path a person at the desk uses: the text lands in the
 // running Claude TUI, so the desktop and the phone are looking at one session rather
 // than two divergent ones.
-func (s *Server) sendPrompt(ctx context.Context, w *writer, id, text, device string) {
+//
+// ref names what the prompt carried (its first upload), so a refusal reaches the phone
+// with the message it is about. It reports whether the prompt was typed.
+func (s *Server) sendPrompt(ctx context.Context, w *writer, id, text, device, ref string) bool {
 	if strings.TrimSpace(text) == "" {
-		return
+		return false
 	}
 	si, ok := s.findSession(id)
 	if !ok {
-		_ = w.send(ctx, proto.NewError("no_session", "that session is no longer here"))
-		return
+		_ = w.send(ctx, proto.NewErrorFor("no_session", "that session is no longer here", ref))
+		return false
 	}
 	if !si.Live {
-		_ = w.send(ctx, proto.NewError("not_live", notRunningMessage(si)))
-		return
+		_ = w.send(ctx, proto.NewErrorFor("not_live", notRunningMessage(si), ref))
+		return false
 	}
 
 	target := typeTarget(si)
@@ -929,15 +982,16 @@ func (s *Server) sendPrompt(ctx context.Context, w *writer, id, text, device str
 	// "Enter" or ";" is typed rather than executed.
 	// "--" ends tmux's own options, so a prompt beginning with "-" is typed, not parsed.
 	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, "-l", "--", text).Run(); err != nil {
-		_ = w.send(ctx, proto.NewError("send_failed", fmt.Sprintf("could not type into %s", target)))
-		return
+		_ = w.send(ctx, proto.NewErrorFor("send_failed", fmt.Sprintf("could not type into %s", target), ref))
+		return false
 	}
 	// A separate call, because -l would type the word "Enter".
 	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, "Enter").Run(); err != nil {
-		_ = w.send(ctx, proto.NewError("send_failed", "could not submit the prompt"))
-		return
+		_ = w.send(ctx, proto.NewErrorFor("send_failed", "could not submit the prompt", ref))
+		return false
 	}
 	s.log.Info("prompt sent", "session", si.Title, "from", device, "chars", len(text))
+	return true
 }
 
 // openTerminal attaches the phone to the session's tmux window and pumps bytes.
@@ -1070,77 +1124,12 @@ func (s *Server) serveImage(ctx context.Context, w *writer, id, ref string) {
 	_ = w.send(ctx, proto.NewError("no_image", "that image is no longer in the transcript"))
 }
 
-// attachImages saves the phone's pictures where Claude can Read them and names them in
-// the prompt. The path is what makes it work: Claude Code reads a file the prompt
-// mentions with its own Read tool, which returns the image to the model.
-func (s *Server) attachImages(ctx context.Context, w *writer, text string, atts []promptImage, device string) string {
-	dir := filepath.Join(uploadsDir(), time.Now().Format("2006-01-02"))
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		_ = w.send(ctx, proto.NewError("upload_failed", err.Error()))
-		return ""
-	}
-	var paths []string
-	for i, a := range atts {
-		b, err := base64.StdEncoding.DecodeString(a.Data)
-		if err != nil || len(b) == 0 || len(b) > maxImageBytes {
-			_ = w.send(ctx, proto.NewError("upload_failed", "an attachment was empty or too large"))
-			return ""
-		}
-		name := safeName(a.Name)
-		if name == "" {
-			name = fmt.Sprintf("image-%d", i+1)
-		}
-		if transcript.ImageMedia(name) == "" {
-			name += extFor(a.Media)
-		}
-		path := filepath.Join(dir, time.Now().Format("150405")+"-"+name)
-		if err := os.WriteFile(path, b, 0o600); err != nil {
-			_ = w.send(ctx, proto.NewError("upload_failed", err.Error()))
-			return ""
-		}
-		paths = append(paths, path)
-	}
-	s.log.Info("images attached", "from", device, "count", len(paths))
-	var sb strings.Builder
-	sb.WriteString(strings.TrimSpace(text))
-	if sb.Len() == 0 {
-		sb.WriteString("Look at the attached image.")
-	}
-	for _, p := range paths {
-		sb.WriteString("\n\nAttached image (read it with the Read tool): " + p)
-	}
-	return sb.String()
-}
-
 func uploadsDir() string {
 	if d := os.Getenv("PORTHOLE_STATE_DIR"); d != "" {
 		return filepath.Join(d, "uploads")
 	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "porthole", "uploads")
-}
-
-func safeName(n string) string {
-	n = filepath.Base(strings.TrimSpace(n))
-	var b strings.Builder
-	for _, r := range n {
-		if r == '.' || r == '-' || r == '_' || (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
-			b.WriteRune(r)
-		}
-	}
-	return strings.Trim(b.String(), ".")
-}
-
-func extFor(media string) string {
-	switch media {
-	case "image/jpeg":
-		return ".jpg"
-	case "image/webp":
-		return ".webp"
-	case "image/gif":
-		return ".gif"
-	}
-	return ".png"
 }
 
 // ---- capture ----------------------------------------------------------------------

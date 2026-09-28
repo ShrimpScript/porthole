@@ -58,6 +58,7 @@ type peeked struct {
 
 func peek(path string, size int64) (peeked, error) {
 	var meta peeked
+	custom := "" // a name the person gave with /rename
 	f, err := os.Open(path)
 	if err != nil {
 		return meta, err
@@ -66,16 +67,17 @@ func peek(path string, size int64) (peeked, error) {
 
 	apply := func(line []byte) {
 		var d struct {
-			Type      string `json:"type"`
-			Subtype   string `json:"subtype"`
-			SessionID string `json:"sessionId"`
-			Cwd       string `json:"cwd"`
-			GitBranch string `json:"gitBranch"`
-			Title     string `json:"title"`
-			AiTitle   string `json:"aiTitle"` // what the CLI actually writes for ai-title records
-			AgentName string `json:"agentName"`
-			Timestamp string `json:"timestamp"`
-			Message   *struct {
+			Type        string `json:"type"`
+			Subtype     string `json:"subtype"`
+			SessionID   string `json:"sessionId"`
+			Cwd         string `json:"cwd"`
+			GitBranch   string `json:"gitBranch"`
+			Title       string `json:"title"`
+			AiTitle     string `json:"aiTitle"` // what the CLI actually writes for ai-title records
+			AgentName   string `json:"agentName"`
+			CustomTitle string `json:"customTitle"`
+			Timestamp   string `json:"timestamp"`
+			Message     *struct {
 				Model      string          `json:"model"`
 				StopReason string          `json:"stop_reason"`
 				Content    json.RawMessage `json:"content"`
@@ -146,6 +148,9 @@ func peek(path string, size int64) (peeked, error) {
 				meta.Title = d.AgentName
 			}
 		}
+		if d.Type == "custom-title" && d.CustomTitle != "" {
+			custom = d.CustomTitle
+		}
 	}
 
 	// Head. Not just the first line: a transcript often opens with `mode` and
@@ -182,12 +187,37 @@ func peek(path string, size int64) (peeked, error) {
 			apply(tail.Bytes())
 		}
 	}
+	// A name the person gave with /rename outranks any the CLI made up, which it may go
+	// on writing afterwards. The CLI keeps the latest beside the transcript, so it is
+	// found however far back the rename was.
+	if t := renamedTitle(path); t != "" {
+		custom = t
+	}
+	if custom != "" {
+		meta.Title = custom
+	}
 	if meta.Title == "" {
 		// The title record lands a few turns in, which on a long transcript is neither
 		// in the head nor within the tail window. One full scan, remembered.
 		meta.Title = scanTitle(path, size)
 	}
 	return meta, nil
+}
+
+// renamedTitle is the name last given with /rename, from the file the CLI keeps beside
+// the transcript (<id>/custom-title.json, measured on 2.1.283), or "".
+func renamedTitle(transcript string) string {
+	b, err := os.ReadFile(filepath.Join(strings.TrimSuffix(transcript, ".jsonl"), "custom-title.json"))
+	if err != nil || len(b) > 4096 {
+		return ""
+	}
+	var d struct {
+		CustomTitle string `json:"customTitle"`
+	}
+	if json.Unmarshal(b, &d) != nil {
+		return ""
+	}
+	return strings.TrimSpace(d.CustomTitle)
 }
 
 // titles caches the one full-file title scan per transcript: found titles for good

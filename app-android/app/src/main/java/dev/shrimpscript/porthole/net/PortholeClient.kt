@@ -422,7 +422,38 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     private val _approval = MutableStateFlow<Approval?>(null)
     val approval: StateFlow<Approval?> = _approval
 
-    private var socket: WebSocket? = null
+    @Volatile private var socket: WebSocket? = null
+
+    /**
+     * Prompts and the pieces of their files go through this one queue, in order: a prompt
+     * typed after a file reaches the computer after it, however long the file takes.
+     * Everything else (an approval, a key, Esc) goes straight to the socket and never
+     * waits behind a file. One thread at most, gone when idle.
+     */
+    private val sender = java.util.concurrent.ThreadPoolExecutor(
+        0, 1, 30, java.util.concurrent.TimeUnit.SECONDS, java.util.concurrent.LinkedBlockingQueue(),
+    ) { r -> Thread(r, "porthole-send").apply { isDaemon = true } }
+
+    /** A prompt with files that did not go; the session screen puts it back in the message box. */
+    data class FailedSend(val sessionId: String, val text: String, val attachments: List<Attachment>)
+    private val _failedSend = MutableStateFlow<FailedSend?>(null)
+    val failedSend: StateFlow<FailedSend?> = _failedSend
+    fun clearFailedSend() { _failedSend.value = null }
+    /**
+     * Prompts with files on their way, by their first upload's id: the computer names it
+     * when it refuses one, and says prompt.sent when it typed it. [queued] is set once
+     * everything has been handed to the socket.
+     */
+    private class Outgoing(val send: FailedSend, @Volatile var queued: Boolean = false)
+    private val inFlight = java.util.concurrent.ConcurrentHashMap<String, Outgoing>()
+
+    /** Hands a message back once, however many refusals name it. */
+    private fun giveBack(ref: String) {
+        inFlight.remove(ref)?.let {
+            _failedSend.value = it.send
+            _notice.value = "The message was not sent. It is back in the message box."
+        }
+    }
     private var lastHost: String? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -437,6 +468,11 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     private var wanted = false
 
     companion object {
+        /** A file goes in pieces of this size: each is on the wire for seconds at most, so pings get through. */
+        const val PIECE = 128 * 1024
+        /** How much may wait in the socket's queue before the next piece is handed over. */
+        const val QUEUE_ROOM = 1L shl 20
+
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.MILLISECONDS)   // a websocket read has no deadline
@@ -500,6 +536,16 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         retryJob = null
         socket?.close(1000, null)
         socket = null
+        forgetSent()
+    }
+
+    /**
+     * The connection is gone: a message that was sent whole may or may not have been typed,
+     * and sending it again could type it twice, so it is let go. One still being sent fails
+     * on its own and comes back to the box.
+     */
+    private fun forgetSent() {
+        inFlight.entries.removeIf { it.value.queued }
     }
 
     /**
@@ -584,19 +630,45 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     }
 
     fun sendPrompt(sessionId: String, text: String, attachments: List<Attachment> = emptyList()) {
-        val payload = JSONObject()
+        val prompt = JSONObject()
             .put("type", "prompt.send")
             .put("session_id", sessionId)
             .put("text", text)
-        if (attachments.isNotEmpty()) {
-            val arr = org.json.JSONArray()
-            attachments.forEach { a ->
-                arr.put(JSONObject().put("name", a.name).put("media", a.media)
-                    .put("data", android.util.Base64.encodeToString(a.bytes, android.util.Base64.NO_WRAP)))
-            }
-            payload.put("attachments", arr)
+        val to = socket
+        if (attachments.isEmpty()) {
+            sender.execute { runCatching { queue(to, prompt.toString()) } }
+            return
         }
-        send(payload.toString())
+        val job = FailedSend(sessionId, text, attachments)
+        // Named before anything goes, so a refusal of the very first piece finds it.
+        val ids = attachments.map { java.util.UUID.randomUUID().toString() }
+        val entry = Outgoing(job)
+        inFlight[ids[0]] = entry
+        sender.execute {
+            try {
+                attachments.forEachIndexed { i, a -> sendInPieces(to, ids[i], a) }
+                queue(to, prompt.put("uploads", org.json.JSONArray(ids)).toString())
+                entry.queued = true
+            } catch (t: Throwable) { // a lost connection, or a file too large for memory
+                giveBack(ids[0])
+            }
+        }
+    }
+
+    /** One file as upload.chunk messages of [PIECE] bytes, under [id]. */
+    private fun sendInPieces(to: WebSocket?, id: String, a: Attachment) {
+        var off = 0
+        var seq = 0
+        do {
+            val end = minOf(off + PIECE, a.bytes.size)
+            val m = JSONObject().put("type", "upload.chunk").put("upload", id).put("seq", seq)
+                .put("last", end == a.bytes.size)
+                .put("data", android.util.Base64.encodeToString(a.bytes, off, end - off, android.util.Base64.NO_WRAP))
+            if (seq == 0) m.put("name", a.name).put("media", a.media)
+            queue(to, m.toString())
+            off = end
+            seq++
+        } while (off < a.bytes.size)
     }
 
     /** Ask for an image row's bytes once; the answer lands in [images]. */
@@ -752,6 +824,20 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
     private fun send(json: String) {
         socket?.send(json)
+    }
+
+    /**
+     * Hands one message to [to] from the send queue, waiting while its own queue is full:
+     * OkHttp closes a socket whose queue passes 16 MB. Refuses when the connection is no
+     * longer the one the message was meant for, so nothing reaches a different computer.
+     */
+    private fun queue(to: WebSocket?, json: String) {
+        val deadline = System.currentTimeMillis() + 60_000
+        while (to != null && to === socket && to.queueSize() > QUEUE_ROOM) {
+            if (System.currentTimeMillis() > deadline) throw java.io.IOException("the connection stopped taking data")
+            Thread.sleep(25)
+        }
+        if (to == null || to !== socket || !to.send(json)) throw java.io.IOException("not connected")
     }
 
     private fun parseQuestions(arr: org.json.JSONArray?): List<Question> = buildList {
@@ -925,6 +1011,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                 "session.turn" -> _turns.tryEmit(
                     TurnEvent(obj.optString("session_id"), obj.optString("title"), obj.optString("text"))
                 )
+                "prompt.sent" -> inFlight.remove(obj.optString("ref"))
                 "files" -> {
                     // An answer to an earlier query, overtaken by typing: the list would
                     // go back a letter, or empty, and stay that way.
@@ -1084,6 +1171,9 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                         // The socket is fine; one request was refused. Say so where it
                         // happened instead of throwing up a connection failure.
                         _notice.value = message.ifBlank { "the daemon refused that ($code)" }
+                        // A refusal naming a message with files: the files did not go, or
+                        // the prompt they came with was not typed. Hand it back.
+                        obj.optString("ref").takeIf { it.isNotEmpty() }?.let { giveBack(it) }
                         if (code == "no_changes") {
                             _changes.value = ChangesState("", "", "", emptyList(), 0, 0, false, false, error = message.ifBlank { "git is not available on the computer" })
                         }
@@ -1094,6 +1184,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            forgetSent()
             terminalGone()
             // A refusal arrives as an HTTP response on the upgrade, so the body carries
             // the real reason rather than a generic socket error.
@@ -1124,6 +1215,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            forgetSent()
             terminalGone()
             if (_connection.value is Connection.Live) _connection.value = Connection.Idle
             // The daemon closing on us (a restart, a shutdown) is exactly the case the

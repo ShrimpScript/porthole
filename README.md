@@ -20,8 +20,8 @@ between your phone and your computer.
 - **Approve or deny tool calls** from anywhere, with the command in full and a countdown.
   There is no "always allow".
 - **The feed.** The conversation as rendered markdown with tool calls, timings and turn
-  lines, a line where you left off, quick replies, slash commands, @ file mentions and photo
-  attachments.
+  lines, a line where you left off, quick replies, slash commands, @ file mentions, and
+  photos or other files attached from the phone.
 - **What changed.** The git diff of the session's directory, file by file.
 - **A real terminal.** The tmux pane at the desk's width, with a key row built for
   Claude Code.

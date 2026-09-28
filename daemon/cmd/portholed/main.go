@@ -214,6 +214,7 @@ func cmdServe(args []string) error {
 	turnCtx, stopTurns := context.WithCancel(context.Background())
 	defer stopTurns()
 	srv.StartTurnWatcher(turnCtx)
+	go server.TidyUploads(turnCtx) // files from the phone older than two weeks
 
 	ctl, err := server.ListenControl("")
 	if err != nil {
