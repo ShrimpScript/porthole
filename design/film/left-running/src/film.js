@@ -593,7 +593,7 @@ function parkAt(t) {
     phoneP.root.visible = t > E.phoneUp[0] + 0.1;
     // the phone in front of the chest, screen to the face, both hands on it
     phoneP.root.position.set(lerp(-0.12, 0.0, hold), lerp(0.05, 0.28, hold), lerp(0.2, 0.3, hold));
-    phoneP.root.rotation.set(lerp(0.2, 0.95, hold), Math.PI, 0);
+    phoneP.root.rotation.set(lerp(0.2, 0.95, hold) + 0.03 * bump(t, E.tapDark - 0.05, E.tapDark + 0.2), Math.PI, 0);
     p.armL = [lerp(0.05, -0.85, hold), 0.25, lerp(0.12, 0.12, hold)]; p.elbowL = lerp(0.2, 1.25, hold);
     p.armR = [lerp(0.05, -0.85, hold), 0.25, lerp(0.12, 0.12, hold)]; p.elbowR = lerp(0.2, 1.25, hold);
     p.wristL = [0.5 * hold, 0, 0]; p.wristR = [0.5 * hold, 0, 0];
@@ -674,13 +674,18 @@ function parkAt(t) {
     + (t >= 42.5 && t < E.pocket + 0.05 ? 1 - smooth(span(t, 42.5, E.pocket)) : 0);
   if (holding > 0 && phoneP.root.visible) {
     const posed = { L: p.armL.slice(), R: p.armR.slice(), eL: p.elbowL, eR: p.elbowR };
-    const edgeA = phoneP.root.localToWorld(V(0.043, -0.035, -0.008)), edgeB = phoneP.root.localToWorld(V(-0.043, -0.035, -0.008));
+    // hold it from below, clear of the glass; the thumb hand comes up to tap
+    const gripA = phoneP.root.localToWorld(V(0.036, -0.088, -0.022)), gripB = phoneP.root.localToWorld(V(-0.036, -0.088, -0.022));
     const inSpine = (w) => hP.spine.worldToLocal(w.clone());
-    const [leftEdge, rightEdge] = inSpine(edgeA).x > inSpine(edgeB).x ? [edgeA, edgeB] : [edgeB, edgeA];
-    const tap = bump(t, E.notifTap - 0.1, E.notifTap + 0.12) + bump(t, E.tapDark - 0.1, E.tapDark + 0.12);
-    const n = phoneScreen().n;
-    hP.reach(1, leftEdge);
-    hP.reach(-1, rightEdge.clone().addScaledVector(n, 0.012 * tap));
+    const [leftGrip, rightGrip] = inSpine(gripA).x > inSpine(gripB).x ? [gripA, gripB] : [gripB, gripA];
+    const n = phoneScreen().n, down = phonePoint(450, 1000).sub(phonePoint(450, 0)).normalize();
+    const tapN = bump(t, E.notifTap - 0.1, E.notifTap + 0.1), tapD = bump(t, E.tapDark - 0.1, E.tapDark + 0.1);
+    const rightV = phonePoint(900, 1000).sub(phonePoint(0, 1000)).normalize();
+    // the notification is tapped from below; "Dark" from the right edge, so the card stays in view
+    const thumb = tapN > 0 ? phonePoint(450, 250).addScaledVector(down, 0.068).addScaledVector(n, 0.018)
+      : phonePoint(640, 1415).addScaledVector(rightV, 0.058).addScaledVector(down, 0.012).addScaledVector(n, 0.016);
+    hP.reach(1, leftGrip);
+    hP.reach(-1, rightGrip.clone().lerp(thumb, tapN));
     const w = holding * (t >= 42.5 ? 1 : 1);
     p.armL = posed.L.map((a, i) => lerp(a, p.armL[i], w)); p.elbowL = lerp(posed.eL, p.elbowL, w);
     if (t < 42.5) { p.armR = posed.R.map((a, i) => lerp(a, p.armR[i], w)); p.elbowR = lerp(posed.eR, p.elbowR, w); }
@@ -788,7 +793,8 @@ function parkShot(t) {
     const onCard = smooth(span(t, 33.35, 33.85));
     const look = phonePoint(450, 250).lerp(phonePoint(450, 1320), onCard);
     const toward = pov.clone().lerp(glassC.p, 0.1 * span(t, 31.6, 36.0));
-    aim(c, toward.toArray(), look.toArray(), lerp(14, 17, onCard), t, 0.0006);
+    const wider = 7 * Math.max(bump(t, E.notifTap - 0.25, E.notifTap + 0.25), bump(t, E.tapDark - 0.25, E.tapDark + 0.3));
+    aim(c, toward.toArray(), look.toArray(), lerp(14, 14.5, onCard) + wider, t, 0.0006);
     return;
   }
   if (t < E.dogLook[1]) {
@@ -803,21 +809,21 @@ function parkShot(t) {
     const pos = pov.clone().lerp(glassC.p, 0.12);
     const k = inn(span(t, 36.95, 38.45));
     pos.lerp(pr, 0.95 * k);
-    const fov = lerp(lerp(17, 50, inOut(span(t, 35.95, 36.8))), 34, inOut(span(t, 36.95, 37.8)));
+    const fov = lerp(lerp(14.5, 50, inOut(span(t, 35.95, 36.8))), 34, inOut(span(t, 36.95, 37.8)));
     const lookAt = phonePoint(450, 1320).lerp(pr, inOut(span(t, 35.95, 36.5)));
     aim(c, pos.toArray(), lookAt.toArray(), fov, t, 0.0008 * (1 - k));
     return;
   }
   // the throw and the catch, low, into the sun
   if (t < 44.0) track(c, t, [[42.5, [1.75, 1.05, 1.5], [0, 0.95, 0], 34], [44.0, [1.8, 1.0, 1.6], [-0.3, 1.1, -0.2], 34]]);
-  else track(c, t, [[44.0, [-1.05, 0.3, -0.7], [-2.6, 1.0, -2.2], 42], [46.5, [-1.15, 0.28, -0.8], [-2.9, 0.7, -2.5], 42]]);
+  else track(c, t, [[44.0, [-2.25, 0.34, 0.35], [-2.5, 1.0, -2.2], 40], [46.5, [-2.3, 0.32, 0.3], [-2.8, 0.7, -2.5], 40]]);
 }
 
 function placePortal(t) {
   const gl = phoneScreen();
   portal.root.visible = true;
   const grow = back(span(t, 36.0, 36.75), 1.3);
-  portal.root.position.copy(gl.p).addScaledVector(gl.n, 0.004 + 0.05 * out(span(t, 36.0, 36.9)));
+  portal.root.position.copy(gl.p).addScaledVector(gl.n, 0.004 + 0.09 * out(span(t, 36.0, 36.9)));
   portal.root.scale.setScalar(lerp(0.03, 0.105, grow));
   portal.root.lookAt(parkCam.position);
   portal.root.updateMatrixWorld();
