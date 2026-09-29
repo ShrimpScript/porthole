@@ -7,6 +7,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { makeTracing, Ink } from './drawn.js';
 
 // The second view, laid into the first inside a circle (a wipe, an iris, a thought): linear.
 const Mix = {
@@ -81,7 +82,7 @@ const Grade = {
     }`,
 };
 
-export function makeStage(W, H, scale = 1) {
+export function makeStage(W, H, scale = 1, { drawn = false } = {}) {
   const iw = Math.round(W * scale), ih = Math.round(H * scale);
   const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1);
@@ -102,7 +103,17 @@ export function makeStage(W, H, scale = 1) {
   const output = new OutputPass();
   const grade = new ShaderPass(Grade);
   mix.uniforms.aspect.value = grade.uniforms.aspect.value = W / H;
-  composer.addPass(main); composer.addPass(mix); composer.addPass(bloom); composer.addPass(output); composer.addPass(grade);
+  composer.addPass(main); composer.addPass(mix); composer.addPass(bloom); composer.addPass(output);
+  // the drawn look: ink, pencil and paint over the finished picture, traced from a second pass
+  const tracing = drawn ? makeTracing(renderer, iw, ih) : null;
+  const ink = drawn ? new ShaderPass(Ink) : null;
+  if (ink) {
+    ink.uniforms.tND.value = tracing.target.texture;
+    ink.uniforms.res.value.set(iw, ih);
+    ink.uniforms.aspect.value = W / H;
+    composer.addPass(ink);
+  }
+  composer.addPass(grade);
 
   // the second view: its own target, linear, sampled by the mix pass and by the porthole's glass
   const second = new THREE.WebGLRenderTarget(iw, ih, rtOpts);
@@ -116,7 +127,12 @@ export function makeStage(W, H, scale = 1) {
   }
   function draw(scene, camera) {
     main.scene = scene; main.camera = camera;
+    if (tracing) {
+      tracing.trace(scene, camera);
+      const M = mix.uniforms, I = ink.uniforms;
+      I.centre.value.copy(M.centre.value); I.radius.value = M.radius.value; I.other.value = M.amount.value;
+    }
     composer.render();
   }
-  return { renderer, composer, draw, drawSecond, second, mix: mix.uniforms, grade: grade.uniforms, bloom, W: iw, H: ih };
+  return { renderer, composer, draw, drawSecond, second, mix: mix.uniforms, grade: grade.uniforms, ink: ink && ink.uniforms, bloom, W: iw, H: ih };
 }

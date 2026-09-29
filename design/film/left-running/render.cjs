@@ -67,7 +67,7 @@ async function worker(port, frames, fps, id) {
   // ask the page how long it is and at what rate
   const probe = await chromium.launch({ executablePath: CHROME, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pp = await (await probe.newContext({ viewport: { width: 64, height: 64 } })).newPage();
-  await pp.goto(`http://127.0.0.1:${port}/${path.relative(ROOT, page)}?probe=1`, { waitUntil: 'load' });
+  await pp.goto(`http://127.0.0.1:${port}/${path.relative(ROOT, page)}?probe=1${query ? '&' + query : ''}`, { waitUntil: 'load' });
   const info = await pp.evaluate(async () => ({ duration: await window.ready, fps: window.FPS || 30 }));
   await probe.close();
   let frames;

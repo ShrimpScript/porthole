@@ -12,9 +12,12 @@ import { makeDog } from './dog.js';
 import { makePhone } from './phone.js';
 import { makePortal } from './porthole.js';
 import { FACE_W, FACE_H } from './face.js';
+import { toonify, paperCanvas, toothCanvas, FLAT, DRAWINGS_PER_SECOND } from './drawn.js';
 
 const W = 1920, H = 1080;
 const BASE = '../../../';
+// ?look=drawn: the same film drawn by hand (src/drawn.js); otherwise lit, soft 3D
+const DRAWN = new URLSearchParams(location.search).get('look') === 'drawn';
 let TL, E, stage, home, park, comp, hH, dH, hP, dP, phoneH, phoneP, portal, leash, fuzz, ballP;
 let homeCam, parkCam, secondCam, defaults;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -24,8 +27,8 @@ const tmp = new THREE.Vector3();
 async function build() {
   TL = await (await fetch('timeline.json')).json();
   E = TL.events;
-  window.FPS = TL.fps;
-  stage = makeStage(W, H, +(new URLSearchParams(location.search).get('scale') || 1));
+  window.FPS = DRAWN ? DRAWINGS_PER_SECOND : TL.fps;
+  stage = makeStage(W, H, +(new URLSearchParams(location.search).get('scale') || 1), { drawn: DRAWN });
   home = makeHome(stage.renderer);
   park = makePark(stage.renderer);
 
@@ -62,6 +65,10 @@ async function build() {
   homeCam = new THREE.PerspectiveCamera(32, W / H, 0.02, 120);
   parkCam = new THREE.PerspectiveCamera(32, W / H, 0.02, 200);
   secondCam = new THREE.PerspectiveCamera(32, W / H, 0.02, 200);
+  if (DRAWN) {
+    toonify(home.scene); toonify(park.scene);
+    for (const c of [homeCam, parkCam, secondCam]) c.layers.enable(FLAT);
+  }
   overlayInit();
   return TL.duration;
 }
@@ -838,6 +845,22 @@ function overlayInit() {
     ring: document.getElementById('ring'), word: document.getElementById('word'), wordRing: document.getElementById('wordRing'),
     tag: document.getElementById('tag'), url: document.getElementById('url'), fine: document.getElementById('fine'), black: document.getElementById('black'),
   };
+  if (DRAWN) {
+    // the words are inked too: a turbulence that shifts each drawing, so they boil with the lines
+    document.body.insertAdjacentHTML('beforeend', `<svg width="0" height="0" style="position:absolute"><filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence id="roughNoise" type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="1" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter></svg>`);
+    for (const el of document.querySelectorAll('.layer')) el.style.filter = 'url(#rough)';
+    // and the whole picture is on one sheet of paper
+    const paper = paperCanvas(W, H);
+    Object.assign(paper.style, { position: 'absolute', inset: '0', zIndex: 4, mixBlendMode: 'multiply', pointerEvents: 'none', width: W + 'px', height: H + 'px' });
+    paper.id = 'paper';
+    document.body.appendChild(paper);
+    const tooth = toothCanvas(W, H);
+    Object.assign(tooth.style, { position: 'absolute', inset: '0', zIndex: 5, mixBlendMode: 'screen', pointerEvents: 'none', width: W + 'px', height: H + 'px' });
+    document.body.appendChild(tooth);
+    OV.rough = document.getElementById('roughNoise');
+  }
 }
 
 let END = null;
@@ -892,7 +915,8 @@ function frame(t) {
   const M = stage.mix, G = stage.grade;
   M.amount.value = 0; M.ring.value = 0; M.bubbles.value = 0; M.satB.value = 1; M.tintB.value.set(1, 1, 1); M.remap.value = 0; M.zoom.value = 1;
   G.fade.value = 0; G.warm.value = 0; G.sat.value = 1; G.vignette.value = 0.3; G.grain.value = 0.03; G.time.value = t;
-  stage.bloom.strength = 0.5;
+  G.gain.value.set(1, 1, 1); G.lift.value.set(0, 0, 0);
+  stage.bloom.strength = DRAWN ? 0.3 : 0.5;
   portal.root.visible = false;
   const inPark = (t >= 27.6 && t < 38.5) || (t >= 42.5 && t < 46.5);
   if (!inPark) {
@@ -922,6 +946,7 @@ function frame(t) {
     }
     G.warm.value = t < 22 ? 0.6 : t >= 46.5 ? 0.2 : 0.3;
     if (t >= 46.5) { G.vignette.value = 0.38; stage.bloom.strength = 0.8; }
+    if (DRAWN) { G.grain.value = 0; G.vignette.value = t >= 46.5 ? 0.22 : 0.12; stage.bloom.strength = t >= 46.5 ? 0.5 : 0.3; G.gain.value.set(1.05, 1.05, 1.04); G.lift.value.set(0.03, 0.025, 0.015); }
     stage.draw(home.scene, homeCam);
   } else {
     parkAt(t);
@@ -935,10 +960,19 @@ function frame(t) {
       portal.halo.material.uniforms.k.value = bump(t, 36.0, 37.2) * 0.8 + 0.5 * bump(t, E.answerArrives - 0.1, E.answerArrives + 0.5);
     }
     G.warm.value = 0.5; G.sat.value = 1.05;
+    if (DRAWN) { G.grain.value = 0; G.vignette.value = 0.12; G.gain.value.set(1.04, 1.04, 1.03); G.lift.value.set(0.03, 0.025, 0.015); G.sat.value = 0.95; }
     stage.draw(park.scene, parkCam);
   }
   overlay(t);
 }
 
 window.ready = build();
-window.seek = (t) => frame(t);
+window.seek = (t) => {
+  if (DRAWN) {
+    const k = Math.round(t * DRAWINGS_PER_SECOND);
+    t = k / DRAWINGS_PER_SECOND;
+    stage.ink.seed.value = (k % 3) + Math.floor(k / 3) * 0.013;   // a three-drawing boil, drifting slowly
+    OV.rough.setAttribute('seed', 1 + (k % 3));
+  }
+  frame(t);
+};

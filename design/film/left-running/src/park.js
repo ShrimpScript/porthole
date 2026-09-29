@@ -128,6 +128,7 @@ export function makePark(renderer) {
       m4.compose(new THREE.Vector3(x, heightAt(x, z), z), q, new THREE.Vector3(s, s, s)); tufts.setMatrixAt(i, m4);
     } }
   tufts.castShadow = false; tufts.receiveShadow = true;
+  tufts.userData.noInk = true;
   scene.add(tufts);
   // clouds
   const cloudM = new THREE.MeshStandardMaterial({ color: '#FFF3E6', roughness: 1, emissive: '#FFE3C8', emissiveIntensity: 0.35, fog: false });
