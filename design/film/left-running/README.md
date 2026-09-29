@@ -10,10 +10,25 @@ is (the research, the story beat by beat, the look, the sound) is in
 [TREATMENT.md](TREATMENT.md).
 
 ```sh
-design/film/left-running/build.sh WORK_DIR        # WORK_DIR/left-running.mp4 and .webm
+design/film/left-running/build.sh WORK_DIR                # WORK_DIR/left-running.mp4 and .webm
+LOOK=drawn design/film/left-running/build.sh WORK_DIR     # the hand-drawn version
 ```
 
-[build.sh](build.sh) lists what it needs. A full render takes about two hours on four CPU cores (no GPU needed).
+There are two looks of the one film, from the same animation, timeline and sound. **Lit** is
+soft 3D, like toys under warm light. **Drawn** (`film.html?look=drawn`) is the same film as if
+drawn by hand on paper:
+- toon paint in four flat tones;
+- ink traced from each pixel's distance and facing and from the edges between colours, drawn
+  twice a little apart, with the pressure varying;
+- pencil grain in long strokes, hatching in the shadows, cross-hatching in the deepest, and wet
+  paint pooling at its edges;
+- the paint a touch off register;
+- one sheet of paper under it all, the words roughened with it;
+- drawn on twos, 15 drawings a second, so the line boils from drawing to drawing like
+  hand-drawn animation.
+
+[build.sh](build.sh) lists what it needs. A full render takes about two hours on four CPU cores (no GPU needed); the drawn look, with
+half as many drawings, about one.
 
 ## How it fits together
 
@@ -39,6 +54,8 @@ design/film/left-running/build.sh WORK_DIR        # WORK_DIR/left-running.mp4 an
     app's screens drawn live in its style, and its real notification.
   - [porthole.js](src/porthole.js): the round window whose glass shows the other place.
   - [kit.js](src/kit.js): easing, keyframes, noise and the rounded shapes everything is built from.
+  - [drawn.js](src/drawn.js): the drawn look. Toon paint, the tracing pass, the ink shader,
+    and the paper.
 - `audio/`: the sound.
   - [score.py](audio/score.py): the score as notes in seconds, rendered stem by stem.
   - [sfx.py](audio/sfx.py): every effect, synthesised.

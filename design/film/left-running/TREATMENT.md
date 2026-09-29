@@ -143,6 +143,30 @@ Times are seconds; the music is 120 BPM (a beat is 15 frames at 30 fps).
 | 54.5 | Porthole | **Porthole**. *A window into the computer you left running.* porthole-one.vercel.app. Small print: for Claude Code on your Mac or Linux computer, from your Android phone; independent, not affiliated with Anthropic. | The button: one short D chord and a bell, then quiet. |
 | 60.0 | End | | Half a second of room tone. |
 
+## The drawn version
+
+The same film, drawn by hand on paper. It is the same animation, timeline and sound, so every
+beat and every sound lands in the same place. It is for channels where a crafted, storybook
+feel suits better than soft 3D, and it leans further into the playful.
+
+- **Paint.** Four flat tones per colour: shadow, core, light, highlight. The plastic sheen is
+  gone, and the colours stay the film's.
+- **Ink.** Warm near-black, not black.
+  - It is traced where the distance jumps (silhouettes), where a surface turns (creases) and
+    where one colour meets another (details: eyes, lettering, planks).
+  - Each line is drawn twice a little apart, with pressure varying along it, so it overshoots
+    and doubles like a quick pen.
+  - Grass blades are painted, not inked; inked one by one, they turned to scribble.
+- **Pencil and paint.** Grain in long diagonal strokes, heavier in the darks. The shadows are
+  hatched, the deepest cross-hatched. The paint is printed a touch off register and pools
+  slightly at its edges.
+- **Paper.** One sheet under every drawing: cream, with fibres and tooth, darker at its edges,
+  and still visible in the night scenes. The subtitle and the end card are roughened with the
+  same wobble.
+- **Timing.** Drawn on twos: 15 drawings a second, each held for two frames, the cadence of
+  hand-drawn animation. The line boils on a three-drawing cycle, so even a held pose is alive.
+  Each drawing is taken at the nearest moment, so picture and sound stay within one frame (33 ms) of each other.
+
 ## The cast
 
 - **The computer.** A cream monitor on a dark-green, two-jointed arm and plinth.
