@@ -95,7 +95,8 @@ export function makeStage(W, H, scale = 1, { drawn = false } = {}) {
   renderer.shadowMap.type = THREE.PCFShadowMap;
   document.body.appendChild(renderer.domElement);
 
-  const rtOpts = { type: THREE.HalfFloatType, samples: 4, colorSpace: THREE.LinearSRGBColorSpace };
+  // the drawn look's ink covers every edge, so its paint needs no multisampling
+  const rtOpts = { type: THREE.HalfFloatType, samples: drawn ? 0 : 4, colorSpace: THREE.LinearSRGBColorSpace };
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(iw, ih, rtOpts));
   const main = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
   const mix = new ShaderPass(Mix);

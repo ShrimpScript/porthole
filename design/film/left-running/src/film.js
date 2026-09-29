@@ -18,6 +18,9 @@ const W = 1920, H = 1080;
 const BASE = '../../../';
 // ?look=drawn: the same film drawn by hand (src/drawn.js); otherwise lit, soft 3D
 const DRAWN = new URLSearchParams(location.search).get('look') === 'drawn';
+// ?inspect=x,y,z,tx,ty,tz[,fov]: a camera of one's own, for checking contacts and clearances
+const INSPECT = new URLSearchParams(location.search).get('inspect')?.split(',').map(Number);
+const INSPECT_FLASH = new URLSearchParams(location.search).has('flash');
 let TL, E, stage, home, park, comp, hH, dH, hP, dP, phoneH, phoneP, portal, leash, fuzz, ballP;
 let homeCam, parkCam, secondCam, defaults;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -319,7 +322,7 @@ function humanHome(t) {
   } else if (t < 22.0) {
     // up, the phone into the pocket, and out of the door with the dog
     const up = smooth(span(t, E.standUp, E.standUp + 0.35));
-    const path = [[E.standUp + 0.3, [DESK.x, CHAIR_Z]], [20.35, [DESK.x + 0.55, -0.95]], [21.0, [DOOR.x - 0.12, -1.45]], [21.55, [DOOR.x, -2.5]], [22.0, [DOOR.x, -3.4]]];
+    const path = [[E.standUp + 0.3, [DESK.x, CHAIR_Z]], [20.35, [DESK.x + 0.62, -1.2]], [21.0, [DOOR.x - 0.1, -1.55]], [21.55, [DOOR.x - 0.04, -2.55]], [22.0, [DOOR.x, -3.3]]];
     const [x, z] = keys(t, path.map(([k, v]) => [k, v, (u) => u]));
     const [x2, z2] = keys(t + 0.08, path.map(([k, v]) => [k, v, (u) => u]));
     p.x = x; p.z = z;
@@ -331,14 +334,15 @@ function humanHome(t) {
     p.lean = 0.2 * bump(t, E.standUp, E.standUp + 0.4);
     walk(p, (t - E.standUp - 0.3) * 2.5, span(t, E.standUp + 0.3, E.standUp + 0.5), 0.55);
     p.mouth = 'grin'; p.mouthOpen = 0.6;
-    // a wave back at the computer from the door
-    const wave = smooth(span(t, E.wave - 0.15, E.wave + 0.1)) * (1 - smooth(span(t, 21.3, 21.5)));
-    p.armL = p.armL.map((a, i) => lerp(a, [-0.3, 0, 2.5][i], wave)); p.elbowL = lerp(p.elbowL, 0.5 + 0.35 * Math.sin((t - 20.6) * 16), wave);
-    p.headYaw = lerp(p.headYaw, 1.1, wave);
+    // a wave back at the computer on the way to the door: the arm straight up, inside the
+    // doorway's width, and down again before they go through
+    const wave = smooth(span(t, E.wave - 0.2, E.wave + 0.05)) * (1 - smooth(span(t, 21.1, 21.3)));
+    p.armR = p.armR.map((a, i) => lerp(a, [-2.95, 0.15, 0.22][i], wave)); p.elbowR = lerp(p.elbowR, 0.35 + 0.3 * Math.sin((t - 20.6) * 15), wave);
+    p.headYaw = lerp(p.headYaw, -0.9, wave); p.twist = lerp(p.twist, -0.25, wave);
     if (t > 21.7) hH.root.visible = false;
   } else if (t >= 46.5) {
     // home at dusk: in through the door, across to the desk, a pat on the head
-    const path = [[E.walkIn[0], [DOOR.x, -2.6]], [48.0, [DOOR.x - 0.15, -1.45]], [E.walkIn[1], [DESK.x + 0.42, DESK.z + 0.42]]];
+    const path = [[E.walkIn[0], [DOOR.x, -2.6]], [48.0, [DOOR.x - 0.15, -1.45]], [48.5, [0.45, -1.13]], [E.walkIn[1], [DESK.x + 0.28, DESK.z + 0.53]]];
     const [x, z] = keys(t, path.map(([k, v]) => [k, v, (u) => smooth(u)]));
     p.x = x; p.z = z;
     const walking = span(t, E.walkIn[0], E.walkIn[0] + 0.2) * (1 - span(t, E.walkIn[1] - 0.2, E.walkIn[1]));
@@ -354,7 +358,7 @@ function humanHome(t) {
     const tap = bump(t, E.pat[0], E.pat[0] + 0.3) + bump(t, E.pat[0] + 0.42, E.pat[0] + 0.72);
     p.armR = p.armR.map((a, i) => lerp(a, [-2.05 + 0.15 * tap, -0.2, -0.35][i], reach));
     p.elbowR = lerp(p.elbowR, 0.5, reach);
-    p.lean = 0.12 * reach;
+    p.lean = 0.26 * reach;
     if (reach > 0.4) { p.mouth = 'grin'; p.mouthOpen = 0.5; p.blink = 0.7 * smooth(span(t, 49.6, 49.8)) * (1 - span(t, 50.4, 50.6)); }
     if (t < E.walkIn[0] - 0.05) hH.root.visible = false;
   } else hH.root.visible = false;
@@ -364,7 +368,9 @@ function humanHome(t) {
   hH.apply();
   handsHome(t);
   home.seat.rotation.y = chairYaw;
-  home.chair.position.z = CHAIR_Z + 0.06 + 0.25 * smooth(span(t, E.standUp, E.standUp + 0.6)) * (t < 46 ? 1 : 0);
+  // the chair stays where it was pushed back, and turned, until they sit again
+  home.chair.position.z = CHAIR_Z + 0.06 + 0.25 * smooth(span(t, E.standUp, E.standUp + 0.6));
+  if (t >= E.standUp + 0.35) home.seat.rotation.y = -0.9;
 }
 
 // Hands where they belong: on the keys while typing, resting by the keyboard, a fist on the
@@ -386,8 +392,8 @@ function handsHome(t) {
     const onKeys = clamp(1 - off);
     const tapL = typing * 0.012 * Math.max(0, Math.sin(t * 23)), tapR = typing * 0.012 * Math.max(0, Math.sin(t * 19 + 1));
     const kx = (dx) => typing * 0.02 * Math.sin(t * 3.1 + dx);
-    const Lw = V(kb.x - 0.1 + kx(0), kb.y + 0.045 + tapL, kb.z + 0.02 + (1 - typing) * 0.07);
-    const Rw = V(kb.x + 0.1 + kx(2), kb.y + 0.045 + tapR, kb.z + 0.02 + (1 - typing) * 0.07);
+    const Lw = V(kb.x - 0.1 + kx(0), kb.y + 0.074 + tapL, kb.z + 0.02 + (1 - typing) * 0.07);
+    const Rw = V(kb.x + 0.1 + kx(2), kb.y + 0.074 + tapR, kb.z + 0.02 + (1 - typing) * 0.07);
     hH.reach(1, Lw); mixArms(onKeys * (t < 3.3 ? smooth(span(t, 2.6, 3.3)) : 1), 'L');
     hH.reach(-1, Rw);
     const bump = smooth(span(t, E.fistRaise, E.fistBump - 0.08)) * (1 - smooth(span(t, E.fistBump + 0.35, E.fistBump + 0.9)));
@@ -404,7 +410,8 @@ function handsHome(t) {
     const reachK = smooth(span(t, E.pat[0] - 0.35, E.pat[0])) * (1 - smooth(span(t, 50.6, 51.1)));
     if (reachK > 0) {
       const tap = bump(t, E.pat[0], E.pat[0] + 0.3) + bump(t, E.pat[0] + 0.42, E.pat[0] + 0.72);
-      hH.reach(-1, comp.head.localToWorld(V(0.02, 0.24 + 0.03 * tap, -0.01)));
+      // the near corner of its top, a hand's width in from the edge
+      hH.reach(-1, comp.head.localToWorld(V(0.17, 0.235 + 0.03 * tap, -0.005)));
       mixArms(reachK, 'R');
     }
   }
@@ -420,13 +427,13 @@ function dogHome(t) {
   if (t < 11.2 || (t > 22.0 && t < 46.9)) { dH.root.visible = false; }
   else if (t < 19.3) {
     // in through the door with the leash, a trot to the person, a sit, a woof
-    const path = [[11.3, [DOOR.x, -2.9]], [12.1, [DOOR.x - 0.1, -1.75]], [E.dogEnter[1], [0.12, -0.92]]];
+    const path = [[11.3, [DOOR.x, -2.9]], [12.1, [DOOR.x - 0.1, -1.75]], [E.dogEnter[1], [0.3, -0.86]]];
     const [x, z] = keys(t, path.map(([k, v]) => [k, v, (u) => u]));
     const [x2, z2] = keys(t + 0.05, path.map(([k, v]) => [k, v, (u) => u]));
     p.x = x; p.z = z;
     const moving = 1 - span(t, E.dogEnter[1] - 0.15, E.dogEnter[1]);
     p.yaw = moving > 0.5 && Math.hypot(x2 - x, z2 - z) > 1e-5 ? Math.atan2(x2 - x, z2 - z) : lerp(Math.atan2(DESK.x - x, CHAIR_Z - z), -2.1, 0);
-    if (t > E.dogEnter[1]) p.yaw = Math.atan2(DESK.x - 0.12, CHAIR_Z + 0.92) * 1;
+    if (t > E.dogEnter[1]) p.yaw = Math.atan2(DESK.x - 0.3, CHAIR_Z + 0.86) * 1;
     dH.gait((t - 11.3) * 2.6, moving);
     p.sit = smooth(span(t, E.dogEnter[1], E.dogEnter[1] + 0.25));
     p.wag = 0.6 + 0.4 * p.sit; p.wagSpeed = 16;
@@ -435,24 +442,24 @@ function dogHome(t) {
     p.headTilt = 0.35 * smooth(span(t, 13.7, 14.0)) * (1 - smooth(span(t, 18.9, 19.2)));
     p.earUp = 0.6 * bump(t, E.boof, E.boof + 0.5);
     inMouth = t < E.leashDrop;
-    if (!inMouth) leashOnFloor = [0.05, -1.08];
+    if (!inMouth) leashOnFloor = [0.2, -1.02];
     // it watches the phone slide, then heads down for the leash
     p.headYaw = 0.3 * smooth(span(t, 17.9, 18.4)) * (1 - span(t, 18.8, 19.0));
   } else if (t <= 22.0) {
     // leash up again, and out of the door ahead of the person
     const pick = smooth(span(t, 19.3, 19.55)) * (1 - smooth(span(t, 19.55, 19.8)));
-    const path = [[19.8, [0.12, -0.92]], [20.6, [DOOR.x - 0.05, -1.5]], [21.2, [DOOR.x, -2.5]], [22.0, [DOOR.x, -3.5]]];
+    const path = [[19.8, [0.3, -0.86]], [20.6, [DOOR.x - 0.05, -1.5]], [21.2, [DOOR.x, -2.5]], [22.0, [DOOR.x, -3.5]]];
     const [x, z] = keys(t, path.map(([k, v]) => [k, v, (u) => u]));
     const [x2, z2] = keys(t + 0.05, path.map(([k, v]) => [k, v, (u) => u]));
     p.x = x; p.z = z;
     const moving = span(t, 19.75, 19.9);
-    p.yaw = moving > 0 && Math.hypot(x2 - x, z2 - z) > 1e-5 ? Math.atan2(x2 - x, z2 - z) : Math.atan2(DESK.x - 0.12, CHAIR_Z + 0.92);
+    p.yaw = moving > 0 && Math.hypot(x2 - x, z2 - z) > 1e-5 ? Math.atan2(x2 - x, z2 - z) : Math.atan2(DESK.x - 0.3, CHAIR_Z + 0.86);
     p.sit = 1 - smooth(span(t, 19.3, 19.6));
     p.headPitch = 0.6 * pick;
     dH.gait((t - 19.8) * 3, moving, 0.3);
     p.wag = 1; p.wagSpeed = 18; p.tongue = 1;
     inMouth = t > 19.5;
-    if (!inMouth) leashOnFloor = [0.05, -1.08];
+    if (!inMouth) leashOnFloor = [0.2, -1.02];
     if (t > 21.7) dH.root.visible = false;
   } else {
     // dusk: in first, straight to the bed, round once, and down
@@ -470,6 +477,7 @@ function dogHome(t) {
     if (t < 46.9) dH.root.visible = false;
   }
   dH.apply();
+  dH.root.updateMatrixWorld(true);
   // the leash: from the mouth, a droop and a trailing end; or lying on the floor
   if (dH.root.visible && (inMouth || leashOnFloor)) {
     leash.visible = true;
@@ -533,9 +541,11 @@ function homeAt(t, variant = 'now') {
   home.skyF.visible = t < 50.6;
   home.clockHands(t < 22 ? 10.1 + t / 3600 : t < 46.5 ? 15.2 + (t - 22) * 0.02 : 19.5);
   computerNow(t);
+  comp.root.updateMatrixWorld(true);        // the person reaches for it: read where it is now
   humanHome(t);
   dogHome(t);
   phoneHome(t);
+  home.scene.updateMatrixWorld(true);
 }
 
 // ---- the park -----------------------------------------------------------------------------------
@@ -555,7 +565,8 @@ function phonePoint(u, v) {
 }
 function parabola(p0, p1, h, u) { return V(lerp(p0.x, p1.x, u), lerp(p0.y, p1.y, u) + 4 * h * u * (1 - u), lerp(p0.z, p1.z, u)); }
 
-function parkAt(t) {
+// Everyone's pose in the park at t. Returns where the ball is: in the hand, in flight, in the mouth.
+function posePark(t) {
   const p = hP.pose, d = dP.pose;
   reset(p, defaults.h); reset(d, defaults.d);
   d.t = t;
@@ -564,7 +575,6 @@ function parkAt(t) {
   f.clock = '5:12';
   phoneP.root.visible = false;
   let ball = null;
-  const land1 = V(-4.4, 0.05, -3.4);
   if (t < 30.4) {
     // the first throw
     p.yaw = keys(t, [[29.0, YAW_THROW], [29.8, YAW_FRONT, inOut]]);
@@ -576,10 +586,9 @@ function parkAt(t) {
     p.legR = [0.25 * clamp(wind), 0, 0.05]; p.legL = [-0.2 * clamp(-wind), 0, 0.05];
     p.mouth = 'grin'; p.mouthOpen = 0.7; p.browUp = 0.5;
     p.headYaw = keys(t, [[28.6, 0], [29.8, 0.2]]);
-    if (t < E.throw1 + 0.05) ball = hP.handR.localToWorld(V(0, -0.07, 0.03));
-    else if (t < 29.35) ball = parabola(hP.handR.localToWorld(V(0, -0.07, 0.03)).set(-0.25, 1.55, -0.2), land1, 1.3, span(t, E.throw1 + 0.05, 29.35));
+    ball = t < E.throw1 + 0.05 ? 'hand' : 'flight1';
     // the dog: bouncing, then off after it, and back with it
-    const outPath = [[E.dogRun[0], [0.35, 0.45]], [29.4, [land1.x + 0.3, land1.z + 0.2]], [29.55, [land1.x + 0.3, land1.z + 0.2]], [E.dogRun[1], [DOG_SIT.x, DOG_SIT.z]]];
+    const outPath = [[E.dogRun[0], [0.35, 0.45]], [29.4, [LAND1.x + 0.3, LAND1.z + 0.2]], [29.6, [LAND1.x + 0.3, LAND1.z + 0.2]], [E.dogRun[1], [DOG_SIT.x, DOG_SIT.z]]];
     const [x, z] = keys(t, outPath.map(([k, v]) => [k, v, (u) => smooth(u)]));
     const [x2, z2] = keys(t + 0.05, outPath.map(([k, v]) => [k, v, (u) => smooth(u)]));
     d.x = x; d.z = z;
@@ -589,8 +598,8 @@ function parkAt(t) {
     dP.gait((t - E.dogRun[0]) * 3.4, running, 1);
     d.wag = 1; d.wagSpeed = 20; d.tongue = 1;
     d.sit = smooth(span(t, E.dogRun[1], E.dogRun[1] + 0.2));
-    if (t > 29.45) ball = dP.head.localToWorld(V(0, -0.075, 0.17));
-    if (t > 29.45 && t < 29.6) d.headPitch = 0.5;
+    if (t >= 29.45) ball = 'pickup';
+    d.headPitch = 0.55 * bump(t, 29.35, 29.7);
   } else if (t < 42.5) {
     // the buzz: the phone comes out, a notification, a question, a look at the dog, an answer
     p.yaw = YAW_FRONT;
@@ -629,7 +638,7 @@ function parkAt(t) {
     d.headTilt = 0.4 * smooth(span(t, 34.5, 34.8)) * (1 - smooth(span(t, 35.6, 36.0))) - 0.15 * bump(t, E.buzz[0], E.buzz[0] + 0.8);
     d.earUp = bump(t, E.squeak - 0.1, E.squeak + 0.5) * 0.8;
     d.headPitch = -0.55;
-    ball = dP.head.localToWorld(V(0, -0.075, 0.17));
+    ball = 'mouth';
   } else {
     // the pocket, the big throw, the catch
     p.yaw = keys(t, [[42.5, YAW_FRONT], [43.0, YAW_THROW + 0.2]]);
@@ -667,15 +676,13 @@ function parkAt(t) {
     d.headPitch = leap > 0 && leap < 0.5 ? -0.4 : 0;
     d.wag = 1; d.wagSpeed = 22; d.tongue = t < 44.5 ? 1 : 0; d.earFlop = leap > 0 && leap < 1 ? 1 : d.earFlop;
     d.sit = smooth(span(t, 45.3, 45.6));
-    if (t < 43.0) ball = hP.handR.localToWorld(V(0, -0.07, 0.03));
-    else if (t < E.throw2 + 0.02) ball = hP.handR.localToWorld(V(0, -0.07, 0.03));
-    else if (t < E.catch) ball = parabola(V(-0.3, 1.7, -0.25), dP.head.localToWorld(V(0, -0.075, 0.17)), 1.6, span(t, E.throw2 + 0.02, E.catch));
-    else ball = dP.head.localToWorld(V(0, -0.075, 0.17));
+    ball = t < E.throw2 + 0.02 ? 'hand' : t < E.catch ? 'flight2' : 'mouth';
   }
   // a blink every so often
   const bl = ((t + 1.3) % 3.1);
   if (bl < 0.12) p.blink = Math.max(p.blink, Math.sin(bl / 0.12 * Math.PI));
   hP.apply(); dP.apply();
+  hP.root.updateMatrixWorld(true); dP.root.updateMatrixWorld(true);
   // both hands on the phone while it is out, a thumb on the glass for each tap
   const holding = (t >= E.phoneUp[0] && t < 42.5 ? smooth(span(t, E.phoneUp[0] + 0.1, E.phoneUp[1])) : 0)
     + (t >= 42.5 && t < E.pocket + 0.05 ? 1 - smooth(span(t, 42.5, E.pocket)) : 0);
@@ -698,10 +705,31 @@ function parkAt(t) {
     if (t < 42.5) { p.armR = posed.R.map((a, i) => lerp(a, p.armR[i], w)); p.elbowR = lerp(posed.eR, p.elbowR, w); }
     else { p.armR = posed.R; p.elbowR = posed.eR; }
     hP.apply();
+    hP.root.updateMatrixWorld(true);
   }
+  return ball;
+}
+
+// The ball: in a hand, in a mouth, or on one arc between them. A throw leaves from where the
+// hand really is at the release, and the catch lands where the mouth really is at the catch.
+const LAND1 = V(-4.4, 0.05, -3.4);
+const handBall = () => hP.handR.localToWorld(V(0, -0.07, 0.03));
+const mouthBall = () => dP.head.localToWorld(V(0, -0.1, 0.165));
+function parkAt(t) {
+  let from = null, to = null;
+  if (t >= E.throw1 + 0.05 && t < 29.45) { posePark(E.throw1 + 0.05); from = handBall(); }
+  if (t >= E.throw2 + 0.02 && t < E.catch) { posePark(E.throw2 + 0.02); from = handBall(); posePark(E.catch); to = mouthBall(); }
+  const mode = posePark(t);
+  let ball = null;
+  if (mode === 'hand') ball = handBall();
+  else if (mode === 'mouth') ball = mouthBall();
+  else if (mode === 'flight1') ball = t < 29.3 ? parabola(from, LAND1, 1.3, span(t, E.throw1 + 0.05, 29.3)) : LAND1.clone().add(V(0, 0.07 * bump(t, 29.3, 29.42), 0));
+  else if (mode === 'pickup') ball = LAND1.clone().lerp(mouthBall(), smooth(span(t, 29.45, 29.6)));
+  else if (mode === 'flight2') ball = parabola(from, to, 1.6, span(t, E.throw2 + 0.02, E.catch));
   if (ball) { ballP.visible = true; ballP.position.copy(ball); ballP.rotation.set(t * 3, t * 2, 0); } else ballP.visible = false;
   phoneP.draw();
   park.focus(lerp(0, -1.5, span(t, 43, 44.5)), lerp(0, -1.2, span(t, 43, 44.5)));
+  park.scene.updateMatrixWorld(true);
 }
 
 // ---- cameras -------------------------------------------------------------------------------------
@@ -824,7 +852,8 @@ function parkShot(t) {
   }
   // the throw and the catch, low, into the sun
   if (t < 44.0) track(c, t, [[42.5, [1.75, 1.05, 1.5], [0, 0.95, 0], 34], [44.0, [1.8, 1.0, 1.6], [-0.3, 1.1, -0.2], 34]]);
-  else track(c, t, [[44.0, [-2.25, 0.34, 0.35], [-2.5, 1.0, -2.2], 40], [46.5, [-2.3, 0.32, 0.3], [-2.8, 0.7, -2.5], 40]]);
+  // the leap in profile, so the catch is seen: the ball into the mouth
+  else track(c, t, [[44.0, [-4.35, 0.75, 0.15], [-2.35, 1.05, -1.95], 40], [46.5, [-4.45, 0.7, 0.05], [-2.8, 0.7, -2.4], 40]]);
 }
 
 function placePortal(t) {
@@ -932,9 +961,10 @@ function frame(t) {
       M.bubbleA.value.set(0.56, 0.5, 0.012); M.bubbleB.value.set(0.6, 0.56, 0.02);
       M.tintB.value.set(0.9, 0.95, 1.08); M.satB.value = 0.75; M.remap.value = 1; M.zoom.value = 1.45;
     }
-    homeAt(t, 'now');
+    homeAt(t, INSPECT_FLASH ? 'flash' : 'now');
     homeShot(t);
     if (t > 50.9) endFrame(t);
+    if (INSPECT) { aim(homeCam, INSPECT.slice(0, 3), INSPECT.slice(3, 6), INSPECT[6] || 40, 0, 0); M.amount.value = 0; stage.draw(home.scene, homeCam); overlay(0); OV.black.style.opacity = 0; return; }
     // the wipe: the question goes out as an amber ring, and the park is inside it
     if (t >= E.wipe[0] - 0.05 && t < 27.6) {
       parkAt(t); parkShot(t);
@@ -951,6 +981,7 @@ function frame(t) {
   } else {
     parkAt(t);
     parkShot(t);
+    if (INSPECT) { aim(parkCam, INSPECT.slice(0, 3), INSPECT.slice(3, 6), INSPECT[6] || 40, 0, 0); M.amount.value = 0; stage.draw(park.scene, parkCam); overlay(0); OV.black.style.opacity = 0; return; }
     // the porthole opens out of the phone's screen, onto the computer at home
     if (t >= 36.0 && t < 38.5) {
       for (let pass = 0; pass < 2; pass++) { placePortal(t); parkShot(t); }

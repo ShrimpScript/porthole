@@ -133,12 +133,22 @@ export function makeHome(renderer) {
   // and the view out of the front window: the same sky, a garden
   const skyF = mesh(new THREE.PlaneGeometry(12, 8), skyMat, scene, [(x0 + x1) / 2, 1.5, z1 + 3.2], [0, Math.PI, 0]);
   skyF.castShadow = skyF.receiveShadow = false;
+  // ground outside: under the trees beyond the left window, and in front of the house
+  const grassOut = mat('#7DB070', { roughness: 0.95 });
+  mesh(new THREE.PlaneGeometry(9, 14), grassOut, scene, [x0 - 4.6, 0, (z0 + z1) / 2], [-Math.PI / 2, 0, 0]).castShadow = false;
+  const frontGround = mesh(new THREE.PlaneGeometry(14, 12), grassOut, scene, [(x0 + x1) / 2, 0, z1 + 6.2], [-Math.PI / 2, 0, 0]);
+  frontGround.castShadow = false;
+  for (const [bx, s] of [[FRONT_WINDOW.x - 1.3, 0.55], [FRONT_WINDOW.x + 1.2, 0.45], [FRONT_WINDOW.x + 2.3, 0.6]]) {
+    mesh(sphere(s, 20, 14), mat('#5E9A66', { roughness: 0.9 }), scene, [bx, s * 0.55, z1 + 0.5], null, [1.3, 0.9, 1]).castShadow = false;
+  }
   // trees seen through the window
   const R = rng(5);
   const outside = group(scene);
   for (let i = 0; i < 7; i++) {
     const tz = -3.4 + i * 0.75 + R() * 0.3, tx = x0 - 1.4 - R() * 1.2;
-    mesh(sphere(0.5 + R() * 0.3, 20, 14), mat(i % 2 ? '#7DB77B' : '#6AA56E', { roughness: 0.9 }), outside, [tx, 0.5 + R() * 0.6, tz]).castShadow = false;
+    const tr = 0.5 + R() * 0.3, th = 0.5 + R() * 0.6;
+    mesh(sphere(tr, 20, 14), mat(i % 2 ? '#7DB77B' : '#6AA56E', { roughness: 0.9 }), outside, [tx, th, tz]).castShadow = false;
+    if (th - tr > 0.02) mesh(limb(0.06, 0.05, th - tr + 0.1, 8), mat('#8A5E44', { roughness: 0.8 }), outside, [tx, 0, tz]).castShadow = false;
   }
 
   // ---- the desk ------------------------------------------------------------------------------
@@ -236,12 +246,20 @@ export function makeHome(renderer) {
   const doorFrame = group(scene, [DOOR.x, 0, z0]);
   for (const sx of [-1, 1]) mesh(box(0.07, DOOR.h + 0.05, 0.14, 0.015), trimMat, doorFrame, [sx * (DOOR.w / 2 + 0.02), (DOOR.h + 0.05) / 2, 0]);
   mesh(box(DOOR.w + 0.11, 0.07, 0.14, 0.015), trimMat, doorFrame, [0, DOOR.h + 0.03, 0]);
-  const hall = mesh(new THREE.PlaneGeometry(DOOR.w + 0.2, DOOR.h + 0.2), new THREE.MeshBasicMaterial({ color: '#B89878' }), doorFrame, [0, DOOR.h / 2, -0.6]);
-  const hinge = group(doorFrame, [-DOOR.w / 2 + 0.01, 0, -0.03]);
+  // the hall beyond: a floor, walls and its own warm light, so going out is going somewhere
+  const hallMat = mat('#D9BF9C', { roughness: 0.9 });
+  const hallBox = group(doorFrame, [0, 0, -0.1]);
+  mesh(new THREE.PlaneGeometry(2.2, 2.6), new THREE.MeshStandardMaterial({ map: planks(2.2, 2.6), roughness: 0.6 }), hallBox, [0, 0.001, -1.3], [-Math.PI / 2, 0, 0]).castShadow = false;
+  mesh(new THREE.PlaneGeometry(2.2, 2.6), hallMat, hallBox, [0, 1.3, -2.6]).castShadow = false;
+  for (const sx of [-1, 1]) mesh(new THREE.PlaneGeometry(2.6, 2.6), hallMat, hallBox, [sx * 1.1, 1.3, -1.3], [0, -sx * Math.PI / 2, 0]).castShadow = false;
+  mesh(new THREE.PlaneGeometry(2.2, 2.6), hallMat, hallBox, [0, 2.6, -1.3], [Math.PI / 2, 0, 0]).castShadow = false;
+  const hall = new THREE.PointLight('#FFD9A8', 1.2, 4, 1.6);
+  hall.position.set(0, 2.2, -1.4); hallBox.add(hall);
+  const hinge = group(doorFrame, [DOOR.w / 2 - 0.01, 0, -0.03]);
   const doorMat = mat('#E8D2B5', { roughness: 0.6 });
-  mesh(box(DOOR.w - 0.02, DOOR.h - 0.01, 0.045, 0.012), doorMat, hinge, [DOOR.w / 2, DOOR.h / 2, 0]);
-  for (const [py, ph] of [[0.5, 0.62], [1.35, 0.72]]) mesh(box(DOOR.w - 0.24, ph, 0.02, 0.01), mat('#DEC4A3', { roughness: 0.6 }), hinge, [DOOR.w / 2, py, 0.03]);
-  mesh(sphere(0.03, 16, 12), mat('#C9B58A', { metalness: 0.7, roughness: 0.3 }), hinge, [DOOR.w - 0.09, 0.98, 0.06]);
+  mesh(box(DOOR.w - 0.02, DOOR.h - 0.01, 0.045, 0.012), doorMat, hinge, [-DOOR.w / 2, DOOR.h / 2, 0]);
+  for (const [py, ph] of [[0.5, 0.62], [1.35, 0.72]]) mesh(box(DOOR.w - 0.24, ph, 0.02, 0.01), mat('#DEC4A3', { roughness: 0.6 }), hinge, [-DOOR.w / 2, py, 0.03]);
+  mesh(sphere(0.03, 16, 12), mat('#C9B58A', { metalness: 0.7, roughness: 0.3 }), hinge, [-DOOR.w + 0.09, 0.98, 0.06]);
 
   // ---- the dog's bed and the rug ---------------------------------------------------------------
   const bed = group(scene, [BED.x, 0, BED.z]);
@@ -299,11 +317,12 @@ export function makeHome(renderer) {
     lampLight.intensity = 2.2 * dusk;
     lampLight.castShadow = dusk > 0.01;   // a point light's shadow is six renders: only when it is on
     bulb.material.emissiveIntensity = 3 * dusk;
-    hall.material.color.set('#B89878').lerp(new THREE.Color('#E0A060'), dusk);
+    hall.intensity = lerp(1.2, 2.4, dusk);
+    hall.color.set('#FFE2BC').lerp(new THREE.Color('#FFB066'), dusk);
   }
   setTime(0);
 
-  const door = { hinge, open: (a) => { hinge.rotation.y = -a * 1.7; } };
+  const door = { hinge, open: (a) => { hinge.rotation.y = a * 1.7; } };
   const clockHands = (hours) => { hourHand.rotation.z = -hours / 12 * Math.PI * 2; minHand.rotation.z = -(hours % 1) * Math.PI * 2; };
   clockHands(10.1);
   return { scene, setTime, door, clockHands, front, skyF, chair, seat, mug, plant, leaves, lamp: lampLight, sun, hemi, outside, hall };

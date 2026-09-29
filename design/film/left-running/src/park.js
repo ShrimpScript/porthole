@@ -38,7 +38,8 @@ export function makePark(renderer) {
   const cA = new THREE.Color('#86C46F'), cB = new THREE.Color('#6DB064'), cC = new THREE.Color('#A6CF76');
   const heightAt = (x, z) => {
     const d = Math.hypot(x, z);
-    const flat = Math.min(1, Math.max(0, (d - 5) / 10));
+    // flat where the story happens (the bench, the pond, the runs), hills beyond
+    const flat = Math.min(1, Math.max(0, (d - 8.5) / 10));
     return flat * (noise(x * 0.08 + 10, 1) * 1.6 + noise(z * 0.07 + 3, 2) * 1.4 + (d > 30 ? (d - 30) * 0.08 : 0));
   };
   for (let i = 0; i < pos.count; i++) {
