@@ -140,7 +140,44 @@ export function makeHuman() {
     smile.visible = p.mouth === 'smile'; grin.visible = p.mouth === 'grin'; oh.visible = p.mouth === 'oh';
     grin.scale.set(1, 0.6 + 0.6 * p.mouthOpen, 1);
   }
-  return { root, pose, apply, head, arms, legs, spine, hips, handL: arms[L].hand, handR: arms[R].hand };
+  // Reach: set an arm so its hand is at a point in the world. Two bones, solved numerically on
+  // the pose's own angles (so the rest of the pose, and the mirroring, stay as they are).
+  const _v = new THREE.Vector3();
+  function reach(side, world, twist = 0.25) {
+    root.updateMatrixWorld(true);
+    const target = spine.worldToLocal(_v.copy(world)).clone();
+    const S = arms[side].shoulder.position;
+    if (side === R) target.x = -target.x;            // solve the right arm as a mirrored left
+    const sp = new THREE.Vector3(Math.abs(S.x), S.y, S.z);
+    const e = new THREE.Euler(), q = new THREE.Quaternion();
+    const hand = (x, z, el) => {
+      e.set(x, twist, z); q.setFromEuler(e);
+      const up = new THREE.Vector3(0, -0.23, 0).applyQuaternion(q);
+      const fore = new THREE.Vector3(0, -0.245, 0).applyAxisAngle(new THREE.Vector3(1, 0, 0), -el).applyQuaternion(q);
+      return sp.clone().add(up).add(fore);
+    };
+    let best = [-0.8, 0.2, 1.0], bestD = Infinity;
+    const cost = (a) => hand(a[0], a[1], a[2]).distanceTo(target) + 0.002 * Math.abs(a[1]);
+    for (const x of [-2.4, -1.6, -0.9, -0.3]) for (const z of [-0.2, 0.2, 0.6]) for (const el of [0.3, 1.0, 1.8]) {
+      const d = cost([x, z, el]); if (d < bestD) { bestD = d; best = [x, z, el]; }
+    }
+    let step = 0.25;
+    for (let it = 0; it < 60; it++) {
+      let moved = false;
+      for (let k = 0; k < 3; k++) for (const dir of [1, -1]) {
+        const c = best.slice(); c[k] += dir * step;
+        if (k === 2) c[2] = Math.min(2.6, Math.max(0.02, c[2]));
+        const d = cost(c); if (d < bestD) { bestD = d; best = c; moved = true; }
+      }
+      if (!moved) step *= 0.5;
+      if (step < 0.002) break;
+    }
+    const key = side === L ? 'L' : 'R';
+    pose['arm' + key] = [best[0], twist, best[1]];
+    pose['elbow' + key] = best[2];
+    return bestD;
+  }
+  return { root, pose, apply, reach, head, arms, legs, spine, hips, handL: arms[L].hand, handR: arms[R].hand };
 }
 
 // ---- poses ------------------------------------------------------------------------------------

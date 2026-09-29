@@ -96,7 +96,7 @@ function hops(t, times, h = 0.06, d = 0.36) {
 }
 
 // ---- home: everything in the room at time t ----------------------------------------------------
-const CHAIR_Z = DESK.z + 0.74;
+const CHAIR_Z = DESK.z + 0.68;
 function screenPoint(u, v) {
   // a point on the computer's glass, u, v in canvas pixels
   const gw = 0.51, gh = gw * FACE_H / FACE_W;
@@ -355,8 +355,53 @@ function humanHome(t) {
   const bl = ((t + 0.7) % 3.3);
   if (bl < 0.12) p.blink = Math.max(p.blink, Math.sin(bl / 0.12 * Math.PI));
   hH.apply();
+  handsHome(t);
   home.seat.rotation.y = chairYaw;
-  home.chair.position.z = DESK.z + 0.8 + 0.25 * smooth(span(t, E.standUp, E.standUp + 0.6)) * (t < 46 ? 1 : 0);
+  home.chair.position.z = CHAIR_Z + 0.06 + 0.25 * smooth(span(t, E.standUp, E.standUp + 0.6)) * (t < 46 ? 1 : 0);
+}
+
+// Hands where they belong: on the keys while typing, resting by the keyboard, a fist on the
+// computer's corner, a hand on its head. Blended with the posed arms by how much each applies.
+function handsHome(t) {
+  const p = hH.pose;
+  if (!hH.root.visible) return;
+  const kb = comp.keyboard.position;
+  const posed = { armL: p.armL.slice(), armR: p.armR.slice(), elbowL: p.elbowL, elbowR: p.elbowR };
+  const mixArms = (w, key) => {
+    if (w <= 0) { p['arm' + key] = posed['arm' + key]; p['elbow' + key] = posed['elbow' + key]; return; }
+    p['arm' + key] = posed['arm' + key].map((a, i) => lerp(a, p['arm' + key][i], w));
+    p['elbow' + key] = lerp(posed['elbow' + key], p['elbow' + key], w);
+  };
+  if (t < E.standUp) {
+    // on the keyboard: typing or resting; off it for the bump, the lounge and the dog
+    const typing = pulse(t, 3.6, 7.8, 0.25);
+    const off = Math.max(smooth(span(t, 10.45, 10.8)) * (1 - smooth(span(t, 17.6, 18.0))), smooth(span(t, 12.7, 13.1)) * (1 - smooth(span(t, 17.6, 18.0))));
+    const onKeys = clamp(1 - off);
+    const tapL = typing * 0.012 * Math.max(0, Math.sin(t * 23)), tapR = typing * 0.012 * Math.max(0, Math.sin(t * 19 + 1));
+    const kx = (dx) => typing * 0.02 * Math.sin(t * 3.1 + dx);
+    const Lw = V(kb.x - 0.1 + kx(0), kb.y + 0.045 + tapL, kb.z + 0.02 + (1 - typing) * 0.07);
+    const Rw = V(kb.x + 0.1 + kx(2), kb.y + 0.045 + tapR, kb.z + 0.02 + (1 - typing) * 0.07);
+    hH.reach(1, Lw); mixArms(onKeys * (t < 3.3 ? smooth(span(t, 2.6, 3.3)) : 1), 'L');
+    hH.reach(-1, Rw);
+    const bump = smooth(span(t, E.fistRaise, E.fistBump - 0.08)) * (1 - smooth(span(t, E.fistBump + 0.35, E.fistBump + 0.9)));
+    const handR = onKeys * (t < 3.3 ? smooth(span(t, 2.6, 3.3)) : 1) * (1 - bump);
+    if (bump > 0) {
+      const corner = comp.head.localToWorld(V(0.3, -0.06, 0.06 + 0.05 * (1 - bump)));
+      const keysArm = { a: p.armR.slice(), e: p.elbowR };
+      hH.reach(-1, corner);
+      const cA = p.armR.slice(), cE = p.elbowR;
+      p.armR = posed.armR.map((a, i) => lerp(lerp(a, keysArm.a[i], handR / Math.max(1e-3, 1 - bump)), cA[i], bump));
+      p.elbowR = lerp(lerp(posed.elbowR, keysArm.e, handR / Math.max(1e-3, 1 - bump)), cE, bump);
+    } else mixArms(handR, 'R');
+  } else if (t >= 46.5) {
+    const reachK = smooth(span(t, E.pat[0] - 0.35, E.pat[0])) * (1 - smooth(span(t, 50.6, 51.1)));
+    if (reachK > 0) {
+      const tap = bump(t, E.pat[0], E.pat[0] + 0.3) + bump(t, E.pat[0] + 0.42, E.pat[0] + 0.72);
+      hH.reach(-1, comp.head.localToWorld(V(0.02, 0.24 + 0.03 * tap, -0.01)));
+      mixArms(reachK, 'R');
+    }
+  }
+  hH.apply();
 }
 
 function dogHome(t) {
@@ -496,6 +541,11 @@ function phoneScreen() {
   const n = phoneP.root.localToWorld(c.clone().setZ(box.max.z + 1)).sub(phoneP.root.localToWorld(c.clone().setZ(box.max.z))).normalize();
   return { p, n };
 }
+function phonePoint(u, v) {
+  // a point on the phone's glass, in canvas pixels (900 x 2000, from the top left)
+  const b = phoneP.box;
+  return phoneP.root.localToWorld(V(lerp(b.min.x, b.max.x, u / 900), lerp(b.max.y, b.min.y, v / 2000), b.max.z + 0.001));
+}
 function parabola(p0, p1, h, u) { return V(lerp(p0.x, p1.x, u), lerp(p0.y, p1.y, u) + 4 * h * u * (1 - u), lerp(p0.z, p1.z, u)); }
 
 function parkAt(t) {
@@ -619,6 +669,24 @@ function parkAt(t) {
   const bl = ((t + 1.3) % 3.1);
   if (bl < 0.12) p.blink = Math.max(p.blink, Math.sin(bl / 0.12 * Math.PI));
   hP.apply(); dP.apply();
+  // both hands on the phone while it is out, a thumb on the glass for each tap
+  const holding = (t >= E.phoneUp[0] && t < 42.5 ? smooth(span(t, E.phoneUp[0] + 0.1, E.phoneUp[1])) : 0)
+    + (t >= 42.5 && t < E.pocket + 0.05 ? 1 - smooth(span(t, 42.5, E.pocket)) : 0);
+  if (holding > 0 && phoneP.root.visible) {
+    const posed = { L: p.armL.slice(), R: p.armR.slice(), eL: p.elbowL, eR: p.elbowR };
+    const edgeA = phoneP.root.localToWorld(V(0.043, -0.035, -0.008)), edgeB = phoneP.root.localToWorld(V(-0.043, -0.035, -0.008));
+    const inSpine = (w) => hP.spine.worldToLocal(w.clone());
+    const [leftEdge, rightEdge] = inSpine(edgeA).x > inSpine(edgeB).x ? [edgeA, edgeB] : [edgeB, edgeA];
+    const tap = bump(t, E.notifTap - 0.1, E.notifTap + 0.12) + bump(t, E.tapDark - 0.1, E.tapDark + 0.12);
+    const n = phoneScreen().n;
+    hP.reach(1, leftEdge);
+    hP.reach(-1, rightEdge.clone().addScaledVector(n, 0.012 * tap));
+    const w = holding * (t >= 42.5 ? 1 : 1);
+    p.armL = posed.L.map((a, i) => lerp(a, p.armL[i], w)); p.elbowL = lerp(posed.eL, p.elbowL, w);
+    if (t < 42.5) { p.armR = posed.R.map((a, i) => lerp(a, p.armR[i], w)); p.elbowR = lerp(posed.eR, p.elbowR, w); }
+    else { p.armR = posed.R; p.elbowR = posed.eR; }
+    hP.apply();
+  }
   if (ball) { ballP.visible = true; ballP.position.copy(ball); ballP.rotation.set(t * 3, t * 2, 0); } else ballP.visible = false;
   phoneP.draw();
   park.focus(lerp(0, -1.5, span(t, 43, 44.5)), lerp(0, -1.2, span(t, 43, 44.5)));
@@ -661,7 +729,8 @@ function homeShot(t) {
   }
   if (t < 19.55) {
     // the nudge: the computer, the phone, the person's hands
-    track(c, t, [[17.75, [1.25, 1.12, -1.15], [DESK.x + 0.05, 0.8, DESK.z + 0.18], 32], [19.55, [1.2, 1.1, -1.18], [DESK.x + 0.05, 0.82, DESK.z + 0.18], 31]]);
+    if (t < 18.85) track(c, t, [[17.75, [DESK.x + 0.62, 1.0, DESK.z + 0.95], [DESK.x + 0.18, DESK.top + 0.16, DESK.z + 0.2], 36], [18.85, [DESK.x + 0.58, 0.98, DESK.z + 0.9], [DESK.x + 0.18, DESK.top + 0.16, DESK.z + 0.22], 35]]);
+    else track(c, t, [[18.85, [1.25, 1.12, -1.15], [DESK.x + 0.05, 0.86, DESK.z + 0.18], 32], [19.55, [1.2, 1.1, -1.18], [DESK.x + 0.05, 0.86, DESK.z + 0.18], 31]]);
     return;
   }
   if (t < 22.0) {
@@ -715,8 +784,11 @@ function parkShot(t) {
   const glassC = phoneScreen();
   const pov = eye.clone().addScaledVector(fwd, 0.2);
   if (t < E.dogLook[0] || (t >= E.dogLook[1] && t < 36.0)) {
-    const toward = pov.clone().lerp(glassC.p, 0.12 * span(t, 31.6, 36.0));
-    aim(c, toward.toArray(), glassC.p.toArray(), 27, t, 0.0015);
+    // near enough to read: first the notification, then the question card
+    const onCard = smooth(span(t, 33.35, 33.85));
+    const look = phonePoint(450, 250).lerp(phonePoint(450, 1320), onCard);
+    const toward = pov.clone().lerp(glassC.p, 0.1 * span(t, 31.6, 36.0));
+    aim(c, toward.toArray(), look.toArray(), lerp(14, 17, onCard), t, 0.0006);
     return;
   }
   if (t < E.dogLook[1]) {
@@ -731,8 +803,9 @@ function parkShot(t) {
     const pos = pov.clone().lerp(glassC.p, 0.12);
     const k = inn(span(t, 36.95, 38.45));
     pos.lerp(pr, 0.95 * k);
-    const fov = lerp(lerp(27, 50, inOut(span(t, 35.95, 36.8))), 34, inOut(span(t, 36.95, 37.8)));
-    aim(c, pos.toArray(), pr.toArray(), fov, t, 0.0008 * (1 - k));
+    const fov = lerp(lerp(17, 50, inOut(span(t, 35.95, 36.8))), 34, inOut(span(t, 36.95, 37.8)));
+    const lookAt = phonePoint(450, 1320).lerp(pr, inOut(span(t, 35.95, 36.5)));
+    aim(c, pos.toArray(), lookAt.toArray(), fov, t, 0.0008 * (1 - k));
     return;
   }
   // the throw and the catch, low, into the sun
