@@ -120,7 +120,7 @@ function computerNow(t) {
     const st = Math.sin(s * Math.PI);
     c.elbow = 0.28 * st; c.lean = -0.12 * st; c.tilt = -0.2 * st;
     c.squash = -0.7 * st + 0.4 * bump(t, 3.2, 3.55);
-    f.open = lerp(1, 0.12, clamp(st * 1.6)); f.happy = clamp(st * 1.5) * 0.9;
+    f.open = lerp(1, 0.12, clamp(st * 1.6)); f.happy = clamp(st * 2.5);
     f.smile = 0.8 * bump(t, 3.1, 4.1);
     f.lookX = keys(t, [[2.05, 0.7], [2.4, 0]]);
     f.logAlpha = 0.22 * span(t, 3.2, 3.8);
@@ -132,7 +132,7 @@ function computerNow(t) {
     c.tilt = 0.06 * hit; c.squash = 0.12 * hit;
     f.scroll = 1.5 + (t - 4.2) * 3.2;
     f.lookX = 0.15 + 0.1 * Math.sin(t * 1.3); f.lookY = 0.25;
-    f.happy = 0.35;
+    f.happy = 0;
     // the tests pass: a hop and a line on the glass
     const hp = hops(t, [E.tick], 0.05, 0.34);
     c.hop = hp.y; c.squash += hp.sq;
@@ -148,7 +148,7 @@ function computerNow(t) {
   // ---- one day: the dog, the look, the thought, the nudge -----------------------------------
   if (t >= 11.6 && t < 22.0) {
     f.scroll = 26 + (t - 11.6) * 1.2;
-    f.happy = 0.2;
+    f.happy = 0;
     // it hears the tag jingle and looks at the door
     f.lookX = keys(t, [[11.9, 0.1], [12.2, 0.95, out5], [13.3, 0.95], [13.55, 0.1, out5], [17.5, 0.1], [17.65, 0.55, out5], [18.7, 0.55], [18.85, 0.0, out5], [19.6, 0], [19.9, 0.7], [21.6, 0.95]]);
     f.lookY = keys(t, [[13.4, 0], [13.6, -0.2], [17.5, -0.2], [17.65, 0.9, out5], [18.7, 0.9], [18.85, 0, out5]]);
@@ -175,7 +175,7 @@ function computerNow(t) {
     const hum = pulse(t, 22.1, 23.4, 0.2);
     c.tilt = 0.05 * hit * hum; c.roll = 0.05 * Math.sin((t - 22.1) * Math.PI) * hum;
     f.scroll = 40 + (t - 22) * 2.5 * (1 - span(t, 23.4, 23.6));
-    f.happy = 0.7 * hum;
+    f.happy = smooth(span(t, 22.05, 22.2)) * (1 - smooth(span(t, 23.35, 23.5)));
     f.ask = out(span(t, E.ask, E.ask + 0.45));
     f.wait = smooth(span(t, E.amber, E.amber + 0.3));
     f.wide = 0.5 * bump(t, E.ask, E.ask + 0.6);
@@ -190,7 +190,7 @@ function computerNow(t) {
     const hp = hops(t, [E.send - 0.1], 0.04, 0.3);
     c.hop = hp.y; c.squash += hp.sq;
     f.pulse = span(t, E.send, E.send + 0.8);
-    f.happy = Math.max(f.happy, 0.8 * pulse(t, E.send + 0.1, 27.6, 0.2));
+    f.happy = Math.max(f.happy, pulse(t, E.send + 0.1, 27.6, 0.12));
   }
   // ---- seen through the porthole: waiting, amber; then the answer lights up ------------------
   if (t >= 27.6 && t < 38.5) {
@@ -199,7 +199,7 @@ function computerNow(t) {
     f.sad = 0.35 * (1 - smooth(span(t, 36.4, 37.0)));
     f.wide = 0.5 * smooth(span(t, 36.5, 37.0));
     f.picked = smooth(span(t, E.answerArrives, E.answerArrives + 0.25));
-    f.happy = 0.6 * smooth(span(t, 37.7, 38.2));
+    f.happy = smooth(span(t, 37.85, 38.05));
     c.tilt = -0.08 * smooth(span(t, 36.4, 37.0));
     c.squash = 0.4 * bump(t, E.answerArrives, E.answerArrives + 0.3);
   }
@@ -223,10 +223,10 @@ function computerNow(t) {
   // ---- dusk: home again ----------------------------------------------------------------------
   if (t >= 46.5) {
     f.dark = 1; f.logAlpha = 0.14; f.scroll = 60 + (t - 46.5) * 0.4;
-    f.happy = 0.45;
+    f.happy = 0;
     f.lookX = keys(t, [[46.8, 0], [47.0, 0.9, out5], [48.6, 0.9], [48.9, 0.55]]);
     c.turn = 0.5 * smooth(span(t, E.turnToHuman - 0.1, E.turnToHuman + 0.4));
-    f.happy = lerp(f.happy, 1, smooth(span(t, E.turnToHuman, E.turnToHuman + 0.3)));
+    f.happy = smooth(span(t, E.turnToHuman, E.turnToHuman + 0.15));
     f.wide = 0.5 * bump(t, 46.8, 47.4);
     // two pats on the head: each one squashes it, eyes shut happily
     const pats = bump(t, E.pat[0], E.pat[0] + 0.3) + bump(t, E.pat[0] + 0.42, E.pat[0] + 0.72);
