@@ -398,6 +398,8 @@ function handsHome(t) {
     hH.reach(-1, Rw);
     const bump = smooth(span(t, E.fistRaise, E.fistBump - 0.08)) * (1 - smooth(span(t, E.fistBump + 0.35, E.fistBump + 0.9)));
     const handR = onKeys * (t < 3.3 ? smooth(span(t, 2.6, 3.3)) : 1) * (1 - bump);
+    // the right hand goes to the phone before they stand
+    const toPhone = smooth(span(t, PICK[0], PICK[1]));
     if (bump > 0) {
       const corner = comp.head.localToWorld(V(0.3, -0.06, 0.06 + 0.05 * (1 - bump)));
       const keysArm = { a: p.armR.slice(), e: p.elbowR };
@@ -406,6 +408,17 @@ function handsHome(t) {
       p.armR = posed.armR.map((a, i) => lerp(lerp(a, keysArm.a[i], handR / Math.max(1e-3, 1 - bump)), cA[i], bump));
       p.elbowR = lerp(lerp(posed.elbowR, keysArm.e, handR / Math.max(1e-3, 1 - bump)), cE, bump);
     } else mixArms(handR, 'R');
+    if (toPhone > 0) {
+      const armNow = p.armR.slice(), elNow = p.elbowR;
+      hH.reach(-1, V(DESK.x + 0.2, DESK.top + 0.04, DESK.z + 0.44));
+      p.armR = armNow.map((a, i) => lerp(a, p.armR[i], toPhone)); p.elbowR = lerp(elNow, p.elbowR, toPhone);
+    }
+  } else if (t < PICK[2] + 0.25) {
+    // up with the phone in hand, and into the pocket; then the hand is free to swing
+    const pocket = hH.spine.localToWorld(V(-0.04, 0.1, 0.19));
+    const phoneOnDesk = V(DESK.x + 0.2, DESK.top + 0.04, DESK.z + 0.44);
+    hH.reach(-1, phoneOnDesk.clone().lerp(pocket, smooth(span(t, PICK[1], PICK[2]))));
+    mixArms(1 - smooth(span(t, PICK[2], PICK[2] + 0.25)), 'R');
   } else if (t >= 46.5) {
     const reachK = smooth(span(t, E.pat[0] - 0.35, E.pat[0])) * (1 - smooth(span(t, 50.6, 51.1)));
     if (reachK > 0) {
@@ -416,6 +429,7 @@ function handsHome(t) {
     }
   }
   hH.apply();
+  hH.root.updateMatrixWorld(true);
 }
 
 function dogHome(t) {
@@ -497,21 +511,27 @@ function dogHome(t) {
   } else leash.visible = false;
 }
 
+// the phone taken up: reach for it, hold it (from here it is in the hand), gone into the pocket
+const PICK = [19.3, 19.55, 19.92];
 function phoneHome(t) {
   // on the desk; nudged across to the person; picked up and pocketed as they stand
   const r = phoneH.root;
-  r.visible = t < 19.85;
+  r.visible = t < PICK[2];
+  // lying face up, portrait, its top toward the computer: readable from the chair
   const from = V(DESK.x + 0.36, DESK.top + 0.006, DESK.z + 0.06), to = V(DESK.x + 0.2, DESK.top + 0.006, DESK.z + 0.44);
   const k = out(span(t, 18.05, 18.55));
   r.position.lerpVectors(from, to, k);
-  r.rotation.set(-Math.PI / 2, 0, 0.5 + 0.9 * k);
-  if (t > E.standUp) {
-    const up = smooth(span(t, E.standUp + 0.05, 19.85));
-    r.position.y += up * 0.25; r.position.z += up * 0.1;
+  r.rotation.set(-Math.PI / 2, 0, lerp(0.22, -0.06, k));
+  // taken up in the right hand, and into the hoodie's pocket
+  if (t >= PICK[1]) {
+    const hold = hH.handR.localToWorld(V(0, -0.035, 0.035));
+    const lift = smooth(span(t, PICK[1], PICK[1] + 0.12));
+    r.position.lerp(hold, lift);
+    r.rotation.x = lerp(-Math.PI / 2, -0.4, smooth(span(t, PICK[1] + 0.05, PICK[2])));
   }
   const s = phoneH.state;
   s.mode = 'welcome'; s.wake = smooth(span(t, E.phoneWake, E.phoneWake + 0.25)) * 0.95; s.notif = 0; s.press = null;
-  s.clock = '4:02';
+  s.clock = '4:41';
   phoneH.draw();
 }
 
@@ -539,7 +559,8 @@ function homeAt(t, variant = 'now') {
   const doorA = t < 22.5 ? keys(t, [[11.15, 0], [11.55, 1, out], [21.55, 1], [21.9, 0, inn]]) : keys(t, [[46.6, 0], [47.0, 1, out], [49.4, 1], [50.2, 0.12]]);
   home.door.open(doorA);
   home.skyF.visible = t < 50.6;
-  home.clockHands(t < 22 ? 10.1 + t / 3600 : t < 46.5 ? 15.2 + (t - 22) * 0.02 : 19.5);
+  // one afternoon: at work at 4:38 (walk time), the question at 5:12 (the time the phone shows), home at 6:55
+  home.clockHands(t < 22 ? 16.633 + t / 3600 : t < 46.5 ? 17.15 + (t - 22) * 0.02 : 18.917 + (t - 46.5) / 3600);
   computerNow(t);
   comp.root.updateMatrixWorld(true);        // the person reaches for it: read where it is now
   humanHome(t);

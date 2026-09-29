@@ -110,7 +110,9 @@ export function makeHome(renderer) {
   front.position.set((x0 + x1) / 2, 0, z1);
   scene.add(front);
   // outside, the front window wears the porthole's rim
-  const frontRim = portRim(FRONT_WINDOW.r, front, [-(FRONT_WINDOW.x - (x0 + x1) / 2), FRONT_WINDOW.y, 0.012]);
+  // a rim on each face of the wall: the room's side, and the outside the camera leaves to
+  portRim(FRONT_WINDOW.r, front, [-(FRONT_WINDOW.x - (x0 + x1) / 2), FRONT_WINDOW.y, 0.012]);
+  portRim(FRONT_WINDOW.r, front, [-(FRONT_WINDOW.x - (x0 + x1) / 2), FRONT_WINDOW.y, -0.172], [0, Math.PI, 0]);
   // wainscot and its rail: on the back wall either side of the door, and along the left wall
   const leftOfDoor = DOOR.x - DOOR.w / 2 - x0, rightOfDoor = x1 - (DOOR.x + DOOR.w / 2);
   mesh(box(leftOfDoor, 0.82, 0.03, 0.01), wainMat, scene, [x0 + leftOfDoor / 2, 0.41, z0 + 0.016]);
@@ -178,7 +180,8 @@ export function makeHome(renderer) {
   const lamp = group(scene, [DESK.x - 0.6, DESK.top, DESK.z - 0.16]);
   mesh(puck(0.07, 0.02, 0.4), mat('#22463F'), lamp);
   mesh(limb(0.01, 0.01, 0.32), mat('#22463F'), lamp, [0, 0.01, 0], [0.25, 0, 0]);
-  const shade = group(lamp, [0, 0.32, 0.08], [0.9, 0, 0]);
+  // the shade's mouth points down and forward, at the desk
+  const shade = group(lamp, [0, 0.32, 0.08], [-0.9, 0, 0]);
   mesh(new THREE.ConeGeometry(0.1, 0.12, 32, 1, true), mat('#E7B84A', { roughness: 0.5, side: THREE.DoubleSide }), shade, [0, 0, 0]);
   const bulb = mesh(sphere(0.03, 16, 12), new THREE.MeshStandardMaterial({ color: '#fff4dc', emissive: '#ffd9a0', emissiveIntensity: 0 }), shade, [0, -0.03, 0]);
   const lampLight = new THREE.PointLight('#FFC98A', 0, 4.5, 1.5);
