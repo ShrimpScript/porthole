@@ -58,8 +58,8 @@ export function makeDog() {
     mesh(sphere(0.045, 20, 14), cream, hip, [0, -0.17, 0.012], null, [1, 0.75, 1.25]);
     legs.push(hip);
   }
-  // the tail, a curl that wags
-  const tailBase = group(body, [0, 0.07, -0.24]);
+  // the tail, a curl that wags; its root sits just inside the rump, so it grows out of the body
+  const tailBase = group(body, [0, 0.06, -0.2]);
   const tail = mesh(limb(0.035, 0.025, 0.16, 16), coat, tailBase, [0, 0, 0], [-0.7, 0, 0]);
   mesh(sphere(0.03, 14, 10), cream, tail, [0, 0.155, 0]);
 
