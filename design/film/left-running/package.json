@@ -1,0 +1,9 @@
+{
+  "name": "porthole-film-left-running",
+  "private": true,
+  "description": "Left Running: a story film for Porthole, drawn frame by frame in three.js and scored in code",
+  "dependencies": {
+    "playwright-core": "1.56.1",
+    "three": "0.186.1"
+  }
+}
