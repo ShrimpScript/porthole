@@ -173,7 +173,9 @@ export function makeHome(renderer) {
   const leaves = [];
   for (let i = 0; i < 7; i++) {
     const a = i / 7 * Math.PI * 2;
+    // lean out, then turn about the pot, so the leaves fan all the way round
     const stem = group(plant, [0, 0.11, 0], [0.5 + 0.2 * (i % 2), a, 0]);
+    stem.rotation.order = 'YXZ';
     const lf = mesh(sphere(0.05, 16, 12), leafM, stem, [0, 0.1, 0], null, [0.5, 1.4, 0.18]);
     leaves.push(stem);
   }
@@ -271,14 +273,16 @@ export function makeHome(renderer) {
   const rug = mesh(puck(0.95, 0.012, 0.5, 96), mat('#E9B8A0', { physical: true, roughness: 1, sheen: 1, sheenColor: new THREE.Color('#fff0e6') }), scene, [DESK.x + 0.1, 0, DESK.z + 1.25]);
   rug.castShadow = false;
   mesh(new THREE.TorusGeometry(0.8, 0.012, 8, 96), mat('#E7A08A', { roughness: 1 }), scene, [DESK.x + 0.1, 0.013, DESK.z + 1.25], [Math.PI / 2, 0, 0]).castShadow = false;
-  // a big plant in the corner
-  const fig = group(scene, [x0 + 0.45, 0, z0 + 0.45]);
+  // a big plant against the right wall, fanned out into the room. Not in the far left corner:
+  // the shots of the person at the desk look into that corner, and it grew out of their face
+  const fig = group(scene, [x1 - 0.42, 0, 0.95]);
   mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.36, 32), mat('#F1EDE4', { roughness: 0.6 }), fig, [0, 0.18, 0]);
   for (let i = 0; i < 9; i++) {
-    const a = i / 9 * Math.PI * 2 + 0.3;
-    const st = group(fig, [0, 0.34, 0], [0.35 + 0.25 * (i % 3) / 2, a, 0]);
-    mesh(limb(0.01, 0.01, 0.45 + (i % 3) * 0.15), mat('#5E9A66'), st);
-    mesh(sphere(0.12, 18, 12), mat(i % 2 ? '#6FAF7B' : '#5E9A66', { roughness: 0.6 }), st, [0, 0.5 + (i % 3) * 0.15, 0.05], [0.3, 0, 0], [1, 1.3, 0.25]);
+    const a = -Math.PI / 2 + (i / 8 - 0.5) * 2.3, len = 0.42 + (i % 3) * 0.1;
+    const st = group(fig, [0, 0.34, 0], [0.4 + 0.25 * (i % 3) / 2, a, 0]);
+    st.rotation.order = 'YXZ';
+    mesh(limb(0.01, 0.01, len), mat('#5E9A66'), st);
+    mesh(sphere(0.12, 18, 12), mat(i % 2 ? '#6FAF7B' : '#5E9A66', { roughness: 0.6 }), st, [0, len + 0.05, 0.03], [0.3, 0, 0], [1, 1.3, 0.25]);
   }
 
   // ---- light -------------------------------------------------------------------------------------
