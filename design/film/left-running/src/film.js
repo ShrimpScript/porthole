@@ -706,7 +706,8 @@ function homeShot(t) {
     // the hook: close on the cursor, then back as it wakes
     const e = screenPoint(262, FACE_H * 0.47), m = mid();
     const close = e.clone().add(V(0.0, 0.0, 0.33)), closeT = e.clone();
-    const both = m.clone().add(V(0.12, 0.04, 0.5)), bothT = m.clone();
+    // stay between the screen and the person's head on the way back, then swing out to their right
+    const both = m.clone().add(V(0.0, 0.02, 0.36)), bothT = m.clone();
     const wide = V(0.62, 1.2, -1.02), wideT = V(DESK.x - 0.2, 0.9, DESK.z + 0.18);
     const k1 = inOut(span(t, 1.45, 2.0)), k2 = inOut(span(t, 2.0, 4.1));
     const pos = close.clone().lerp(both, k1).lerp(wide, k2), tgt = closeT.clone().lerp(bothT, k1).lerp(wideT, k2);

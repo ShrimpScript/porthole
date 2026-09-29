@@ -13,7 +13,7 @@ is (the research, the story beat by beat, the look, the sound) is in
 design/film/left-running/build.sh WORK_DIR        # WORK_DIR/left-running.mp4 and .webm
 ```
 
-[build.sh](build.sh) lists what it needs. A full render is about an hour on four CPU cores.
+[build.sh](build.sh) lists what it needs. A full render takes about two hours on four CPU cores (no GPU needed).
 
 ## How it fits together
 
