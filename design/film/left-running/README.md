@@ -30,6 +30,10 @@ drawn by hand on paper:
 [build.sh](build.sh) lists what it needs. A full render takes about two hours on four CPU cores (no GPU needed); the drawn look, with
 half as many drawings, about one.
 
+The site plays the drawn look, near the top of the landing page. [site.sh](site.sh) makes its
+lighter copies from a drawn build (`site.sh WORK_DIR`, into `site/assets/film/`): a WebM, an
+MP4 for browsers without VP9, and the poster.
+
 ## How it fits together
 
 - [timeline.json](timeline.json): the one clock. Every beat's time in seconds, read by the
