@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Porthole - Left Running (film, 16:9)</title>
+<style>
+/* A 60-second story film at 1920 x 1080, drawn by seek(t) (src/film.js). The picture is
+   three.js; the words and the end card are this page, laid over it. */
+@font-face { font-family: "Schibsted Grotesk"; src: url(../../../site/assets/fonts/schibsted-grotesk-latin.woff2) format("woff2"); font-weight: 400 900; }
+@font-face { font-family: "Iosevka Term"; src: url(../../../site/assets/fonts/iosevka-term-regular.woff2) format("woff2"); font-weight: 400; }
+@font-face { font-family: "Iosevka Term"; src: url(../../../site/assets/fonts/iosevka-term-bold.woff2) format("woff2"); font-weight: 700; }
+:root { --night: #07100F; --paper: #E8F0EE; --quiet: #8FB1A9; --live: #3FD4C0; }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+canvas { position: absolute; inset: 0; display: block; z-index: 0; }
+.layer { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+/* the computer's words, subtitled */
+#sub { position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%); opacity: 0; white-space: nowrap;
+  font: 600 50px/1.1 "Schibsted Grotesk", sans-serif; letter-spacing: -0.015em; color: var(--paper);
+  text-shadow: 0 2px 18px rgba(4, 12, 11, 0.55), 0 1px 3px rgba(4, 12, 11, 0.6); }
+#sub .who { display: inline-block; width: 44px; height: 30px; margin-right: 18px; vertical-align: 2px; }
+/* the end */
+#word { position: absolute; left: 0; right: 0; top: 400px; display: flex; justify-content: center; align-items: center; opacity: 0;
+  font: 600 168px/1 "Schibsted Grotesk", sans-serif; letter-spacing: -0.01em; color: var(--paper); }
+#word svg { width: 0.62em; height: 0.62em; margin: 0 0.02em; overflow: visible; }
+#word circle { fill: none; stroke: var(--live); stroke-width: 2.1; }
+#tag { position: absolute; left: 0; right: 0; top: 566px; text-align: center; opacity: 0;
+  font: 400 54px/1.25 "Schibsted Grotesk", sans-serif; color: var(--paper); }
+#url { position: absolute; left: 0; right: 0; top: 684px; text-align: center; opacity: 0;
+  font: 400 40px/1 "Iosevka Term", monospace; color: var(--quiet); }
+#fine { position: absolute; left: 0; right: 0; bottom: 64px; text-align: center; opacity: 0;
+  font: 400 24px/1.4 "Schibsted Grotesk", sans-serif; color: var(--quiet); }
+#black { position: absolute; inset: 0; background: #000; opacity: 1; z-index: 3; }
+</style>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<div class="layer">
+  <p id="sub"><svg class="who" viewBox="0 0 44 30"><rect x="4" y="3" width="13" height="24" rx="4" fill="#3FD4C0"/><rect x="27" y="3" width="13" height="24" rx="4" fill="#3FD4C0"/></svg>Go on. I’ll ask if I need you.</p>
+</div>
+<svg class="layer" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs><mask id="hollow"><rect width="1920" height="1080" fill="#fff"/><circle id="hole" cx="960" cy="540" r="0" fill="#000"/></mask></defs>
+  <rect id="night" width="1920" height="1080" fill="#07100F" mask="url(#hollow)" opacity="0"/>
+  <circle id="ring" cx="960" cy="540" r="0" fill="none" stroke="#3FD4C0" stroke-width="3" pathLength="100" stroke-dasharray="100 100" opacity="0"/>
+</svg>
+<div class="layer">
+  <div id="word">P<svg viewBox="0 0 16 16"><circle id="wordRing" cx="8" cy="8" r="6.95" style="opacity:0"/></svg>rthole</div>
+  <p id="tag">A window into the computer you left running.</p>
+  <p id="url">porthole-one.vercel.app</p>
+  <p id="fine">For Claude Code on your Mac or Linux computer, from your Android phone. Porthole is independent and not affiliated with Anthropic.</p>
+</div>
+<div id="black"></div>
+<script type="module" src="src/film.js"></script>

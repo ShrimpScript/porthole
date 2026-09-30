@@ -90,6 +90,32 @@ if(s!=='seen'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]se
     </div>
   </section>
 
+  <!-- The film: Left Running, a hand-drawn minute (design/film/left-running). It loads
+       nothing until it is played; without JavaScript it keeps the browser's own controls. -->
+  <section class="section" id="film" aria-labelledby="film-h">
+    <div class="wrap">
+      <div class="head">
+        <p class="kick">The film</p>
+        <h2 id="film-h">Left Running</h2>
+        <p class="lead">A computer left running, a question it can't answer alone, and a walk in the park that doesn't have to end early. One minute, hand-drawn, with sound.</p>
+      </div>
+      <figure class="film">
+        <div class="film-box">
+          <video controls preload="none" playsinline poster="/assets/film/left-running.webp" width="1920" height="1080" aria-describedby="film-cap">
+            <source src="/assets/film/left-running.webm" type='video/webm; codecs="vp9, opus"'>
+            <source src="/assets/film/left-running.mp4" type="video/mp4">
+            <a href="/assets/film/left-running.mp4">Watch Left Running (MP4, 16 MB)</a>
+          </video>
+          <button type="button" class="film-play" hidden aria-label="Play Left Running, one minute, with sound">
+            <span class="film-ring" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></span>
+            <span class="film-len" aria-hidden="true">1:00 · Sound on</span>
+          </button>
+        </div>
+        <figcaption id="film-cap" class="small muted">Claude Code keeps working at home while its person takes the dog to the park. When it has a question, the phone buzzes; one tap answers it, and the work carries on until they are home.</figcaption>
+      </figure>
+    </div>
+  </section>
+
   <!-- How it works: install, pair, supervise, with the onboarding scene. -->
   <section class="section" id="how" aria-labelledby="how-h">
     <div class="wrap">

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Builds Left Running from this folder alone: the score, the sound, every frame, the film.
+#
+#   design/film/left-running/build.sh WORK_DIR [JOBS]
+#   LOOK=drawn design/film/left-running/build.sh WORK_DIR [JOBS]     the hand-drawn version
+#
+# WORK_DIR gets audio/ (the stems and master.wav), frames/ (1800 PNGs; or frames-drawn/, 900
+# drawings on twos) and left-running.mp4 (H.264 + AAC, for feeds) and left-running.webm (VP9 +
+# Opus, for the site), or left-running-drawn.*. JOBS browsers draw frames at once (default 3);
+# an interrupted run picks up where it stopped.
+#
+# Needs: node with this folder's packages (npm install: three, playwright-core) and a Chromium
+# (CHROME=path, default Playwright's); python3 with numpy, scipy and mido; FluidSynth and the
+# FluidR3 General MIDI SoundFont (SF2=path, default /usr/share/sounds/sf2/FluidR3_GM.sf2); ffmpeg.
+# Headless throughout, no GPU: WebGL runs on SwiftShader.
+set -euo pipefail
+WORK=${1:?work dir}
+JOBS=${2:-3}
+HERE=$(cd "$(dirname "$0")" && pwd)
+LOOK=${LOOK:-lit}
+if [ "$LOOK" = drawn ]; then FRAMES=frames-drawn; RATE=15; QUERY=(--query look=drawn); NAME=left-running-drawn
+else FRAMES=frames; RATE=30; QUERY=(); NAME=left-running; fi
+mkdir -p "$WORK/audio" "$WORK/$FRAMES"
+[ -d "$HERE/node_modules/three" ] || (cd "$HERE" && npm install --no-audit --no-fund)
+
+# the sound: the score through FluidSynth, then every effect synthesised and the lot mastered
+python3 "$HERE/audio/score.py" "$WORK/audio"
+python3 "$HERE/audio/mix.py" "$WORK/audio" "$WORK/audio/master.wav"
+
+# the picture: every frame drawn by the page's seek(t)
+node "$HERE/render.cjs" "$HERE/film.html" "$WORK/$FRAMES" --jobs "$JOBS" --resume "${QUERY[@]}"
+
+# the film
+# (the drawn look is drawn on twos: 15 drawings a second, each shown for two frames at 30)
+in=(-y -loglevel error -framerate "$RATE" -i "$WORK/$FRAMES/%05d.png" -i "$WORK/audio/master.wav" -map 0:v -map 1:a -r 30 -shortest)
+ffmpeg "${in[@]}" -c:v libx264 -preset slow -crf 16 -pix_fmt yuv420p -c:a aac -b:a 256k -movflags +faststart "$WORK/$NAME.mp4"
+ffmpeg "${in[@]}" -c:v libvpx-vp9 -b:v 0 -crf 30 -row-mt 1 -c:a libopus -b:a 160k "$WORK/$NAME.webm"
+echo "built $WORK/$NAME.mp4 and $WORK/$NAME.webm"

@@ -664,11 +664,33 @@ function copies(root) {
   });
 }
 
+/* A film: <figure class="film"> with a <video controls> and a hidden .film-play. With
+   JavaScript the poster carries the one big button instead of the browser's controls, and the
+   controls come back the moment it plays, however it was started. */
+function films(root) {
+  root.querySelectorAll('.film:not([data-film-on])').forEach(el => {
+    const v = el.querySelector('video'), b = el.querySelector('.film-play');
+    if (!v || !b) return;
+    el.setAttribute('data-film-on', '');
+    const started = () => { v.controls = true; el.classList.add('film-started'); };
+    v.controls = false;
+    b.hidden = false;
+    b.addEventListener('click', () => {
+      started();
+      v.focus();
+      const p = v.play();
+      if (p && p.catch) p.catch(() => {});
+    });
+    v.addEventListener('play', started);
+  });
+}
+
 PK.init = (root = document) => {
   root.querySelectorAll('.pk-scene[data-scene]').forEach(mountScene);
   root.querySelectorAll('.pk-phone[data-screen]').forEach(mountPhone);
   copies(root);
   osPick(root);
+  films(root);
 };
 PK.mountScene = mountScene;
 PK.mountPhone = mountPhone;

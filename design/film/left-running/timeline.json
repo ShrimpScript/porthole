@@ -1,0 +1,201 @@
+{
+  "_": "Left Running: the one clock the picture (src/) and the sound (audio/) both read. Seconds. Music is 120 BPM (a beat is 0.5 s, 15 frames at 30 fps); the downbeats named here are bar lines.",
+  "fps": 30,
+  "duration": 60.0,
+  "music": {
+    "togetherDownbeat": 2.0,
+    "hesitate": 14.5,
+    "flashback": [
+      15.0,
+      17.2
+    ],
+    "resume": 17.5,
+    "doorHold": 21.0,
+    "alone": 21.9,
+    "question": 23.5,
+    "parkDownbeat": 28.0,
+    "buzzDrop": 30.5,
+    "portalSwell": [
+      36.0,
+      38.0
+    ],
+    "silence": [
+      38.0,
+      38.5
+    ],
+    "payoffDownbeat": 38.5,
+    "button": 46.5,
+    "ringClose": 54.5,
+    "end": 60.0
+  },
+  "events": {
+    "fadeIn": [
+      0.0,
+      0.7
+    ],
+    "cursorBlinks": [
+      0.45,
+      0.95,
+      1.45
+    ],
+    "secondEye": 1.55,
+    "eyeDarts": [
+      1.8,
+      2.05
+    ],
+    "stretch": [
+      2.0,
+      3.2
+    ],
+    "mugDown": 3.6,
+    "typing": [
+      4.2,
+      7.6
+    ],
+    "tick": 8.0,
+    "fistRaise": 9.3,
+    "fistBump": 10.0,
+    "sip": 10.6,
+    "dogEnter": [
+      11.6,
+      13.0
+    ],
+    "leashDrop": 13.05,
+    "boof": 13.4,
+    "humanToDog": 13.3,
+    "humanToComputer": 14.0,
+    "thoughtOpen": [
+      14.6,
+      15.0
+    ],
+    "flashWah": [
+      16.0,
+      16.9
+    ],
+    "thoughtClose": [
+      17.2,
+      17.6
+    ],
+    "nudge": [
+      17.8,
+      18.6
+    ],
+    "phoneWake": 18.6,
+    "nods": [
+      19.0,
+      19.4
+    ],
+    "super1": [
+      18.9,
+      21.6
+    ],
+    "standUp": 19.6,
+    "steps": [
+      19.95,
+      20.35,
+      20.75,
+      21.15,
+      21.55
+    ],
+    "doorClose": 21.9,
+    "hum": [
+      22.1,
+      23.3
+    ],
+    "ask": 23.5,
+    "amber": 23.75,
+    "lookDoor": 24.1,
+    "droop": [
+      24.5,
+      25.3
+    ],
+    "perk": 25.45,
+    "send": 25.9,
+    "wipe": [
+      26.6,
+      27.6
+    ],
+    "throw1": 28.4,
+    "dogRun": [
+      28.5,
+      30.2
+    ],
+    "buzz": [
+      30.5,
+      31.2
+    ],
+    "phoneUp": [
+      30.8,
+      31.6
+    ],
+    "notif": [
+      31.6,
+      33.5
+    ],
+    "notifTap": 33.1,
+    "card": [
+      33.5,
+      36.0
+    ],
+    "dogLook": [
+      34.3,
+      35.3
+    ],
+    "squeak": 34.7,
+    "tapDark": 35.8,
+    "portal": [
+      36.0,
+      38.4
+    ],
+    "flip": 38.5,
+    "joyHops": [
+      39.0,
+      39.5,
+      40.0
+    ],
+    "done": 41.0,
+    "pocket": 42.7,
+    "throw2": 43.2,
+    "catch": 44.5,
+    "doorOpen": 46.8,
+    "dogHome": [
+      47.1,
+      48.4
+    ],
+    "walkIn": [
+      47.4,
+      49.0
+    ],
+    "turnToHuman": 48.9,
+    "pat": [
+      49.5,
+      50.3
+    ],
+    "heart": 50.0,
+    "pullOut": [
+      50.6,
+      53.4
+    ],
+    "toLogo": [
+      53.0,
+      54.2
+    ],
+    "ringDraw": [
+      53.4,
+      54.5
+    ],
+    "tagline": 54.8,
+    "url": 55.6,
+    "fadeOut": [
+      59.2,
+      60.0
+    ],
+    "doorOpen1": 11.2,
+    "tumbleweed": [
+      15.2,
+      16.4
+    ],
+    "wave": 20.8,
+    "answerArrives": 37.4
+  }
+}

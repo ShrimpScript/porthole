@@ -6,6 +6,7 @@ Models, illustrations and ads for Porthole, built headless from scripts. Nothing
 - `ship/`: the boat, built from its lines (`build_ship.py`), and drawn as flat fills with lines in three weights (`render_style.py`), with water reflections (`reflection.py`).
 - `people/`: a person posed in a deck chair, holding the phone (`pose_figure.py`).
 - `ads/`: the ad layouts (HTML), their shared styles, and `build.sh`, which rebuilds the whole set.
+- `film/`: the engine room as a 20-second film (`engine-room.html`, captured by `capture.cjs`), and `left-running/`, a 60-second story film in three.js with its own score and sound, built by its own `build.sh` (see its README and TREATMENT).
 
 ## Rebuilding the ads
 
