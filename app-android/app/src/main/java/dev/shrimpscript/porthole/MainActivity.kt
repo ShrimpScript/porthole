@@ -52,6 +52,7 @@ import dev.shrimpscript.porthole.net.PortholeClient
 import dev.shrimpscript.porthole.net.SessionInfo
 import dev.shrimpscript.porthole.ui.ApprovalOverlay
 import dev.shrimpscript.porthole.ui.CLI_COMMANDS
+import dev.shrimpscript.porthole.ui.failureCardOnRetry
 import dev.shrimpscript.porthole.ui.ConnectScreen
 import dev.shrimpscript.porthole.ui.ConsentScreen
 import dev.shrimpscript.porthole.ui.ComputerOs
@@ -432,6 +433,21 @@ private fun PortholeApp(
     var sessionView by remember { mutableStateOf(SessionView.Feed) }
 
     val connection by client.connection.collectAsState()
+    // The first computer's outage, for the list's bar (as the open session's has its own below).
+    var listDownSince by remember { mutableLongStateOf(0L) }
+    var listAttempt by remember { mutableStateOf(0) }
+    LaunchedEffect(connection) {
+        when (val c = connection) {
+            is Connection.Live -> { listDownSince = 0L; listAttempt = 0 }
+            is Connection.Retrying -> { if (listDownSince == 0L) listDownSince = System.currentTimeMillis(); listAttempt = maxOf(listAttempt, c.attempt) }
+            else -> {}
+        }
+    }
+    var listDown by remember { mutableStateOf(false) }
+    LaunchedEffect(listDownSince) {
+        listDown = false
+        if (listDownSince != 0L) { kotlinx.coroutines.delay(1_500); listDown = true }
+    }
     val failsafe by client.failsafe.collectAsState()
     val failsafeKeyError by client.failsafeKeyError.collectAsState()
     val sessions by vm.fleet.sessions.collectAsState()
@@ -489,9 +505,35 @@ private fun PortholeApp(
         }
     }
     val clips by key(active) { active.clips.collectAsState() }
-    LaunchedEffect(Unit) { vm.fleet.cacheDir = context.cacheDir }
+    LaunchedEffect(Unit) {
+        vm.fleet.cacheDir = context.cacheDir
+        // Drafts, recent feeds and the last list, per computer, in the app's private files.
+        vm.fleet.storeRoot = java.io.File(context.filesDir, "sessions")
+    }
     val liveStatus by key(active) { active.status.collectAsState() }
     val sessionAgents by key(active) { active.agents.collectAsState() }
+    val sendingNow by key(active) { active.sending.collectAsState() }
+    val savedCopy by key(active) { active.savedCopy.collectAsState() }
+    // Since when the open session's computer has been unreachable (0 while connected), and
+    // the latest try. Reconnecting alternates Retrying and Connecting; the bar follows the
+    // outage, not each state, so it does not flicker with them.
+    var downSince by remember(active) { mutableLongStateOf(0L) }
+    var downAttempt by remember(active) { mutableStateOf(0) }
+    LaunchedEffect(activeConn) {
+        when (val c = activeConn) {
+            is Connection.Live -> { downSince = 0L; downAttempt = 0 }
+            // The most tries seen this outage: a network coming back restarts the count, and
+            // Options should not vanish and come back with it.
+            is Connection.Retrying -> { if (downSince == 0L) downSince = System.currentTimeMillis(); downAttempt = maxOf(downAttempt, c.attempt) }
+            else -> {}
+        }
+    }
+    // A blip of a second or two passes unremarked; a longer one gets the bar.
+    var showDown by remember(active) { mutableStateOf(false) }
+    LaunchedEffect(downSince) {
+        showDown = false
+        if (downSince != 0L) { kotlinx.coroutines.delay(1_500); showDown = true }
+    }
     val tuiStatus = when (limitDemo) {
         "waiting" -> dev.shrimpscript.porthole.net.TuiStatus(false, "", "", "", "bypass permissions on", false,
             limitText = "Usage limit reached · continuing automatically at 3:45pm · esc to cancel", limitResumeAt = "3:45pm", limitWaiting = true)
@@ -529,7 +571,13 @@ private fun PortholeApp(
                 it.id == id || (pane.isNotBlank() && it.pane == pane) || (pane.isBlank() && it.pane.isBlank() && it.cwd == openSession?.cwd)
             }
             if (now != null && now.live) {
-                if (openSession?.id == id) { openSession = now.copy(machineId = machineId, machine = openSession?.machine.orEmpty()); poll.attach(now.id) }
+                if (openSession?.id == id) {
+                    // A new session gets a new id: what was typed in the box goes with it.
+                    if (now.id != id) poll.store?.let { st ->
+                        st.draft(id).takeIf { it.isNotBlank() }?.let { d -> st.setDraft(now.id, d); st.setDraft(id, "") }
+                    }
+                    openSession = now.copy(machineId = machineId, machine = openSession?.machine.orEmpty()); poll.attach(now.id)
+                }
                 break
             }
         }
@@ -755,7 +803,9 @@ private fun PortholeApp(
     LaunchedEffect(sessions) {
         val cur = openSession ?: return@LaunchedEffect
         val fresh = sessions.firstOrNull { it.id == cur.id } ?: sessions.firstOrNull { it.cwd == cur.cwd }
-        if (fresh != null && fresh != cur) openSession = fresh.copy(id = cur.id)
+        // A row from a computer that cannot be reached says nothing about the session: it
+        // stays as last seen, so a drop does not make it read as stopped mid-drop.
+        if (fresh != null && !fresh.machineDown && fresh != cur) openSession = fresh.copy(id = cur.id)
     }
 
     // Switching to the terminal view attaches if the session is live and not attached yet.
@@ -885,8 +935,8 @@ private fun PortholeApp(
                 // A blip while walking between rooms should not throw up a failure card;
                 // a daemon that is actually gone must not hide behind a stale session
                 // list. Three attempts is about seven seconds.
-                if (c.attempt >= 3 &&
-                    (route == Route.Sessions || route == Route.Session || route == Route.Welcome)
+                if ((route == Route.Sessions || route == Route.Session || route == Route.Welcome) &&
+                    failureCardOnRetry(c.attempt, inSession = route == Route.Session, onList = route == Route.Sessions, listHasRows = sessions.isNotEmpty())
                 ) {
                     route = Route.Failure
                 }
@@ -1152,10 +1202,21 @@ private fun PortholeApp(
                     },
                 )
                 SessionsScreen(
+                    // One computer, unreachable: its last list stays, under the bar. Several
+                    // say so per computer in the list itself.
+                    reconnecting = if (machines.size <= 1 && listDown && connection !is Connection.Live && connection !is Connection.Failed)
+                        "Reconnecting to ${daemon?.host?.ifBlank { null } ?: host.ifBlank { "your computer" }}…" else null,
+                    onConnectionOptions = if (listAttempt >= 3) ({ route = Route.Failure }) else null,
                     machine = if (machines.size > 1) "${machines.size} computers" else daemon?.host?.ifBlank { null } ?: host.ifBlank { "your computer" },
                     computers = if (machines.size > 1) "${machines.count { fleetConns[it.id] is Connection.Live || (it.id == machines.first().id && connection is Connection.Live) }} of ${machines.size} connected" else "",
                     ring = ring,
-                    sessions = if (demoEmpty) emptyList() else sessions,
+                    // One computer, unreachable for a while: the rows stay where they are, each
+                    // reading "as last seen", rather than claiming work nobody can see now.
+                    sessions = when {
+                        demoEmpty -> emptyList()
+                        machines.size <= 1 && listDown && connection !is Connection.Live -> sessions.map { it.copy(machineDown = true, machineState = "reconnecting") }
+                        else -> sessions
+                    },
                     onSession = { openSession(it) },
                     onSettings = { failsafeNote = null; route = Route.Settings },
                     onRefresh = { vm.fleet.refreshAll() },
@@ -1230,6 +1291,17 @@ private fun PortholeApp(
                             state = sessionState,
                             status = tuiStatus,
                             agents = sessionAgents,
+                            initialDraft = sc.store?.draft(s.id).orEmpty(),
+                            onDraft = { sc.store?.setDraft(s.id, it) },
+                            pendingSends = sendingNow.values.filter { it.sessionId == s.id },
+                            confirmedSends = sc.confirmed,
+                            returnedSends = sc.returned,
+                            reconnecting = if (showDown && activeConn !is Connection.Live && activeConn !is Connection.Failed)
+                                "Reconnecting to ${s.machine.ifBlank { activeDaemon?.host?.ifBlank { null } ?: host.ifBlank { "your computer" } }}…" else null,
+                            savedCopyAt = savedCopy,
+                            // The failure card is the first computer's (its retry, its SSH): offered
+                            // for that computer's sessions only.
+                            onConnectionOptions = if (downAttempt >= 3 && active === client) ({ route = Route.Failure }) else null,
                             onInterrupt = { sc.interrupt(s.id) },
                             onCommand = { cmd ->
                                 sc.sendPrompt(s.id, cmd.name)

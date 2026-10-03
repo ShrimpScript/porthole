@@ -198,6 +198,10 @@ fun SessionsScreen(
     seen: Map<String, String> = emptyMap(),
     /** "1 of 2 connected" when the phone has several computers; blank otherwise. */
     computers: String = "",
+    /** The computer is unreachable and being retried: the bar's line; null while connected. */
+    reconnecting: String? = null,
+    /** After a few tries: open the failure card's tools. */
+    onConnectionOptions: (() -> Unit)? = null,
     /** Something worth installing: a newer Porthole release, or a project's newest build. */
     update: BuildInfo? = null,
     /** Download progress 0..1 while fetching; null when idle. */
@@ -230,6 +234,15 @@ fun SessionsScreen(
             IconTarget(Icons.Outlined.Refresh, "Refresh sessions", onRefresh)
             IconTarget(Icons.Outlined.Settings, "Settings", onSettings)
         }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = reconnecting != null,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(),
+        ) {
+            var line by remember { androidx.compose.runtime.mutableStateOf("") }
+            if (reconnecting != null) line = reconnecting
+            ReconnectBar(line, onOptions = onConnectionOptions)
+        }
         if (update != null) {
             Appear { UpdateBanner(update, updateProgress, updateNote, onUpdate, onDismissUpdate) }
         }
@@ -247,11 +260,14 @@ fun SessionsScreen(
             // Keys must be unique or the lazy list throws. The daemon promises one row per
             // session now; this keeps an older one from being able to close the app.
             val sessions = sessions.distinctBy { it.machineId + "/" + it.id }
-            val needs = sessions.filter { it.live && it.needsYou }
-            val live = sessions.filter { (it.live || it.tmux) && it !in needs && !it.machineDown }.sortedWith(compareByDescending<SessionInfo> { it.working }.thenByDescending { it.live })
-            val idle = sessions.filter { !it.live && !it.tmux && !it.machineDown }
-            // A computer the phone cannot reach right now: its rows, as last seen, apart.
-            val down = sessions.filter { it.machineDown }.groupBy { it.machineId }
+            // One of several computers the phone cannot reach right now: its rows, as last
+            // seen, apart. With one computer the rows keep their places, each as last seen,
+            // so a drop does not reshuffle the list.
+            fun apart(s: SessionInfo) = s.machineDown && s.machine.isNotBlank()
+            val needs = sessions.filter { it.live && it.needsYou && !apart(it) }
+            val live = sessions.filter { (it.live || it.tmux) && it !in needs && !apart(it) }.sortedWith(compareByDescending<SessionInfo> { it.working }.thenByDescending { it.live })
+            val idle = sessions.filter { !it.live && !it.tmux && !apart(it) }
+            val down = sessions.filter { apart(it) }.groupBy { it.machineId }
             LazyColumn(Modifier.fillMaxSize()) {
                 if (needs.isNotEmpty()) item { SectionLabel("Needs you") }
                 itemsIndexed(needs, key = { _, s -> s.machineId + "/" + s.id }) { i, s ->
@@ -365,7 +381,8 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
         ) {
             // The only ring that spins on this screen is a session that is working.
             Ring(
-                state = when { s.needsYou -> RingState.NeedsYou; s.working -> RingState.Connecting; s.live -> RingState.Live; else -> RingState.Idle }, size = 18.dp,
+                // As last seen, nothing spins: whether it is still working is not known.
+                state = when { s.machineDown -> RingState.Idle; s.needsYou -> RingState.NeedsYou; s.working -> RingState.Connecting; s.live -> RingState.Live; else -> RingState.Idle }, size = 18.dp,
                 label = when { s.asking.isNotBlank() -> "asking you"; s.waiting -> "waiting for you"; s.working -> "working"; s.live -> "live"; else -> "idle" },
                 modifier = Modifier.padding(top = 2.dp).sharedAcrossRoutes("ring-${s.id}"),
             )
@@ -383,7 +400,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                     if (unseen) Box(Modifier.size(7.dp).background(c.accent, PortholeShape.pill).semantics { contentDescription = "new since you looked" })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (s.working && !s.needsYou) {
+                    if (s.working && !s.needsYou && !s.machineDown) {
                         Spinner(Modifier.padding(end = 2.dp))
                     }
                     Text(
@@ -397,7 +414,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                             } else if (s.working) {
                                 // Time first: it is the number that decides whether to wait, and a
                                 // long command must never push it off the row.
-                                if (s.workingSince > 0 && now > 0) append(elapsedLabel(now - s.workingSince)).append(" · ")
+                                if (s.workingSince > 0 && now > 0 && !s.machineDown) append(elapsedLabel(now - s.workingSince)).append(" · ")
                                 append(s.doing.ifBlank { "working" }).append(" · ")
                             }
                             if (s.agents > 0) append(if (s.agents == 1) "1 agent" else "${s.agents} agents").append(" · ")

@@ -79,6 +79,10 @@ const (
 	CapChanges   = "changes" // the working tree's diff, from git, for a session's directory
 	CapSSHKey    = "ssh_key" // can put the phone's own key in authorized_keys, for the failsafe
 	CapFiles     = "files"   // answers files.get: file names for the composer's @ mentions
+	// CapPromptAck: a prompt.send may carry a ref of its own, and prompt.sent (or an error
+	// naming it) answers every prompt that does, so the phone can keep a message in its box
+	// until it has been typed.
+	CapPromptAck = "prompt_ack"
 )
 
 type Frame struct {

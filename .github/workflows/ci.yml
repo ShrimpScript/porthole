@@ -30,7 +30,7 @@ jobs:
       - name: capture, sshd, new sessions and the terminal on a real Mac
         if: runner.os == 'macOS'
         working-directory: daemon
-        run: go test -count=1 -v -run 'TestMacCapture|TestRealSSHD|TestNewSession|TestPhoneAlone|TestFolderAccess|TestTrustPrompt|TestFiles|TestAttach|TestUpload|TestOldApps|TestTidy' ./internal/server/ ./internal/sshkeys/ ./internal/termbridge/
+        run: go test -count=1 -v -run 'TestMacCapture|TestRealSSHD|TestNewSession|TestPhoneAlone|TestFolderAccess|TestTrustPrompt|TestFiles|TestAttach|TestUpload|TestOldApps|TestTidy|TestATextPrompt|TestPromptAck' ./internal/server/ ./internal/sshkeys/ ./internal/termbridge/
       - name: build for every release target
         working-directory: daemon
         run: |

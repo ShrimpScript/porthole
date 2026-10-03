@@ -200,9 +200,44 @@ fun SessionScreen(
     /** Notifications for this session are off. */
     muted: Boolean = false,
     onMuted: (Boolean) -> Unit = {},
+    /** The draft this session was left with, kept on the phone; [onDraft] keeps every change. */
+    initialDraft: String = "",
+    onDraft: (String) -> Unit = {},
+    /** This session's messages the computer has not yet said it typed (prompt_ack). */
+    pendingSends: List<dev.shrimpscript.porthole.net.PortholeClient.PendingPrompt> = emptyList(),
+    /** Messages the computer confirmed typed: the box lets go of the one it holds. */
+    confirmedSends: kotlinx.coroutines.flow.Flow<dev.shrimpscript.porthole.net.PortholeClient.PendingPrompt> = kotlinx.coroutines.flow.emptyFlow(),
+    /** Messages that were not typed: their text comes back to the box. */
+    returnedSends: kotlinx.coroutines.flow.Flow<dev.shrimpscript.porthole.net.PortholeClient.PendingPrompt> = kotlinx.coroutines.flow.emptyFlow(),
+    /** The connection is down and being retried: the bar's line; null while connected. */
+    reconnecting: String? = null,
+    /** When the feed is the phone's saved copy, when it was saved; 0 otherwise. */
+    savedCopyAt: Long = 0L,
+    /** After a few tries: open the failure card's tools. */
+    onConnectionOptions: (() -> Unit)? = null,
 ) {
     val c = Porthole.colors
-    var draft by remember { mutableStateOf("") }
+    // The bar's words outlive it by its fade, rather than emptying as it goes.
+    var barLine by remember { mutableStateOf("") }
+    if (reconnecting != null) barLine = reconnecting
+    // Kept on the phone as it is typed: a dropped connection, the failure card, the app
+    // closing - none of them take a half-written message with them.
+    var draft by remember(sharedKey) { mutableStateOf(initialDraft) }
+    LaunchedEffect(sharedKey, draft) { onDraft(draft) }
+    // The message in the box is on its way and not yet confirmed: the box holds it,
+    // read-only, until the computer says it typed it (or it comes back unsent).
+    val awaiting = draft.isNotBlank() && pendingSends.any { !it.unconfirmed && it.text.trim() == draft.trim() }
+    LaunchedEffect(sharedKey, confirmedSends) {
+        confirmedSends.collect { p -> if (p.sessionId == sharedKey && p.text.trim() == draft.trim()) draft = "" }
+    }
+    // Not typed after all: the text comes back to the box, unless the box still holds it.
+    LaunchedEffect(sharedKey, returnedSends) {
+        returnedSends.collect { p ->
+            if (p.sessionId == sharedKey && draft.trim() != p.text.trim()) {
+                draft = if (draft.isBlank()) p.text else draft.trimEnd() + "\n" + p.text
+            }
+        }
+    }
     // The question row whose "Type something" the person chose: the next send answers it.
     var answering by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<FeedRow?>(null) }
@@ -258,7 +293,7 @@ fun SessionScreen(
         val f = failedSend ?: return@LaunchedEffect
         // Typed something since? The message comes back after it, not over it.
         draft = when {
-            f.text.isBlank() -> draft
+            f.text.isBlank() || draft.trim() == f.text.trim() -> draft
             draft.isBlank() -> f.text
             else -> draft.trimEnd() + "\n" + f.text
         }
@@ -285,6 +320,13 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                     onCapture = { if (it < 0) watching = true else onCapture(it) },
                     canPreview = "preview" in caps, onPreview = { showPreview = true },
                     canChanges = "changes" in caps, onChanges = { showChanges = true }) { showStats = true }
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = reconnecting != null && !fullTerm,
+                    enter = androidx.compose.animation.fadeIn(spec(PortholeMotion.ENTER_MS)) + androidx.compose.animation.expandVertically(spec(PortholeMotion.ENTER_MS)),
+                    exit = androidx.compose.animation.fadeOut(spec(PortholeMotion.EXIT_MS)) + androidx.compose.animation.shrinkVertically(spec(PortholeMotion.EXIT_MS)),
+                ) {
+                    ReconnectBar(barLine, savedCopyAt, onConnectionOptions)
+                }
                 // With the keyboard up in the feed, the space goes to the conversation: the
                 // toggle steps aside until the keyboard closes. In the terminal the keyboard is
                 // the input, and the toggle is the way back, so it stays.
@@ -327,6 +369,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                         Feed(
                             rows, backfillCount, loaded, state?.working == true, Modifier.weight(1f),
                             verb = status?.text.orEmpty(), remaining = remaining, earlierEpoch = earlierEpoch, loadedEpoch = loadedEpoch, onEarlier = onEarlier,
+                            canLoadEarlier = canSend && savedCopyAt == 0L,
                             asking = status?.question != null,
                             lastSeen = lastSeen,
 
@@ -417,7 +460,8 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 if (cmd.sheet) {
                                     showStats = true
                                     draft = ""
-                                } else if (cmd.arg != null) {
+                                } else if (cmd.arg != null || !canSend) {
+                                    // Offline, a command waits in the box like any message.
                                     draft = cmd.name + " "
                                 } else {
                                     onCommand(cmd)
@@ -464,6 +508,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             onValueChange = { draft = it },
                             placeholder = if (answering) "Your answer" else "Message $title",
                             enabled = canSend,
+                            sending = awaiting,
                             // An older daemon closes the connection on any photo (its 32 KB
                             // limit), so attaching needs one that takes files in pieces.
                             canAttach = "attach" in caps,
@@ -487,7 +532,15 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             onSlash = { if (!draft.startsWith("/")) draft = "/" },
                             onSend = {
                                 val typingInto = status?.question
-                                if (answering && typingInto != null) {
+                                if (pending.isEmpty() && opensSheet(draft)) {
+                                    // Its switches and numbers are in the sheet, native, rather than
+                                    // a dialog on the computer's screen. Works offline too.
+                                    showStats = true
+                                    draft = ""
+                                } else if (!canSend || awaiting) {
+                                    // Not connected, or the last message is still on its way: the
+                                    // text stays where it is, and nothing is sent - an answer neither.
+                                } else if (answering && typingInto != null) {
                                     if (draft.isNotBlank()) {
                                         // "Type something" is a numbered entry of the picker (typed = 0
                                         // when the question is free text and takes typing directly).
@@ -495,15 +548,18 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                         draft = ""
                                         answering = false
                                     }
-                                } else if (pending.isEmpty() && opensSheet(draft)) {
-                                    // Its switches and numbers are in the sheet, native, rather than
-                                    // a dialog on the computer's screen.
-                                    showStats = true
-                                    draft = ""
                                 } else if (draft.isNotBlank() || pending.isNotEmpty()) {
-                                    if (pending.isEmpty()) onSend(draft.trim()) else onSendWithImages(draft.trim(), pending)
-                                    draft = ""
-                                    pending = emptyList()
+                                    if (pending.isEmpty()) {
+                                        onSend(draft.trim())
+                                        // A computer that confirms what it types keeps the message in
+                                        // the box until it has; an older one says nothing back, and the
+                                        // box empties at once as it always did.
+                                        if ("prompt_ack" !in caps) draft = ""
+                                    } else {
+                                        onSendWithImages(draft.trim(), pending)
+                                        draft = ""
+                                        pending = emptyList()
+                                    }
                                 }
                             },
                         )
@@ -646,6 +702,8 @@ private fun Feed(
     earlierEpoch: Int = 0,
     loadedEpoch: Int = 0,
     onEarlier: () -> Unit = {},
+    /** "Earlier" can be asked for: connected, and showing the live feed. */
+    canLoadEarlier: Boolean = true,
     imageFor: (String) -> ByteArray? = { null },
     clipFor: (String) -> java.io.File? = { null },
     onNeedImage: (String) -> Unit = {},
@@ -731,8 +789,9 @@ private fun Feed(
         val marker = if (newFrom > 0 && rows.size - newFrom >= 3) newFrom + (if (remaining > 0) 1 else 0) else -1
         when {
             first && marker > 0 -> { listState.scrollToItem(marker); pendingNew = 0 }
-            first || atEnd || delta <= 0 -> listState.animateScrollToItem(lastIndex.coerceAtLeast(0))
-            else -> pendingNew += delta
+            first || atEnd -> listState.animateScrollToItem(lastIndex.coerceAtLeast(0))
+            // Rows merged in after a reconnect, or a queued bubble resolved: no jump for a reader above.
+            delta > 0 -> pendingNew += delta
         }
     }
     LaunchedEffect(atEnd) { if (atEnd) pendingNew = 0 }
@@ -741,7 +800,8 @@ private fun Feed(
     var ghosts by remember { mutableStateOf(false) }
     LaunchedEffect(loaded) { if (loaded) ghosts = false else { kotlinx.coroutines.delay(150); ghosts = !loaded } }
     var loadingEarlier by remember { mutableStateOf(false) }
-    LaunchedEffect(earlierEpoch) { loadingEarlier = false }
+    // A page that will not come (the connection went) must not leave "Loading…" for good.
+    LaunchedEffect(earlierEpoch, canLoadEarlier) { loadingEarlier = false }
 
     Box(modifier.fillMaxWidth()) {
         when {
@@ -755,8 +815,10 @@ private fun Feed(
             ) {
                 if (remaining > 0) item(key = "earlier") {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        // Pages come from the computer's live feed: not offline, and not from a
+                        // saved copy whose count the computer would read wrongly.
                         Pill(if (loadingEarlier) "Loading…" else "Earlier · $remaining more", filled = false) {
-                            if (!loadingEarlier) { loadingEarlier = true; onEarlier() }
+                            if (!loadingEarlier && canLoadEarlier) { loadingEarlier = true; onEarlier() }
                         }
                     }
                 }
@@ -1117,6 +1179,8 @@ private fun Composer(
     placeholder: String,
     enabled: Boolean,
     reason: String,
+    /** The message is on its way: the text stays, read-only, and the send button turns. */
+    sending: Boolean = false,
     onSlash: () -> Unit,
     canAttach: Boolean = false,
     /** The daemon takes any file, not only photos. */
@@ -1128,7 +1192,7 @@ private fun Composer(
     onSend: () -> Unit,
 ) {
     val c = Porthole.colors
-    val ready = enabled && (value.isNotBlank() || hasAttachments)
+    val ready = enabled && !sending && (value.isNotBlank() || hasAttachments)
     val context = androidx.compose.ui.platform.LocalContext.current
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
@@ -1264,11 +1328,14 @@ private fun Composer(
                 // Every edit goes up, even one that returns to the text of the last frame:
                 // skipping those would let the next recomposition throw an edit away.
                 onValueChange = { field = it; onValueChange(it.text) },
-                enabled = enabled,
+                // Always writable: a dropped connection must not take the keyboard away
+                // mid-word. Only sending waits for it.
+                enabled = true,
+                readOnly = sending,
                 // Five lines, then it scrolls: past that the draft is better read than seen whole,
                 // and the feed above it is what the person is answering.
                 maxLines = 5,
-                textStyle = PortholeType.body.copy(color = c.text),
+                textStyle = PortholeType.body.copy(color = if (sending) c.muted else c.text),
                 cursorBrush = SolidColor(c.accent),
                 // The keyboard's own send key submits, so the thumb never has to travel
                 // to the corner button for a short prompt.
@@ -1286,7 +1353,8 @@ private fun Composer(
                 .clickable(enabled = ready, role = Role.Button) { onSend() },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
+            if (sending) Spinner(color = c.accent, background = c.raised)
+            else Icon(
                 Icons.AutoMirrored.Outlined.Send, contentDescription = "Send",
                 tint = if (ready) c.onAccent else c.faint, modifier = Modifier.size(20.dp),
             )

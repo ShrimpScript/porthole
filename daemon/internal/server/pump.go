@@ -212,7 +212,9 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 			}
 		case proto.TypePromptSend:
 			text := f.Text
-			ref := ""
+			// A prompt names itself (prompt_ack) so the phone holds it until it is typed;
+			// one with files is named by its first upload, as before.
+			ref := f.Ref
 			if len(f.Uploads) > 0 {
 				ref = f.Uploads[0]
 			}
@@ -991,7 +993,7 @@ func (s *Server) interrupt(ctx context.Context, w *writer, id, device string) {
 // running Claude TUI, so the desktop and the phone are looking at one session rather
 // than two divergent ones.
 //
-// ref names what the prompt carried (its first upload), so a refusal reaches the phone
+// ref names the prompt (its own ref, or its first upload), so a refusal reaches the phone
 // with the message it is about. It reports whether the prompt was typed.
 func (s *Server) sendPrompt(ctx context.Context, w *writer, id, text, device, ref string) bool {
 	if strings.TrimSpace(text) == "" {

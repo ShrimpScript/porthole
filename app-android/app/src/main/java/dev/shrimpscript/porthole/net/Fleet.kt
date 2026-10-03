@@ -97,12 +97,30 @@ class Fleet(scope: CoroutineScope, private val store: MachineStore) {
     var cacheDir: java.io.File? = null
         set(value) { field = value; primary.cacheDir = value; clients.values.forEach { it.cacheDir = value } }
 
+    /**
+     * Where each computer's sessions are kept on the phone (drafts, recent feeds, the last
+     * list): one directory per computer under this. Set by the activity.
+     */
+    var storeRoot: java.io.File? = null
+        @Synchronized set(value) { field = value; syncStores() }
+
+    /** Gives every client the store of its own computer; the primary's follows the first machine. */
+    @Synchronized
+    private fun syncStores() {
+        val root = storeRoot ?: return
+        val first = _machines.value.firstOrNull()?.id
+        if (first != null && primary.store?.dir != SessionStore.forMachine(root, first).dir) primary.store = SessionStore.forMachine(root, first)
+        clients.forEach { (id, c) -> if (c.store == null) c.store = SessionStore.forMachine(root, id) }
+    }
+
     /** The client for a machine: the primary for the first machine, its own for any other. */
     @Synchronized
     fun client(machineId: String): PortholeClient {
         val first = _machines.value.firstOrNull()?.id
         if (first == null || first == machineId) return primary
-        return clients.getOrPut(machineId) { PortholeClient().also { it.cacheDir = cacheDir } }
+        return clients.getOrPut(machineId) {
+            PortholeClient().also { c -> c.cacheDir = cacheDir; storeRoot?.let { c.store = SessionStore.forMachine(it, machineId) } }
+        }
     }
 
     /** Open the sockets of every computer but the first (whose connect the activity owns). */
@@ -153,6 +171,7 @@ class Fleet(scope: CoroutineScope, private val store: MachineStore) {
             return false
         }
         client.cacheDir = cacheDir
+        storeRoot?.let { client.store = SessionStore.forMachine(it, machine.id) }
         clients[machine.id] = client
         val next = current + machine
         store.save(next)
@@ -165,7 +184,7 @@ class Fleet(scope: CoroutineScope, private val store: MachineStore) {
     fun remove(machineId: String) {
         val current = _machines.value
         if (current.firstOrNull()?.id == machineId) return // the first is unpaired through prefs
-        clients.remove(machineId)?.disconnect()
+        clients.remove(machineId)?.let { it.disconnect(); it.store?.clear(); it.store = null }
         val next = current.filter { it.id != machineId }
         store.save(next)
         _machines.value = next
@@ -223,9 +242,12 @@ class Fleet(scope: CoroutineScope, private val store: MachineStore) {
     fun mirrorPrefs(host: String, paired: Boolean, name: String = "") {
         if (!paired || host.isBlank()) {
             // Unpairing the first computer is leaving: the app returns to its welcome
-            // screen, and the other computers' sockets close with it.
-            clients.values.forEach { it.disconnect() }
+            // screen, and the other computers' sockets close with it. What the phone kept
+            // of their sessions goes too.
+            clients.values.forEach { it.disconnect(); it.store?.clear(); it.store = null }
             clients.clear()
+            primary.store?.clear()
+            primary.store = null
             if (_machines.value.isNotEmpty()) {
                 store.save(emptyList())
                 _machines.value = emptyList()
@@ -239,6 +261,7 @@ class Fleet(scope: CoroutineScope, private val store: MachineStore) {
             store.save(next)
             _machines.value = next
         }
+        syncStores()
     }
 
     companion object {

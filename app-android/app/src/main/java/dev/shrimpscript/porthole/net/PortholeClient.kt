@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -43,6 +44,8 @@ data class Row(
     val agent: AgentCall? = null,
     /** A command row: a slash command run in the session and what the CLI said back. */
     val command: CommandInfo? = null,
+    /** Not a transcript row: made by the daemon live (a switch notice), never saved or counted. */
+    val local: Boolean = false,
 )
 
 /** A slash command and its reply, as the daemon read them from the transcript. */
@@ -124,6 +127,145 @@ fun appendLive(feed: List<Row>, incoming: List<Row>): Pair<List<Row>, Int> {
         out += r
     }
     return out to folded
+}
+
+/** One feed row from its JSON: the daemon's transcript.Row, or the phone's saved copy of one. */
+fun parseRow(r: JSONObject): Row = Row(
+    kind = r.optString("kind"),
+    glyph = r.optString("glyph"),
+    text = r.optString("text"),
+    metric = r.optString("metric"),
+    detail = r.optString("detail"),
+    truncated = r.optBoolean("truncated"),
+    ts = r.optString("ts"),
+    toolId = r.optString("tool_id"),
+    imageRef = r.optString("image_ref"),
+    media = r.optString("media"),
+    questions = parseQuestionList(r.optJSONArray("questions")),
+    agent = r.optJSONObject("agent")?.let { a ->
+        AgentCall(a.optString("type"), a.optString("description"), a.optString("model"), a.optBoolean("background"))
+    },
+    command = parseCommand(r.optJSONObject("command")),
+)
+
+fun parseQuestionList(arr: org.json.JSONArray?): List<Question> = buildList {
+    for (i in 0 until (arr?.length() ?: 0)) {
+        val q = arr!!.getJSONObject(i)
+        val opts = q.optJSONArray("options")
+        add(Question(
+            header = q.optString("header"), text = q.optString("text"), multi = q.optBoolean("multi"),
+            options = buildList {
+                for (j in 0 until (opts?.length() ?: 0)) {
+                    val o = opts!!.getJSONObject(j); add(QuestionOption(o.optString("label"), o.optString("description")))
+                }
+            },
+        ))
+    }
+}
+
+/** A row as JSON in the daemon's own keys, so [parseRow] reads the phone's saved copy back. */
+fun Row.toJson(): JSONObject {
+    val o = JSONObject().put("kind", kind).put("text", text)
+    if (glyph.isNotEmpty()) o.put("glyph", glyph)
+    if (metric.isNotEmpty()) o.put("metric", metric)
+    if (detail.isNotEmpty()) o.put("detail", detail)
+    if (truncated) o.put("truncated", true)
+    if (ts.isNotEmpty()) o.put("ts", ts)
+    if (toolId.isNotEmpty()) o.put("tool_id", toolId)
+    if (imageRef.isNotEmpty()) o.put("image_ref", imageRef)
+    if (media.isNotEmpty()) o.put("media", media)
+    if (questions.isNotEmpty()) o.put("questions", org.json.JSONArray().also { a ->
+        questions.forEach { q ->
+            a.put(JSONObject().put("header", q.header).put("text", q.text).put("multi", q.multi).put("options", org.json.JSONArray().also { opts ->
+                q.options.forEach { opts.put(JSONObject().put("label", it.label).put("description", it.description)) }
+            }))
+        }
+    })
+    agent?.let { o.put("agent", JSONObject().put("type", it.type).put("description", it.description).put("model", it.model).put("background", it.background)) }
+    command?.let { c ->
+        val j = JSONObject().put("name", c.name).put("args", c.args).put("output", c.output).put("error", c.error)
+            .put("value", c.value).put("saved", c.saved).put("skill", c.skill).put("auto", c.auto)
+        c.context?.let { x ->
+            j.put("context", JSONObject().put("model", x.model).put("used", x.used).put("total", x.total).put("parts", org.json.JSONArray().also { a ->
+                x.parts.forEach { a.put(JSONObject().put("name", it.name).put("tokens", it.tokens).put("kind", it.kind)) }
+            }))
+        }
+        c.compact?.let { x -> j.put("compact", JSONObject().put("trigger", x.trigger).put("before", x.before).put("after", x.after).put("duration_ms", x.durationMs)) }
+        o.put("command", j)
+    }
+    return o
+}
+
+/** The daemon's session list, as it sends it (and as the phone keeps its last copy). */
+fun parseSessionList(arr: org.json.JSONArray): List<SessionInfo> = buildList {
+    for (i in 0 until arr.length()) {
+        val s = arr.getJSONObject(i)
+        add(
+            SessionInfo(
+                id = s.optString("id"),
+                title = s.optString("title"),
+                cwd = s.optString("cwd"),
+                branch = s.optString("branch"),
+                lastActive = s.optString("last_active"),
+                live = s.optBoolean("live"),
+                tmux = s.optBoolean("has_tmux", s.optBoolean("live")),
+                working = s.optBoolean("working"),
+                model = s.optString("model"),
+                workingSince = parseIsoMs(s.optString("working_since")),
+                doing = s.optString("doing"),
+                asking = s.optString("asking"),
+                waiting = s.optBoolean("waiting"),
+                waitingFor = s.optString("waiting_for"),
+                agents = s.optInt("agents"),
+                tmuxName = s.optString("tmux"),
+                pane = s.optString("pane"),
+            )
+        )
+    }
+}
+
+/** A row the phone made itself (a screen capture or a clip): not in the transcript. */
+fun Row.isLocal(): Boolean = local || kind == "video" || imageRef.startsWith("capture:")
+
+/** The feed after a re-attach: what the phone held before the computer's window, then the window. */
+data class Merged(val rows: List<Row>, val keptBefore: Int)
+
+/**
+ * A backfill (the transcript's last rows) merged into the feed the phone already holds, so
+ * a reconnect or a saved copy shows no gap and no flash: the rows held before the window
+ * stay as they are, the window replaces the rest, and what is new appears after them.
+ *
+ * The anchor is where the window's first row sits in what the phone holds: the earliest
+ * place where every row both have agrees (so two identical rows in a row are not doubled).
+ * Failing that, the first of the window's rows the phone holds at all - its earlier rows
+ * then read differently live (a queued bubble that became a prompt) and replace the same
+ * number of held rows before it. Null when it holds none: the gap is too long to bridge,
+ * and the window replaces everything. The phone's own rows are kept, placed by their time.
+ */
+fun mergeBackfill(held: List<Row>, fresh: List<Row>): Merged? {
+    if (held.isEmpty() || fresh.isEmpty()) return null
+    val file = held.filter { !it.isLocal() }
+    val local = held.filter { it.isLocal() }
+    fun same(a: Row, b: Row) = a.kind == b.kind && a.ts == b.ts && a.text == b.text
+    var start = -1
+    for (i in file.indices) {
+        val n = minOf(file.size - i, fresh.size)
+        if ((0 until n).all { same(file[i + it], fresh[it]) }) { start = i; break }
+    }
+    if (start < 0) {
+        for (j in 1 until fresh.size) {
+            val i = file.indexOfLast { same(it, fresh[j]) }
+            if (i >= 0) { start = maxOf(0, i - j); break }
+        }
+    }
+    if (start < 0) return null
+    val rows = (file.subList(0, start) + fresh).toMutableList()
+    local.forEach { l ->
+        val t = parseIsoMs(l.ts)
+        val at = rows.indexOfLast { it.ts.isNotEmpty() && parseIsoMs(it.ts) <= t } + 1
+        rows.add(if (l.ts.isEmpty()) rows.size else at, l)
+    }
+    return Merged(rows, keptBefore = start)
 }
 
 /** The daemon's key for a queued prompt: one line, its first 60 characters. */
@@ -467,7 +609,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     /** Older transcript rows the daemon still holds beyond what the feed has. */
     val remaining: StateFlow<Int> = _remaining
     /** Rows in the feed that came from the transcript (captures are local and do not count). */
-    private var fileRows = 0
+    @Volatile private var fileRows = 0
     private val _loadedEpoch = MutableStateFlow(0)
     /** Bumped on every backfill, including an empty one, so "the feed is known" is observable. */
     val loadedEpoch: StateFlow<Int> = _loadedEpoch
@@ -493,6 +635,56 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
     /** Where clips are written. Set by the activity; a client without it drops clips. */
     var cacheDir: java.io.File? = null
+
+    /**
+     * What the phone keeps of this computer's sessions: drafts, the recent feed of each,
+     * the last list. Set by the fleet; without it nothing is kept. The list shows from it
+     * at once, before the computer answers.
+     */
+    @Volatile var store: SessionStore? = null
+        set(value) {
+            field = value
+            // As last seen until the computer sends its own: the copy cannot say what is
+            // working or asking now.
+            if (_sessions.value.isEmpty()) value?.sessions()?.let { arr ->
+                runCatching { _sessions.value = parseSessionList(arr).map { it.copy(machineDown = true, machineState = "as last seen") } }
+            }
+        }
+
+    /** The session whose rows the feed holds, attached or not: a reconnect to it keeps them. */
+    @Volatile private var heldSession: String? = null
+    /** The last state frame of the held session, kept with its saved feed. */
+    @Volatile private var lastState: JSONObject? = null
+    /** Attach (the main thread) and the frames that fill the feed (the socket's) take turns. */
+    private val feedLock = Any()
+    private var saveJob: Job? = null
+
+    private val _savedCopy = MutableStateFlow(0L)
+    /** When the feed on screen is the phone's saved copy, when that copy was made; 0 once the computer has sent the live one. */
+    val savedCopy: StateFlow<Long> = _savedCopy
+
+    /** A prompt sent and not yet confirmed typed; see [sending]. */
+    /**
+     * [after]: the newest row the phone held when it was sent, by the computer's clock, so
+     * finding it in the feed later is not fooled by the same words sent before, nor by the
+     * phone's clock being off.
+     */
+    data class PendingPrompt(val ref: String, val sessionId: String, val text: String, val sentAt: Long, val unconfirmed: Boolean = false, val after: String = "")
+    private val _sending = MutableStateFlow<Map<String, PendingPrompt>>(emptyMap())
+    /**
+     * Prompts waiting for the computer to say it typed them (prompt_ack), by ref. The
+     * message stays in its box meanwhile. [PendingPrompt.unconfirmed]: the connection
+     * dropped first; the session's next feed from the computer settles whether it landed.
+     */
+    val sending: StateFlow<Map<String, PendingPrompt>> = _sending
+    /** How long a message waits for the computer's word before its box is given back. */
+    var ackTimeoutMs = 20_000L
+    private val _confirmed = kotlinx.coroutines.flow.MutableSharedFlow<PendingPrompt>(extraBufferCapacity = 8)
+    /** Prompts the computer confirmed typed: the box that held one can let it go. */
+    val confirmed: kotlinx.coroutines.flow.SharedFlow<PendingPrompt> = _confirmed
+    private val _returned = kotlinx.coroutines.flow.MutableSharedFlow<PendingPrompt>(extraBufferCapacity = 8)
+    /** Prompts that were not typed: whichever box is open for the session takes the text back. */
+    val returned: kotlinx.coroutines.flow.SharedFlow<PendingPrompt> = _returned
 
     /** The terminal model. Lives here so it survives recomposition and reconnects. */
     val terminal = dev.shrimpscript.porthole.terminal.TerminalEmulator(80, 24)
@@ -730,20 +922,36 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         connect(host, null)
     }
 
-    fun attach(sessionId: String) {
-        _changes.value = null
-        _files.value = null
-        _rows.value = emptyList()
-        _attached.value = null
-        _backfillCount.value = 0
-        _state.value = null
-        _status.value = null
-        _agents.value = emptyList()
+    fun attach(sessionId: String) = synchronized(feedLock) {
+        if (heldSession != sessionId || _rows.value.isEmpty()) {
+            _changes.value = null
+            _files.value = null
+            // Another session: start from the phone's copy of it, so it reads at once (and
+            // with no connection at all); the computer's backfill then merges into it.
+            val saved = store?.feed(sessionId)
+            heldSession = sessionId
+            _rows.value = saved?.rows ?: emptyList()
+            _backfillCount.value = saved?.rows?.size ?: 0
+            fileRows = saved?.rows?.size ?: 0
+            _remaining.value = saved?.remaining ?: 0
+            lastState = saved?.state
+            _state.value = saved?.state?.let { parseState(it) }
+            _status.value = null
+            _agents.value = emptyList()
+            _savedCopy.value = saved?.savedAt ?: 0L
+            _attached.value = if (saved != null) sessionId else null
+            if (saved != null) _loadedEpoch.value = _loadedEpoch.value + 1
+        }
+        // The same session again - a reconnect - keeps everything on screen, and the
+        // backfill that answers this merges in rather than replacing it.
         send("""{"type":"session.attach","session_id":"$sessionId"}""")
     }
 
     fun detach() {
         terminalGone()
+        saveFeedNow()
+        heldSession = null
+        _savedCopy.value = 0L
         _rows.value = emptyList()
         _attached.value = null
         _state.value = null
@@ -777,7 +985,38 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
             .put("text", text)
         val to = socket
         if (attachments.isEmpty()) {
-            sender.execute { runCatching { queue(to, prompt.toString()) } }
+            val ack = (_connection.value as? Connection.Live)?.daemon?.caps?.contains("prompt_ack") == true
+            if (!ack) {
+                // An older daemon says nothing back. A message that never left still comes back.
+                sender.execute {
+                    runCatching { queue(to, prompt.toString()) }.onFailure {
+                        _failedSend.value = FailedSend(sessionId, text, emptyList())
+                        _notice.value = "The message was not sent. It is back in the message box."
+                    }
+                }
+                return
+            }
+            val ref = java.util.UUID.randomUUID().toString()
+            prompt.put("ref", ref)
+            val after = if (heldSession == sessionId) _rows.value.lastOrNull { !it.isLocal() && it.ts.isNotEmpty() }?.ts.orEmpty() else ""
+            val p = PendingPrompt(ref, sessionId, text, System.currentTimeMillis(), after = after)
+            // A newer message to the same session settles any left unconfirmed by a drop.
+            _sending.update { m -> m.filterValues { !(it.sessionId == sessionId && it.unconfirmed) } + (ref to p) }
+            // No word at all (a computer that is up but stuck): the box is not held for ever.
+            // The feed still settles it if the message shows up later.
+            scope.launch {
+                delay(ackTimeoutMs)
+                var gaveUp = false
+                _sending.update { m ->
+                    val q = m[ref]
+                    gaveUp = q != null && !q.unconfirmed
+                    if (gaveUp) m + (ref to q!!.copy(unconfirmed = true)) else m
+                }
+                if (gaveUp) _notice.value = "No word from the computer about that message yet. Check the feed before sending it again."
+            }
+            sender.execute {
+                runCatching { queue(to, prompt.toString()) }.onFailure { notTyped(ref, "Not sent: the computer could not be reached") }
+            }
             return
         }
         val job = FailedSend(sessionId, text, attachments)
@@ -981,44 +1220,87 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         if (to == null || to !== socket || !to.send(json)) throw java.io.IOException("not connected")
     }
 
-    private fun parseQuestions(arr: org.json.JSONArray?): List<Question> = buildList {
-        for (i in 0 until (arr?.length() ?: 0)) {
-            val q = arr!!.getJSONObject(i)
-            val opts = q.optJSONArray("options")
-            add(Question(
-                header = q.optString("header"), text = q.optString("text"), multi = q.optBoolean("multi"),
-                options = buildList {
-                    for (j in 0 until (opts?.length() ?: 0)) {
-                        val o = opts!!.getJSONObject(j); add(QuestionOption(o.optString("label"), o.optString("description")))
-                    }
-                },
-            ))
+    private fun parseRows(arr: org.json.JSONArray?): List<Row> = buildList {
+        for (i in 0 until (arr?.length() ?: 0)) add(parseRow(arr!!.getJSONObject(i)))
+    }
+
+    /** Removes a pending prompt and returns it, once, however many threads ask. */
+    private fun takePending(ref: String): PendingPrompt? {
+        var taken: PendingPrompt? = null
+        _sending.update { m -> taken = m[ref]; if (taken != null) m - ref else m }
+        return taken
+    }
+
+    /** The computer typed it: its box can let it go, here and in the saved draft. */
+    private fun confirmSent(ref: String) {
+        val p = takePending(ref) ?: return
+        store?.clearDraftIf(p.sessionId, p.text)
+        _confirmed.tryEmit(p)
+    }
+
+    /**
+     * Not typed: the text goes back to its session's box - into the saved draft, unless it
+     * holds it already, and to the open box through [returned] - and the notice says why.
+     */
+    private fun notTyped(ref: String, why: String) {
+        val p = takePending(ref) ?: return
+        store?.let { st ->
+            val d = st.draft(p.sessionId)
+            if (d.trim() != p.text.trim()) st.setDraft(p.sessionId, if (d.isBlank()) p.text else d.trimEnd() + "\n" + p.text)
+        }
+        _notice.value = why.trimEnd('.') + ". The message is in the box to send again."
+        _returned.tryEmit(p)
+    }
+
+    /** The connection went before the computer said: whether those landed is not known yet. */
+    private fun unconfirmAll() {
+        _sending.update { m -> if (m.isEmpty()) m else m.mapValues { it.value.copy(unconfirmed = true) } }
+    }
+
+    /**
+     * The session's feed settles what a drop (or silence) left unconfirmed. A message that
+     * shows in [rows] after the row it was sent after - as a prompt, a queued prompt, a
+     * command, or for "!" the shell line - was typed. Saying one was not needs a window that
+     * reaches back past the send ([covers]); new rows arriving say nothing about what is
+     * missing, and a window that starts after it cannot either.
+     */
+    private fun settleUnconfirmed(sessionId: String, rows: List<Row>, covers: (PendingPrompt) -> Boolean) {
+        val open = _sending.value.values.filter { it.sessionId == sessionId && it.unconfirmed }
+        for (p in open) {
+            if (landedIn(p, rows)) confirmSent(p.ref)
+            else if (covers(p)) notTyped(p.ref, "The connection dropped before that message reached Claude")
         }
     }
 
-    private fun parseRows(arr: org.json.JSONArray?): List<Row> = buildList {
-        for (i in 0 until (arr?.length() ?: 0)) {
-            val r = arr!!.getJSONObject(i)
-            add(
-                Row(
-                    kind = r.optString("kind"),
-                    glyph = r.optString("glyph"),
-                    text = r.optString("text"),
-                    metric = r.optString("metric"),
-                    detail = r.optString("detail"),
-                    truncated = r.optBoolean("truncated"),
-                    ts = r.optString("ts"),
-                    toolId = r.optString("tool_id"),
-                    imageRef = r.optString("image_ref"),
-                    media = r.optString("media"),
-                    questions = parseQuestions(r.optJSONArray("questions")),
-                    agent = r.optJSONObject("agent")?.let { a ->
-                        AgentCall(a.optString("type"), a.optString("description"), a.optString("model"), a.optBoolean("background"))
-                    },
-                    command = parseCommand(r.optJSONObject("command")),
-                )
-            )
+    private fun landedIn(p: PendingPrompt, rows: List<Row>): Boolean {
+        val since = if (p.after.isNotBlank()) parseIsoMs(p.after) else p.sentAt - 120_000
+        val cmd = p.text.trim()
+        val shell = if (cmd.startsWith("!")) "You ran ! " + queueKey(cmd.removePrefix("!").trim()) else null
+        val key = queueKey(p.text)
+        return rows.any { r ->
+            r.ts.isNotEmpty() && parseIsoMs(r.ts) > since && when {
+                shell != null -> r.kind == "event" && r.text == shell
+                else -> (r.kind == "user" || r.kind == "queued" || r.kind == "command") && queueKey(r.text) == key
+            }
         }
+    }
+
+    /** Saves the held session's feed a moment after it last changed. */
+    private fun saveFeedSoon() {
+        if (store == null) return
+        saveJob?.cancel()
+        saveJob = scope.launch {
+            delay(1_000)
+            saveFeedNow()
+        }
+    }
+
+    private fun saveFeedNow() {
+        val st = store ?: return
+        val sid = heldSession ?: return
+        val rows = _rows.value.filter { !it.isLocal() }
+        if (rows.isEmpty() || _savedCopy.value != 0L) return // nothing new to keep: the copy on screen is the copy on disk
+        st.saveFeed(sid, rows, lastState, _remaining.value)
     }
 
     private fun parseAgents(arr: org.json.JSONArray?): List<AgentInfo> = buildList {
@@ -1109,32 +1391,8 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                 }
                 "session.list" -> {
                     val arr = obj.optJSONArray("sessions") ?: return
-                    _sessions.value = buildList {
-                        for (i in 0 until arr.length()) {
-                            val s = arr.getJSONObject(i)
-                            add(
-                                SessionInfo(
-                                    id = s.optString("id"),
-                                    title = s.optString("title"),
-                                    cwd = s.optString("cwd"),
-                                    branch = s.optString("branch"),
-                                    lastActive = s.optString("last_active"),
-                                    live = s.optBoolean("live"),
-                                    tmux = s.optBoolean("has_tmux", s.optBoolean("live")),
-                                    working = s.optBoolean("working"),
-                                    model = s.optString("model"),
-                                    workingSince = parseIsoMs(s.optString("working_since")),
-                                    doing = s.optString("doing"),
-                                    asking = s.optString("asking"),
-                                    waiting = s.optBoolean("waiting"),
-                                    waitingFor = s.optString("waiting_for"),
-                                    agents = s.optInt("agents"),
-                                    tmuxName = s.optString("tmux"),
-                                    pane = s.optString("pane"),
-                                )
-                            )
-                        }
-                    }
+                    _sessions.value = parseSessionList(arr)
+                    store?.saveSessions(arr)
                 }
                 "session.rows" -> {
                     val rows = parseRows(obj.optJSONArray("rows"))
@@ -1147,23 +1405,49 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                         _earlierEpoch.value = _earlierEpoch.value + 1
                         return
                     }
-                    _backfillCount.value = rows.size
-                    fileRows = rows.size
-                    _remaining.value = obj.optInt("remaining")
-                    _rows.value = rows
-                    _loadedEpoch.value = _loadedEpoch.value + 1
-                    parseState(obj.optJSONObject("state"))?.let { _state.value = it }
+                    val sid = obj.optString("session_id")
+                    synchronized(feedLock) {
+                    val merged = if (heldSession == sid) mergeBackfill(_rows.value, rows) else null
+                    if (merged != null) {
+                        // A reconnect, or a saved copy brought up to date: what is held stays
+                        // where it is (no flash, no jump), and only what is new is added.
+                        _rows.value = merged.rows
+                        fileRows = merged.rows.count { !it.isLocal() }
+                        _remaining.value = maxOf(0, obj.optInt("remaining") - merged.keptBefore)
+                        // Over a saved copy this is the session's first live fill: the feed
+                        // places itself again (at "since you left", if that is where to land).
+                        if (_savedCopy.value != 0L) _loadedEpoch.value = _loadedEpoch.value + 1
+                    } else {
+                        _backfillCount.value = rows.size
+                        fileRows = rows.size
+                        _remaining.value = obj.optInt("remaining")
+                        _rows.value = rows
+                        _loadedEpoch.value = _loadedEpoch.value + 1
+                    }
+                    heldSession = sid
+                    _savedCopy.value = 0L
+                    obj.optJSONObject("state")?.let { st -> lastState = st; parseState(st)?.let { _state.value = it } }
                     // another session's agents must not linger: one with none gets no agents frame
-                    if (_attached.value != obj.optString("session_id")) _agents.value = emptyList()
-                    _attached.value = obj.optString("session_id")
+                    if (_attached.value != sid) _agents.value = emptyList()
+                    _attached.value = sid
+                    }
+                    val reachesBack = obj.optInt("remaining") == 0
+                    val windowStart = rows.firstOrNull()?.ts?.let { parseIsoMs(it) } ?: Long.MAX_VALUE
+                    settleUnconfirmed(sid, _rows.value) { p -> reachesBack || (p.after.isNotBlank() && windowStart <= parseIsoMs(p.after)) }
+                    saveFeedSoon()
                 }
                 "session.event" -> {
-                    val incoming = parseRows(obj.optJSONArray("rows"))
-                    val (feed, folded) = appendLive(_rows.value, incoming)
-                    // A row that took a queued bubble's place is one row in the transcript too.
-                    if (!obj.optBoolean("synthetic")) fileRows += incoming.size - folded
-                    if (incoming.isNotEmpty()) _rows.value = feed
-                    parseState(obj.optJSONObject("state"))?.let { _state.value = it }
+                    val synthetic = obj.optBoolean("synthetic")
+                    val incoming = parseRows(obj.optJSONArray("rows")).let { r -> if (synthetic) r.map { it.copy(local = true) } else r }
+                    synchronized(feedLock) {
+                        val (feed, folded) = appendLive(_rows.value, incoming)
+                        // A row that took a queued bubble's place is one row in the transcript too.
+                        if (!synthetic) fileRows += incoming.size - folded
+                        if (incoming.isNotEmpty()) _rows.value = feed
+                    }
+                    obj.optJSONObject("state")?.let { st -> lastState = st; parseState(st)?.let { _state.value = it } }
+                    heldSession?.let { settleUnconfirmed(it, incoming) { false } }
+                    saveFeedSoon()
                 }
                 "session.trust" -> _trustAsks.tryEmit(
                     TrustAsk(obj.optString("pane"), obj.optString("tmux"), obj.optString("cwd"), obj.optString("folder"))
@@ -1179,7 +1463,10 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                 "session.turn" -> _turns.tryEmit(
                     TurnEvent(obj.optString("session_id"), obj.optString("title"), obj.optString("text"))
                 )
-                "prompt.sent" -> inFlight.remove(obj.optString("ref"))
+                "prompt.sent" -> {
+                    inFlight.remove(obj.optString("ref"))
+                    confirmSent(obj.optString("ref"))
+                }
                 "files" -> {
                     // An answer to an earlier query, overtaken by typing: the list would
                     // go back a letter, or empty, and stay that way.
@@ -1341,7 +1628,11 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                         _notice.value = message.ifBlank { "the daemon refused that ($code)" }
                         // A refusal naming a message with files: the files did not go, or
                         // the prompt they came with was not typed. Hand it back.
-                        obj.optString("ref").takeIf { it.isNotEmpty() }?.let { giveBack(it) }
+                        obj.optString("ref").takeIf { it.isNotEmpty() }?.let { ref ->
+                            giveBack(ref)
+                            // A text prompt was simply not typed: its text goes back to its box.
+                            notTyped(ref, message.ifBlank { "The message was not sent" })
+                        }
                         if (code == "no_changes") {
                             _changes.value = ChangesState("", "", "", emptyList(), 0, 0, false, false, error = message.ifBlank { "git is not available on the computer" })
                         }
@@ -1353,6 +1644,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             forgetSent()
+            unconfirmAll()
             terminalGone()
             // A refusal arrives as an HTTP response on the upgrade, so the body carries
             // the real reason rather than a generic socket error.
@@ -1384,6 +1676,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
             forgetSent()
+            unconfirmAll()
             terminalGone()
             if (_connection.value is Connection.Live) _connection.value = Connection.Idle
             // The daemon closing on us (a restart, a shutdown) is exactly the case the

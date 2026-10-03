@@ -115,6 +115,21 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.37.0" class="v">0.37.0</span>
+        <h2>Steady through a bad connection</h2>
+        <div class="rel-date"><span>3 October 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>A dropped connection no longer takes the screen with it.</b> Until now a drop of a few seconds replaced the session with the failure card, threw away what you were typing, and on the way back reloaded the feed from scratch, so it flashed blank and jumped to the bottom. Now the feed, where you had scrolled to, an open sheet and the message you are typing all stay. A bar says <b>Reconnecting…</b> after a second or two, and after a few tries offers <b>Options</b>, the failure card's tools. When the computer answers, what happened meanwhile is added below what you were reading. The session list stays too, its rows reading "as last seen". The full failure card is kept for a computer that refuses the phone, or when there is nothing to show.</li>
+            <li><b>The message box keeps taking typing.</b> It used to lock the moment the connection dropped, closing the keyboard mid-word. Now only Send waits for the computer.</li>
+            <li><b>Drafts are kept.</b> Each session's unsent message is saved on the phone as you type. A drop, the app closing or the phone restarting no longer loses it.</li>
+            <li><b>A message stays in the box until it is typed.</b> The box holds it, greyed, until the computer says it typed it into the session, which is a moment on a good connection. If it is refused, the reason shows and the text stays to send again. If the connection goes before the answer, the feed decides when it comes back: shown there means it was typed, missing means it stays in the box. Nothing is re-sent on its own. Text-only messages used to vanish when a send failed.</li>
+            <li><b>Sessions open at once, even offline.</b> The phone keeps the last 200 rows of the 20 sessions you opened most recently, and the session list, in its private storage. A session opens from its copy straight away and catches up when the computer answers. With no connection, the copy is there to read, and the bar says when it was saved. Forgetting a computer deletes its copies. The privacy page lists exactly what is kept.</li>
+            <li>Mac and Linux alike. The daemon now answers every message the phone names, not only those with files.</li>
+          </ul>
+        </div>
+      </section>
+      <section class="rel">
         <span id="v0.36.0" class="v">0.36.0</span>
         <h2>Commands as cards</h2>
         <div class="rel-date"><span>3 October 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>

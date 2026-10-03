@@ -587,6 +587,77 @@ class RenderScreensTest {
         save("commands-sheet-context")
     }
 
+    @androidx.compose.runtime.Composable
+    private fun DropSession(
+        canSend: Boolean, draft: String, onDraft: (String) -> Unit = {}, reconnecting: String? = null,
+        pendingSends: List<dev.shrimpscript.porthole.net.PortholeClient.PendingPrompt> = emptyList(),
+    ) {
+        SessionScreen(
+            title = "Build fix", branch = "main · tmux work", ring = if (canSend) RingState.Live else RingState.Retrying, live = true,
+            rows = agentRows.take(2), backfillCount = 2, loaded = true, canSend = canSend, onSend = {}, onBack = {},
+            view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+            terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+            notice = null, onDismissNotice = {}, state = state(working = false).copy(pendingTool = ""),
+            status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "", interruptible = false),
+            caps = listOf("attach", "files", "prompt_ack"), sharedKey = "s1",
+            initialDraft = draft, onDraft = onDraft, pendingSends = pendingSends,
+            reconnecting = reconnecting, savedCopyAt = if (reconnecting != null) java.time.Instant.parse("2026-10-03T08:42:00Z").toEpochMilli() else 0L,
+            onConnectionOptions = if (reconnecting != null) ({}) else null,
+        )
+    }
+
+    /** A drop: the feed and the half-written message stay, the box still takes typing, and a bar says what is happening. */
+    @Test
+    fun aDropKeepsTheSessionAndTheDraft() {
+        var kept = ""
+        rule.setContent { PortholeTheme { DropSession(canSend = false, draft = "and then run the migration", onDraft = { kept = it }, reconnecting = "Reconnecting to workstation…") } }
+        rule.waitForIdle()
+        rule.onNodeWithText("Reconnecting to workstation…").assertIsDisplayed()
+        rule.onNodeWithText("Showing the copy saved at", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Options").assertIsDisplayed()
+        rule.onNodeWithText("The login test fails about one run in five", substring = true).assertExists()
+        val box = rule.onNodeWithText("and then run the migration")
+        box.assert(androidx.compose.ui.test.isEnabled())
+        box.performTextInput(" first")
+        rule.waitForIdle()
+        assertTrue(kept, kept.contains("first"))
+        save("offline-session")
+    }
+
+    /** Sent, not yet confirmed: the message stays in the box, read-only, and the send button turns. */
+    @Test
+    fun aMessageOnItsWayStaysInTheBox() {
+        val p = dev.shrimpscript.porthole.net.PortholeClient.PendingPrompt("r1", "s1", "run the tests", System.currentTimeMillis())
+        rule.setContent { PortholeTheme { DropSession(canSend = true, draft = "run the tests", pendingSends = listOf(p)) } }
+        rule.waitForIdle()
+        rule.onNodeWithText("run the tests").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Send").assertDoesNotExist()
+        save("offline-sending")
+    }
+
+    /** One computer, unreachable: the list keeps its sections, each row as last seen, under the bar. */
+    @Test
+    fun theListStaysThroughADrop() {
+        val now = System.currentTimeMillis()
+        val rows = listOf(
+            SessionInfo("d1", "Add dark mode to settings", "/srv/app", "main", "2026-10-03T08:40:00Z", live = true, working = true,
+                model = "claude-fable-5-1", workingSince = now - 40_000, doing = "Bash: go test ./...", tmuxName = "0", pane = "%0"),
+            SessionInfo("d2", "Speed up the CSV import", "/srv/importer", "main", "2026-10-03T07:00:00Z", live = false, model = "claude-sonnet-5"),
+        ).map { it.copy(machineDown = true, machineState = "reconnecting") }
+        rule.setContent {
+            PortholeTheme {
+                SessionsScreen(machine = "workstation", ring = RingState.Retrying, sessions = rows, onSession = {}, onSettings = {}, onRefresh = {},
+                    reconnecting = "Reconnecting to workstation…", onConnectionOptions = {})
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Reconnecting to workstation…").assertIsDisplayed()
+        rule.onNodeWithText("Live").assertIsDisplayed()
+        rule.onNodeWithText("Recent").assertIsDisplayed()
+        rule.onNodeWithText("Bash: go test ./... · main · as last seen · Fable 5.1").assertIsDisplayed()
+        save("offline-list")
+    }
+
     /** The working icon, the screw: sizes, a turn in eighths, on the ground and on a card, and at rest. */
     @Test
     fun screwAtEverySizeAndThroughATurn() {

@@ -358,7 +358,7 @@ func (s *Server) writeSessionList(ctx context.Context, c *websocket.Conn) error 
 // detectCaps advertises only what the machine can do. Capture needs grim (Wayland
 // stills) and recording wf-recorder, or on a Mac the built-in screencapture. Uploads need nothing beyond a writable home.
 func detectCaps() []string {
-	caps := []string{proto.CapSessions, proto.CapPrompt, proto.CapApprovals, proto.CapUpload, proto.CapAttach, proto.CapSSHKey}
+	caps := []string{proto.CapSessions, proto.CapPrompt, proto.CapApprovals, proto.CapUpload, proto.CapAttach, proto.CapSSHKey, proto.CapPromptAck}
 	if runtime.GOOS == "darwin" {
 		// screencapture ships with macOS and does both.
 		if _, err := exec.LookPath("screencapture"); err == nil {
