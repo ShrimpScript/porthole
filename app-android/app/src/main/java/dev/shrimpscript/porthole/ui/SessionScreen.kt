@@ -961,7 +961,7 @@ fun FeedRowView(
                 }
             }
 
-            "tool" -> if (r.agent != null) AgentCard(r.agent, r.text, agentInfo, pending, onAgents) else Row(
+            "tool" -> if (r.agent != null) AgentCard(r.agent, r.text, agentInfo, pending, r.ts, onAgents) else Row(
                 Modifier
                     .fillMaxWidth()
                     .clickable(enabled = r.detail.isNotBlank()) { onOpen(r) },

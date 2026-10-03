@@ -41,7 +41,7 @@ func TestAgentsReadsEachAgentsProgress(t *testing.T) {
 		`{"type":"user","timestamp":"`+ts(3*time.Hour)+`","message":{"content":[{"type":"tool_result","tool_use_id":"d"}]}}`,
 	)
 	got := map[string]Agent{}
-	for _, a := range agentsIn(dir, now) {
+	for _, a := range agentsIn(dir, "", now) {
 		got[a.ID] = a
 	}
 	run, done, quiet := got["run"], got["done"], got["quiet"]
@@ -59,9 +59,54 @@ func TestAgentsReadsEachAgentsProgress(t *testing.T) {
 	_, _ = f.WriteString(`{"type":"user","timestamp":"` + ts(time.Minute) + `","message":{"content":[{"type":"tool_result","tool_use_id":"b"}]}}` + "\n" +
 		`{"type":"assistant","timestamp":"` + ts(0) + `","message":{"stop_reason":"end_turn","content":[{"type":"text","text":"Fixed."}]}}` + "\n")
 	f.Close()
-	for _, a := range agentsIn(dir, now) {
+	for _, a := range agentsIn(dir, "", now) {
 		if a.ID == "run" && (a.State != "done" || a.Tools != 2) {
 			t.Errorf("after its final answer: %+v", a)
+		}
+	}
+}
+
+// The session's own transcript has the last word: an agent it heard completed is done even if
+// its own file ends without a final answer, and one it heard was killed has stopped. An agent
+// interrupted or cut off by an API error has stopped, without waiting out the idle time.
+func TestTheSessionsWordOnAnAgentWins(t *testing.T) {
+	root := t.TempDir()
+	parent := filepath.Join(root, "sess.jsonl")
+	dir := SubagentsDir(parent)
+	if err := os.MkdirAll(filepath.Join(dir, "workflows", "wf_1"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	ts := func(ago time.Duration) string { return now.Add(-ago).Format(time.RFC3339Nano) }
+	write := func(rel string, lines ...string) {
+		_ = os.WriteFile(filepath.Join(dir, rel), []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+	}
+	quietText := `{"type":"assistant","timestamp":"` + ts(time.Minute) + `","message":{"stop_reason":null,"content":[{"type":"text","text":"Here is what I found."}]}}`
+	write("agent-finished.jsonl", `{"type":"user","timestamp":"`+ts(3*time.Minute)+`","message":{"content":"Look"}}`, quietText)
+	write("agent-killed.jsonl", `{"type":"user","timestamp":"`+ts(3*time.Minute)+`","message":{"content":"Look"}}`, quietText)
+	write("agent-interrupted.jsonl", `{"type":"user","timestamp":"`+ts(3*time.Minute)+`","message":{"content":"Look"}}`,
+		`{"type":"user","timestamp":"`+ts(time.Minute)+`","message":{"content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}}`)
+	write("agent-limited.jsonl", `{"type":"user","timestamp":"`+ts(3*time.Minute)+`","message":{"content":"Look"}}`,
+		`{"type":"assistant","isApiErrorMessage":true,"timestamp":"`+ts(time.Minute)+`","message":{"stop_reason":"stop_sequence","content":[{"type":"text","text":"You've hit your limit"}]}}`)
+	// out of order: the newest record is not the last line
+	write("agent-busy.jsonl", `{"type":"user","timestamp":"`+ts(3*time.Minute)+`","message":{"content":"Look"}}`,
+		`{"type":"assistant","timestamp":"`+ts(30*time.Second)+`","message":{"stop_reason":"tool_use","content":[{"type":"tool_use","id":"x","name":"Read","input":{"file_path":"/a"}}]}}`,
+		`{"type":"user","timestamp":"`+ts(20*time.Second)+`","message":{"content":[{"type":"tool_result","tool_use_id":"x"}]}}`,
+		`{"type":"attachment","timestamp":"`+ts(15*time.Minute)+`"}`)
+	write("workflows/wf_1/agent-wf.jsonl", `{"type":"user","timestamp":"`+ts(time.Minute)+`","message":{"content":"Step"}}`)
+	notif := func(id, status string) string {
+		return `{"type":"user","message":{"content":"<task-notification>\n<task-id>` + id + `</task-id>\n<status>` + status + `</status>\n</task-notification>"}}`
+	}
+	_ = os.WriteFile(parent, []byte(notif("finished", "completed")+"\n"+notif("killed", "killed")+"\n"), 0o600)
+
+	got := map[string]string{}
+	for _, a := range agentsIn(dir, parent, now) {
+		got[a.ID] = a.State
+	}
+	want := map[string]string{"finished": "done", "killed": "stopped", "interrupted": "stopped", "limited": "stopped", "busy": "running", "wf": "running"}
+	for id, w := range want {
+		if got[id] != w {
+			t.Errorf("%s: %q, want %q (all: %v)", id, got[id], w, got)
 		}
 	}
 }
