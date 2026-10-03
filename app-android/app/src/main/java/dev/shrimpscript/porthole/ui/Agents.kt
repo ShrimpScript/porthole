@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -72,14 +73,16 @@ private fun rememberNow(ticking: Boolean): Long {
 }
 
 /** What an agent is doing or did, in one line: tools, its latest call, and for how long. */
-private fun agentLine(a: AgentInfo, now: Long): String = when (a.state) {
-    "running" -> listOfNotNull(
-        "${a.tools} tool${if (a.tools == 1) "" else "s"}",
-        a.doing.ifBlank { null },
-        if (a.startedMs > 0) span(now - a.startedMs) else null,
-    ).joinToString(" · ")
-    "done" -> "Done in ${span(a.lastActiveMs - a.startedMs)} · ${a.tools} tool${if (a.tools == 1) "" else "s"}"
-    else -> "Stopped after ${span(a.lastActiveMs - a.startedMs)} · ${a.tools} tool${if (a.tools == 1) "" else "s"}"
+private fun agentLine(a: AgentInfo, now: Long): String {
+    val tools = "${a.tools} tool${if (a.tools == 1) "" else "s"}"
+    // a time is only said when both ends are known: a missing one is not the epoch
+    val took = if (a.startedMs > 0 && a.lastActiveMs >= a.startedMs) span(a.lastActiveMs - a.startedMs) else null
+    return when (a.state) {
+        "running" -> listOfNotNull(tools, a.doing.ifBlank { null }, if (a.startedMs > 0) span(now - a.startedMs) else null).joinToString(" · ")
+        "done" -> listOfNotNull(took?.let { "Done in $it" } ?: "Done", tools).joinToString(" · ")
+        "failed" -> listOfNotNull(took?.let { "Failed after $it" } ?: "Failed", tools).joinToString(" · ")
+        else -> listOfNotNull(took?.let { "Stopped after $it" } ?: "Stopped", tools).joinToString(" · ")
+    }
 }
 
 @Composable
@@ -89,6 +92,7 @@ private fun AgentStateMark(state: String?, background: androidx.compose.ui.graph
         "running" -> Spinner(background = background)
         "done" -> Icon(Icons.Outlined.Check, contentDescription = "done", tint = c.ok, modifier = Modifier.size(16.dp))
         "stopped" -> Icon(Icons.Outlined.PauseCircle, contentDescription = "stopped", tint = c.faint, modifier = Modifier.size(16.dp))
+        "failed" -> Icon(Icons.Outlined.ErrorOutline, contentDescription = "failed", tint = c.bad, modifier = Modifier.size(16.dp))
         else -> Spinner(background = background) // called, not yet started
     }
 }
@@ -98,9 +102,17 @@ private fun AgentStateMark(state: String?, background: androidx.compose.ui.graph
  * own transcript - whether it is at work, what on, and for how long. Tapping opens every agent.
  */
 @Composable
-fun AgentCard(call: AgentCall, text: String, agent: AgentInfo?, pending: Boolean, onOpen: () -> Unit) {
+fun AgentCard(call: AgentCall, text: String, agent: AgentInfo?, pending: Boolean, ts: String = "", onOpen: () -> Unit) {
     val c = Porthole.colors
-    val state = agent?.state ?: if (pending) null else "done"
+    // Not yet matched to its agent: a foreground call still waiting, or a background one whose
+    // call returned at once - for a minute, it is starting; after that, nothing is claimed.
+    val recent = runCatching { System.currentTimeMillis() - java.time.Instant.parse(ts).toEpochMilli() < 60_000 }.getOrDefault(false)
+    val state = agent?.state ?: when {
+        pending -> null
+        call.background && recent -> null
+        call.background -> "unknown"
+        else -> "done"
+    }
     val now = rememberNow(state == "running" || state == null)
     Column(
         Modifier
@@ -121,7 +133,7 @@ fun AgentCard(call: AgentCall, text: String, agent: AgentInfo?, pending: Boolean
         }
         val kind = agentKind(call.type.ifBlank { agent?.type.orEmpty() }, call.model.ifBlank { agent?.model.orEmpty() }, call.background || agent?.background == true)
         if (kind.isNotBlank()) Text(kind, style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(start = 25.dp))
-        Row(
+        if (state != "unknown") Row(
             Modifier.padding(start = 25.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -236,11 +248,11 @@ fun AgentsList(agents: List<AgentInfo>, now: Long, modifier: Modifier = Modifier
         if (agents.isEmpty()) {
             Text("This session has not started any agents.", style = PortholeType.secondary, color = c.muted)
         }
-        for (a in orderAgents(agents)) {
+        for ((a, level) in orderAgents(agents)) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = (16 * (a.depth - 1).coerceIn(0, 3)).dp, top = 8.dp, bottom = 8.dp),
+                    .padding(start = (16 * level.coerceIn(0, 3)).dp, top = 8.dp, bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -260,19 +272,24 @@ fun AgentsList(agents: List<AgentInfo>, now: Long, modifier: Modifier = Modifier
     }
 }
 
-/** Running first, then the rest; within each, newest first, with each agent's own agents after it. */
-internal fun orderAgents(agents: List<AgentInfo>): List<AgentInfo> {
+/**
+ * Running first, then the rest; within each, newest first, with each agent's own agents after
+ * it, paired with how deep it sits in that tree (what the sheet indents by). Agents whose parent
+ * is missing stand at the top level; any left over (a parent loop) are listed after, never lost.
+ */
+internal fun orderAgents(agents: List<AgentInfo>): List<Pair<AgentInfo, Int>> {
     val byParent = agents.groupBy { it.parent }
     val ids = agents.map { it.id }.toSet()
-    val roots = agents.filter { it.parent.isBlank() || it.parent !in ids }
-        .sortedWith(compareByDescending<AgentInfo> { it.state == "running" }.thenByDescending { it.startedMs })
-    val out = mutableListOf<AgentInfo>()
-    fun visit(a: AgentInfo, seen: MutableSet<String>) {
-        if (!seen.add(a.id)) return
-        out += a
-        byParent[a.id].orEmpty().sortedByDescending { it.startedMs }.forEach { visit(it, seen) }
-    }
+    val order = compareByDescending<AgentInfo> { it.state == "running" }.thenByDescending { it.startedMs }
+    val roots = agents.filter { it.parent.isBlank() || it.parent !in ids || it.parent == it.id }.sortedWith(order)
+    val out = mutableListOf<Pair<AgentInfo, Int>>()
     val seen = mutableSetOf<String>()
-    roots.forEach { visit(it, seen) }
+    fun visit(a: AgentInfo, level: Int) {
+        if (!seen.add(a.id)) return
+        out += a to level
+        byParent[a.id].orEmpty().filter { it.id != a.id }.sortedByDescending { it.startedMs }.forEach { visit(it, level + 1) }
+    }
+    roots.forEach { visit(it, 0) }
+    agents.sortedWith(order).forEach { visit(it, 0) }
     return out
 }
