@@ -115,6 +115,20 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.36.0" class="v">0.36.0</span>
+        <h2>Commands as cards</h2>
+        <div class="rel-date"><span>3 October 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>A slash command shows what it did.</b> A command run in the session, at the desk or from the phone, was one grey line saying you ran it. It is now a card. <code>/effort</code> shows the level on a five-step meter, the CLI's description of it, and whether it is now the default for new sessions. <code>/model</code> shows the model by name, <code>/rename</code> the new name. <code>/context</code> shows the window to scale, the share held back for autocompact, and what fills it, largest first, with deferred tools named apart because they are not loaded yet. Any other command shows the CLI's reply, in red when it came as an error; a skill Claude Code loads by itself is a quiet line, not a card. A compaction and a <code>/clear</code> are lines across the feed, and a compaction says how many tokens it freed. Mac and Linux alike.</li>
+            <li><b>Session details answers <code>/model</code>, <code>/effort</code>, <code>/cost</code>, <code>/stats</code> and <code>/status</code>.</b> Typed on their own, or picked from the slash menu, they open the sheet with its switches and numbers instead of a menu on the computer's screen. With an argument, such as <code>/effort high</code>, they are typed into the session as before. <code>/context</code> no longer switches to the terminal: its answer lands in the feed, and in a new By category section of the sheet, which can measure again. The effort switch gains <code>max</code>.</li>
+            <li><b>Fix: text Claude Code writes for itself showed as your messages.</b> A skill's instructions, the summary a compaction leaves, and the <code>/context</code> table appeared as if you had sent them. They are no longer in the feed.</li>
+            <li><b>Fix: <code>/compact</code> showed as a message.</b> It is now the command's card while the CLI compacts, with the working strip running, then the line that says how much it freed.</li>
+            <li><b>Fix: a message typed while Claude was busy could show twice.</b> It showed as queued, and when Claude Code took it, it appeared again below while the queued bubble stayed until the session was reopened. The delivered message, or the command's card, now takes the bubble's place.</li>
+          </ul>
+        </div>
+      </section>
+      <section class="rel">
         <span id="v0.35.0" class="v">0.35.0</span>
         <h2>See the agents Claude starts</h2>
         <div class="rel-date"><span>2 October 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>

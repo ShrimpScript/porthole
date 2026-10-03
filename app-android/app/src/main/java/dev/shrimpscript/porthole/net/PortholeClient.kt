@@ -41,7 +41,96 @@ data class Row(
     val questions: List<Question> = emptyList(),
     /** An Agent call's row: the subagent it started (its progress comes in [AgentInfo]s, matched by [toolId]). */
     val agent: AgentCall? = null,
+    /** A command row: a slash command run in the session and what the CLI said back. */
+    val command: CommandInfo? = null,
 )
+
+/** A slash command and its reply, as the daemon read them from the transcript. */
+data class CommandInfo(
+    /** Without the slash: "effort". */
+    val name: String,
+    val args: String = "",
+    /** The CLI's reply, without terminal colours. */
+    val output: String = "",
+    /** The reply came on stderr. */
+    val error: Boolean = false,
+    /** What the command set, read from its reply: the effort level, the model, the new name. */
+    val value: String = "",
+    /** The CLI also saved [value] as the default for new sessions. */
+    val saved: Boolean = false,
+    /** The command ran a skill. */
+    val skill: Boolean = false,
+    /** The CLI ran it on its own (a skill it loads for a mode), not the person. */
+    val auto: Boolean = false,
+    val context: ContextUsage? = null,
+    /** Set on a compaction divider rather than a command. */
+    val compact: Compaction? = null,
+)
+
+/** /context's table: what fills the context window, by category. */
+data class ContextUsage(val model: String, val used: Long, val total: Long, val parts: List<ContextPart>)
+
+/** [kind]: "" in the window, "deferred" (listed, not loaded), "free", or "buffer" (held for autocompact). */
+data class ContextPart(val name: String, val tokens: Long, val kind: String = "")
+
+/** The conversation was summarised to free the window: [trigger] "manual" or "auto", tokens before and after. */
+data class Compaction(val trigger: String, val before: Long, val after: Long, val durationMs: Long)
+
+/** A row's "command" object, or null. */
+fun parseCommand(o: JSONObject?): CommandInfo? {
+    if (o == null) return null
+    val ctx = o.optJSONObject("context")?.let { x ->
+        val parts = x.optJSONArray("parts")
+        ContextUsage(
+            model = x.optString("model"), used = x.optLong("used"), total = x.optLong("total"),
+            parts = buildList {
+                for (i in 0 until (parts?.length() ?: 0)) {
+                    val p = parts!!.getJSONObject(i)
+                    add(ContextPart(p.optString("name"), p.optLong("tokens"), p.optString("kind")))
+                }
+            },
+        )
+    }
+    val compact = o.optJSONObject("compact")?.let { x ->
+        Compaction(x.optString("trigger"), x.optLong("before"), x.optLong("after"), x.optLong("duration_ms"))
+    }
+    return CommandInfo(
+        name = o.optString("name"), args = o.optString("args"), output = o.optString("output"),
+        error = o.optBoolean("error"), value = o.optString("value"), saved = o.optBoolean("saved"),
+        skill = o.optBoolean("skill"), auto = o.optBoolean("auto"), context = ctx, compact = compact,
+    )
+}
+
+/**
+ * Rows arriving live, added to the feed. A prompt or command typed while Claude was busy
+ * shows as a queued bubble; when it is delivered, its row takes the bubble's place - as a
+ * full read of the transcript does - instead of appearing a second time below it. Returns
+ * the new feed and how many incoming rows took a bubble's place.
+ */
+fun appendLive(feed: List<Row>, incoming: List<Row>): Pair<List<Row>, Int> {
+    if (feed.none { it.kind == "queued" } || incoming.none { it.kind == "user" || it.kind == "command" }) return (feed + incoming) to 0
+    val out = feed.toMutableList()
+    var folded = 0
+    for (r in incoming) {
+        if (r.kind == "user" || r.kind == "command") {
+            val key = queueKey(r.text)
+            val at = out.indexOfFirst { it.kind == "queued" && queueKey(it.text) == key }
+            if (at >= 0) {
+                out[at] = r
+                folded++
+                continue
+            }
+        }
+        out += r
+    }
+    return out to folded
+}
+
+/** The daemon's key for a queued prompt: one line, its first 60 characters. */
+private fun queueKey(text: String): String {
+    val flat = text.replace('\n', ' ')
+    return if (flat.codePointCount(0, flat.length) <= 60) flat else flat.substring(0, flat.offsetByCodePoints(0, 60))
+}
 
 /** What an Agent call asked for. */
 data class AgentCall(val type: String, val description: String, val model: String, val background: Boolean)
@@ -926,6 +1015,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     agent = r.optJSONObject("agent")?.let { a ->
                         AgentCall(a.optString("type"), a.optString("description"), a.optString("model"), a.optBoolean("background"))
                     },
+                    command = parseCommand(r.optJSONObject("command")),
                 )
             )
         }
@@ -1069,8 +1159,10 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                 }
                 "session.event" -> {
                     val incoming = parseRows(obj.optJSONArray("rows"))
-                    if (!obj.optBoolean("synthetic")) fileRows += incoming.size
-                    if (incoming.isNotEmpty()) _rows.value = _rows.value + incoming
+                    val (feed, folded) = appendLive(_rows.value, incoming)
+                    // A row that took a queued bubble's place is one row in the transcript too.
+                    if (!obj.optBoolean("synthetic")) fileRows += incoming.size - folded
+                    if (incoming.isNotEmpty()) _rows.value = feed
                     parseState(obj.optJSONObject("state"))?.let { _state.value = it }
                 }
                 "session.trust" -> _trustAsks.tryEmit(

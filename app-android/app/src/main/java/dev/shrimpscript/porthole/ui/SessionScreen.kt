@@ -414,7 +414,10 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                         if (suggestions.isNotEmpty()) {
                             LayoutSpacer(Modifier.height(8.dp))
                             CommandSuggestions(suggestions) { cmd ->
-                                if (cmd.arg != null) {
+                                if (cmd.sheet) {
+                                    showStats = true
+                                    draft = ""
+                                } else if (cmd.arg != null) {
                                     draft = cmd.name + " "
                                 } else {
                                     onCommand(cmd)
@@ -492,6 +495,11 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                         draft = ""
                                         answering = false
                                     }
+                                } else if (pending.isEmpty() && opensSheet(draft)) {
+                                    // Its switches and numbers are in the sheet, native, rather than
+                                    // a dialog on the computer's screen.
+                                    showStats = true
+                                    draft = ""
                                 } else if (draft.isNotBlank() || pending.isNotEmpty()) {
                                     if (pending.isEmpty()) onSend(draft.trim()) else onSendWithImages(draft.trim(), pending)
                                     draft = ""
@@ -533,6 +541,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
             if (showStats && state != null) {
                 StatsSheet(
                     title = title, state = state, status = status,
+                    context = rows.lastOrNull { it.command?.context != null },
                     onCommand = { showStats = false; onCommand(it) },
                     onDismiss = { showStats = false },
                     onSend = onSend, onKey = onKey,
@@ -1011,6 +1020,9 @@ fun FeedRowView(
                     Text("›", style = PortholeType.secondary, color = c.faint)
                 }
             }
+
+            "command" -> if (r.command != null) CommandCard(r, r.command) { onOpen(r) }
+                else Text(r.text, style = PortholeType.mono, color = c.muted)
 
             "image" -> ImageRow(r.text, imageBytes, onNeedImage, onOpenImage)
             "video" -> VideoRow(r.text, clipFile, onOpenClip)

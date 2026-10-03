@@ -64,6 +64,28 @@ def classify_user(txt):
     return "user", txt
 
 
+# ---- slash commands (mirrors daemon/internal/transcript/commands.go) ---------
+# One "command" row per command run at the desk, its reply and any text it writes
+# after itself (/context's table, a skill's text) attached rather than shown.
+CMD_NAME = re.compile(r"<command-name>\s*/?([^<]*?)\s*</command-name>")
+CMD_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.S)
+CMD_REPLY = re.compile(r"^<local-command-(stdout|stderr)>(.*?)(?:</local-command-(?:stdout|stderr)>|$)", re.S)
+ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+COMPACT_LINE = re.compile(r"^/compact(?:\s+(.*))?$", re.S)   # (?s) in Go too
+
+
+def command_text(t):
+    """(name, args) for a command echo, or None."""
+    t = t.strip()
+    if not (t.startswith("<command-name>") or t.startswith("<command-message>")):
+        return None
+    m = CMD_NAME.search(t)
+    if not m or not m.group(1).strip():
+        return None
+    a = CMD_ARGS.search(t)
+    return m.group(1).strip(), (a.group(1).strip() if a else ""), "<skill-format>true" in t
+
+
 def short(p, n=44):
     if not isinstance(p, str):
         return ""
@@ -126,6 +148,37 @@ def main():
     rows = []
     meta = {}
     queued_keys = {}   # queued prompt -> row index, so delivery resolves it
+    cmd = {}           # the latest slash command: open, replied, bodied, compacted
+
+    def command_row(name, args, skill=False):
+        nonlocal cmd
+        if name == "compact" and cmd.get("compacted"):
+            cmd = {"open": True, "replied": True, "bodied": True}
+            mapped["(injected envelope, not shown)"] += 1
+            return
+        text = f"/{name} {args}" if args else f"/{name}"
+        cmd = {"open": True, "skill": skill}
+        key = text.replace("\n", " ")[:60]
+        if key in queued_keys:
+            rows[queued_keys.pop(key)] = ("command", "/", text, "")
+            mapped["queued user message"] -= 1
+        else:
+            rows.append(("command", "/", text, ""))
+        mapped["command"] += 1
+
+    def command_reply(body):
+        out = ANSI.sub("", body).strip()
+        if cmd.get("open") and not cmd.get("replied") and out:
+            cmd["replied"] = True
+        mapped["(injected envelope, not shown)"] += 1
+
+    def command_body(txt):
+        if not cmd.get("open") or cmd.get("bodied"):
+            return False
+        if not (cmd.get("skill") or txt.startswith("## Context Usage") or txt.startswith("Base directory for this skill")):
+            return False   # anything else (a channel message) still reads as before
+        cmd["bodied"] = True
+        return True
 
     for line in open(path, errors="replace"):
         line = line.strip()
@@ -146,8 +199,10 @@ def main():
                       "sessionId": "session_id", "version": "version"}[k]] = d[k]
         # ai-title / agent-name carry a human session name - the sessions list
         # should show this, not the directory basename.
-        if t in ("ai-title", "agent-name"):
-            meta["title"] = d.get("title") or d.get("agentName") or meta.get("title")
+        if t in ("ai-title", "agent-name") and not meta.get("named"):
+            meta["title"] = d.get("aiTitle") or d.get("title") or d.get("agentName") or meta.get("title")
+        if t == "custom-title" and (d.get("customTitle") or "").strip():
+            meta["title"], meta["named"] = d["customTitle"].strip(), True   # /rename: the person's name wins
 
         msg = d.get("message") or {}
         content = msg.get("content")
@@ -155,6 +210,9 @@ def main():
         if t == "user":
             # Either a real prompt, a tool_result envelope, or an injected system
             # envelope wearing a user role.
+            if d.get("isCompactSummary"):
+                mapped["(injected envelope, not shown)"] += 1   # the divider says it
+                continue
             txt = ""
             if isinstance(content, list):
                 got = False
@@ -173,6 +231,7 @@ def main():
                         rows.append(("image", "", "Image you sent", ""))
                         mapped["image"] += 1
                 if got:
+                    cmd = {}
                     continue
                 txt = " ".join(b.get("text", "") for b in content
                                if isinstance(b, dict) and b.get("type") == "text").strip()
@@ -183,7 +242,28 @@ def main():
                 mapped["(not a feed row)"] += 1
                 continue
 
+            ct = command_text(txt)
+            if ct:
+                command_row(*ct)
+                continue
+            m = CMD_REPLY.match(txt)
+            if m:
+                command_reply(m.group(2))
+                continue
             kind, display = classify_user(txt)
+            if kind == "user" and d.get("isMeta"):
+                # Text the CLI wrote: a skill's text after the Skill tool, or what a
+                # command writes after itself. Other injected prompts still read as prompts.
+                if d.get("sourceToolUseID") or command_body(txt):
+                    mapped["(injected envelope, not shown)"] += 1
+                    continue
+            if kind == "user" and not d.get("isMeta"):
+                m = COMPACT_LINE.match(txt)
+                if m:
+                    cmd = {}   # the person's line, even right after an auto compaction
+                    command_row("compact", (m.group(1) or "").strip())
+                    continue
+                cmd = {}
             if kind == "silent":
                 mapped["(injected envelope, not shown)"] += 1
             elif kind == "event":
@@ -204,6 +284,7 @@ def main():
                     mapped["user message"] += 1
 
         elif t == "assistant":
+            cmd = {}
             if not isinstance(content, list):
                 unmapped["assistant/other"] += 1
                 continue
@@ -254,7 +335,24 @@ def main():
             else:
                 mapped["(not a feed row)"] += 1
 
+        elif t == "system" and d.get("subtype") == "local_command":
+            c = (d.get("content") or "").strip()
+            ct = command_text(c)
+            m = CMD_REPLY.match(c)
+            if ct:
+                command_row(*ct)
+            elif m:
+                command_reply(m.group(2))
+            else:
+                mapped["(not a feed row)"] += 1
+
+        elif t == "system" and d.get("subtype") == "compact_boundary":
+            rows.append(("command", "/", "Conversation compacted", ""))
+            mapped["command"] += 1
+            cmd = {"compacted": True}
+
         elif t == "system" and d.get("subtype") == "turn_duration":
+            cmd["open"] = False
             ms = int(d.get("durationMs") or 0)
             if ms < 10_000:
                 dur = f"{ms/1000:.1f}s"
@@ -271,8 +369,10 @@ def main():
                    "permission-mode", "last-prompt", "ai-title", "bridge-session",
                    "atis-latch", "file-history-delta", "agent-name", "frame-link",
                    "artifact-autoreact-ledger", "artifact-comment-monitor",
-                   "cost-state"):
+                   "cost-state", "custom-title"):
             # Real records that are correctly NOT feed rows. Silence is the honest render.
+            if t == "system":
+                cmd["open"] = False
             mapped["(not a feed row)"] += 1
         else:
             unmapped[t] += 1

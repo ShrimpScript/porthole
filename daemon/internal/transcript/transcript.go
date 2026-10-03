@@ -40,6 +40,9 @@ const (
 	// KindQuestion is Claude asking the person to choose (the AskUserQuestion tool).
 	// Questions carries the choices; the result row with the same ToolID is the answer.
 	KindQuestion Kind = "question"
+	// KindCommand is a slash command run at the desk, with the CLI's reply attached
+	// (see commands.go), or a compaction divider.
+	KindCommand Kind = "command"
 )
 
 // Question is one question from an AskUserQuestion call, as the CLI shows it: a picker
@@ -79,6 +82,8 @@ type Row struct {
 	// Agent is set on the row of an Agent (or Task) call: the subagent it started. Its
 	// progress arrives separately, in session.agents frames, matched by ToolID.
 	Agent *AgentCall `json:"agent,omitempty"`
+	// Command is set on a command row: which command, and what it said back.
+	Command *Command `json:"command,omitempty"`
 }
 
 // AgentCall is what an Agent call asked for, from its input.
@@ -136,6 +141,8 @@ type State struct {
 	APIMs        int64   `json:"api_ms,omitempty"`
 	LinesAdded   int64   `json:"lines_added,omitempty"`
 	LinesRemoved int64   `json:"lines_removed,omitempty"`
+
+	cmd cmdTrack // the latest slash command, so its reply finds its row
 }
 
 func (st *State) clone() State {
@@ -184,6 +191,8 @@ type Meta struct {
 	GitBranch string `json:"git_branch,omitempty"`
 	Version   string `json:"version,omitempty"`
 	Title     string `json:"title,omitempty"`
+
+	named bool // the person named the session (/rename): their name wins over a generated one
 }
 
 type Stats struct {
@@ -223,7 +232,7 @@ var silentTypes = map[string]bool{
 	"permission-mode": true, "last-prompt": true, "ai-title": true, "bridge-session": true,
 	"atis-latch": true, "file-history-delta": true, "agent-name": true, "frame-link": true,
 	"artifact-autoreact-ledger": true, "artifact-comment-monitor": true,
-	"cost-state": true,
+	"cost-state": true, "custom-title": true,
 }
 
 // envelopes are system payloads injected with role=user. Rendering them as chat bubbles
@@ -433,10 +442,18 @@ type record struct {
 	Version        string          `json:"version"`
 	Title          string          `json:"title"`
 	AgentName      string          `json:"agentName"`
+	AiTitle        string          `json:"aiTitle"` // what the CLI writes in ai-title records
+	CustomTitle    string          `json:"customTitle"`
 	Operation      string          `json:"operation"`
 	Content        string          `json:"content"`
 	Timestamp      string          `json:"timestamp"`
 	Message        json.RawMessage `json:"message"`
+	// IsMeta marks a user record the CLI wrote itself. SourceToolUseID says a tool call
+	// put it there (a skill's text after the Skill tool).
+	IsMeta           bool         `json:"isMeta"`
+	SourceToolUseID  string       `json:"sourceToolUseID"`
+	IsCompactSummary bool         `json:"isCompactSummary"`
+	CompactMetadata  *compactMeta `json:"compactMetadata"`
 }
 
 type message struct {
@@ -461,6 +478,7 @@ func Parse(r io.Reader) (*Result, error) { return ParseFrom(r, State{}) }
 // transcript, which is how the tailer keeps working/usage right across batches.
 func ParseFrom(r io.Reader, prev State) (*Result, error) {
 	res := &Result{Stats: Stats{ByKind: map[string]int{}, Unmapped: map[string]int{}}, State: prev.clone()}
+	res.State.cmd.row = -1     // an open command's row went out with an earlier batch
 	queued := map[string]int{} // queued prompt -> row index, so delivery resolves it
 
 	sc := bufio.NewScanner(r)
@@ -492,12 +510,18 @@ func ParseFrom(r io.Reader, prev State) (*Result, error) {
 		}
 		// ai-title / agent-name carry a human session name; the sessions list shows this
 		// rather than a directory basename.
-		if d.Type == "ai-title" || d.Type == "agent-name" {
-			if d.Title != "" {
+		if (d.Type == "ai-title" || d.Type == "agent-name") && !res.Meta.named {
+			if d.AiTitle != "" {
+				res.Meta.Title = d.AiTitle
+			} else if d.Title != "" {
 				res.Meta.Title = d.Title
 			} else if d.AgentName != "" {
 				res.Meta.Title = d.AgentName
 			}
+		}
+		// /rename writes the name the person gave the session.
+		if d.Type == "custom-title" && strings.TrimSpace(d.CustomTitle) != "" {
+			res.Meta.Title, res.Meta.named = strings.TrimSpace(d.CustomTitle), true
 		}
 
 		ts, _ := time.Parse(time.RFC3339, d.Timestamp)
@@ -528,9 +552,24 @@ func ParseFrom(r io.Reader, prev State) (*Result, error) {
 
 		switch {
 		case d.Type == "user":
-			res.handleUser(content, ts, queued, d.UUID)
+			res.handleUser(content, ts, queued, &d)
+
+		case d.Type == "system" && d.Subtype == "local_command":
+			// Newer CLIs write the command and its reply as system records.
+			c := strings.TrimSpace(d.Content)
+			if name, args, skill, ok := commandText(c); ok {
+				res.commandRow(name, args, skill, false, ts, d.UUID, queued)
+			} else if m := cmdReply.FindStringSubmatch(c); m != nil {
+				res.commandReply(m[1], m[2], ts)
+			} else {
+				res.Stats.Silent++
+			}
+
+		case d.Type == "system" && d.Subtype == "compact_boundary":
+			res.compactRow(d.CompactMetadata, ts)
 
 		case d.Type == "assistant":
+			res.State.cmd = cmdTrack{row: -1}
 			if msg.Model != "" {
 				res.State.Model = msg.Model
 			}
@@ -644,6 +683,9 @@ func ParseFrom(r io.Reader, prev State) (*Result, error) {
 			}
 
 		case silentTypes[d.Type]:
+			if d.Type == "system" {
+				res.State.cmd.open = false // a turn ended, a scheduled prompt fired: the command is over
+			}
 			res.Stats.Silent++
 
 		default:
@@ -657,7 +699,14 @@ func ParseFrom(r io.Reader, prev State) (*Result, error) {
 	return res, nil
 }
 
-func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, uuid string) {
+func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, d *record) {
+	uuid := d.UUID
+	if d.IsCompactSummary {
+		// The summary a compaction leaves for Claude; the divider row already says it happened.
+		res.Stats.Silent++
+		res.Stats.ByKind["(injected envelope, not shown)"]++
+		return
+	}
 	var txt string
 	switch v := content.(type) {
 	case []any:
@@ -704,6 +753,7 @@ func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, 
 			}
 		}
 		if got {
+			res.State.cmd = cmdTrack{row: -1}
 			return
 		}
 		var parts []string
@@ -721,7 +771,43 @@ func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, 
 		res.Stats.Silent++
 		return
 	}
+	if name, args, skill, ok := commandText(txt); ok {
+		// A meta command record is one the CLI wrote for itself: a skill a mode loads.
+		res.commandRow(name, args, skill, d.IsMeta && skill, ts, uuid, queued)
+		return
+	}
+	if m := cmdReply.FindStringSubmatch(txt); m != nil {
+		res.commandReply(m[1], m[2], ts)
+		return
+	}
 	kind, display := classifyUser(txt)
+	if kind == "user" && d.IsMeta {
+		// Text the CLI wrote, not the person: a skill's text after the Skill tool, or what
+		// a command writes after itself (/context's table, a skill run as a command).
+		// Anything else it injects (a scheduled prompt, a channel message) still reads as
+		// a prompt, as it did before.
+		if d.SourceToolUseID != "" {
+			res.Stats.Silent++
+			res.Stats.ByKind["(injected envelope, not shown)"]++
+			return
+		}
+		if res.commandBody(txt, ts) {
+			res.Stats.ByKind["(injected envelope, not shown)"]++
+			return
+		}
+	}
+	if kind == "user" && !d.IsMeta {
+		if m := compactLine.FindStringSubmatch(txt); m != nil {
+			// /compact is recorded as the line typed; its boundary and echo follow when done.
+			// The line is the person's even right after an auto compaction, so the echo
+			// swallowing that follows a boundary does not apply to it.
+			res.State.cmd = cmdTrack{row: -1}
+			res.commandRow("compact", strings.TrimSpace(m[1]), false, false, ts, uuid, queued)
+			res.State.startWorking(ts)
+			return
+		}
+		res.State.cmd = cmdTrack{row: -1}
+	}
 	switch kind {
 	case "silent":
 		res.Stats.Silent++

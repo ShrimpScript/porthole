@@ -468,6 +468,7 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
       <li><strong>Sending.</strong> Type, tap the slash button for Claude Code's commands with their descriptions, or attach a photo or a file with the paperclip: a PDF, a log, a spreadsheet, anything up to 10 MB in all per message. The keyboard's send key submits. Prompts are typed into the session's tmux pane exactly as written; attachments are saved in <code>~/.config/porthole/uploads</code> on the computer, never in the project, named in the prompt so Claude can open them, and removed after two weeks. A message whose files could not be sent comes back to the box.</li>
       <li><strong>Files.</strong> Type <code>@</code> and the session's files are listed above the composer, the most recently changed first; keep typing to narrow them by name or by part of the path, and tap one to put its path in the message. Claude Code reads a file named this way along with the prompt. In a git repository the list is git's (tracked files, and new ones that are not ignored); elsewhere it is the folder's files a few levels down, without hidden ones.</li>
       <li><strong>Quick replies.</strong> When Claude is idle and nothing is being asked, a row of one-tap sends sits above the composer: Continue, Yes, No, Looks good. The pencil edits the four.</li>
+      <li><strong>Commands.</strong> A slash command run in the session, at the desk or from the phone, is a card showing what it did rather than the CLI's echo: <code>/effort</code> with the level on a five-step meter and whether it is now the default for new sessions, <code>/model</code> with the model by name, <code>/rename</code> with the new name, and <code>/context</code> as the window to scale with what fills it, largest first. Any other command shows the CLI's reply, in red when it came as an error, and a skill run as a command says so. A compaction and a <code>/clear</code> are lines across the feed, with the tokens a compaction freed. Typed on their own, <code>/model</code>, <code>/effort</code>, <code>/cost</code>, <code>/stats</code> and <code>/status</code> open <a href="#details">Session details</a> instead of a menu on the computer's screen.</li>
     </ul>
   </div>
 </section>
@@ -557,12 +558,12 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
     <ul>
       <li>the session's name, with a pencil to rename it while Claude Code is running there: it types Claude Code's own <code>/rename</code>, so the name is the same at the desk;</li>
       <li>the model and the permission mode;</li>
-      <li>the context window: what the last request carried, out of the model's window;</li>
+      <li>the context window: what the last request carried, out of the model's window; under it, what fills it by category, from the feed's latest <code>/context</code>, with a button to measure again (the answer lands in the feed and here);</li>
       <li>tokens this session: input, output, thinking, cache read and cache written;</li>
       <li>when Claude Code has written its own accounting: the API-equivalent cost and time, and lines added and removed;</li>
       <li>activity: turns, your prompts, replies, tool calls, and the tools used most;</li>
       <li>when the session started and last did something;</li>
-      <li>the switches, this session's notifications, and one-tap <code>/cost</code>, <code>/context</code>, <code>/status</code> and <code>/usage</code>, which open in the Terminal view where the CLI prints its answer.</li>
+      <li>the switches, this session's notifications, and one-tap <code>/cost</code>, <code>/status</code> and <code>/usage</code>, which open in the Terminal view where the CLI prints its answer.</li>
     </ul>
   </div>
   <div class="d-phones" role="group" aria-label="Two views of Session details" tabindex="0">
@@ -583,13 +584,13 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
       <thead><tr><th scope="col">Switch</th><th scope="col">What a tap does</th><th scope="col">Where the current value comes from</th></tr></thead>
       <tbody>
         <tr><td>Model</td><td><code>/model fable</code>, <code>opus</code>, <code>sonnet</code> or <code>haiku</code></td><td>the latest reply in the transcript</td></tr>
-        <tr><td>Effort</td><td><code>/effort low</code>, <code>medium</code>, <code>high</code> or <code>xhigh</code></td><td>the CLI's own effort line, shown after a turn; before that, the saved default, and the row says so</td></tr>
+        <tr><td>Effort</td><td><code>/effort low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code> or <code>max</code></td><td>the CLI's own effort line, shown after a turn; before that, the saved default, and the row says so</td></tr>
         <tr><td>Permissions</td><td>Shift-Tab, which cycles bypass &rarr; auto &rarr; manual &rarr; accept edits &rarr; plan</td><td>the CLI's bottom line</td></tr>
       </tbody>
     </table>
   </div>
   <div class="prose">
-    <p>The highlight follows the CLI's confirmation, not the tap. Model and effort changes also become your defaults for new sessions, because the CLI saves them; the sheet says so under the switches.</p>
+    <p>The highlight follows the CLI's confirmation, not the tap. Model and effort changes also become your defaults for new sessions, because the CLI saves them, except <code>max</code> effort, which the CLI keeps to this session; the sheet says so under the switches.</p>
   </div>
 </section>
 

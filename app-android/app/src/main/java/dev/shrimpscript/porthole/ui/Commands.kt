@@ -37,19 +37,22 @@ data class CliCommand(
     val arg: String? = null,
     /** True when the result shows in the CLI's screen rather than in the transcript. */
     val terminal: Boolean = false,
+    /** Bare, it opens the session sheet, which has the same switches and numbers natively. */
+    val sheet: Boolean = false,
 )
 
 val CLI_COMMANDS = listOf(
-    CliCommand("/model", "Switch the model", arg = "opus · sonnet · haiku · fable"),
-    CliCommand("/effort", "Set reasoning effort", arg = "low · medium · high · xhigh"),
+    CliCommand("/model", "Switch the model", arg = "opus · sonnet · haiku · fable", sheet = true),
+    CliCommand("/effort", "Set reasoning effort", arg = "low · medium · high · xhigh · max", sheet = true),
     CliCommand("/fast", "Toggle fast mode"),
     CliCommand("/compact", "Compress the conversation", arg = "optional focus"),
     CliCommand("/clear", "Start a fresh conversation"),
-    CliCommand("/cost", "Token usage and cost", terminal = true),
-    CliCommand("/context", "What is in the context window", terminal = true),
-    CliCommand("/status", "Session status", terminal = true),
+    CliCommand("/cost", "Token usage and cost", terminal = true, sheet = true),
+    // The CLI writes /context's table to the transcript, so it answers in the feed.
+    CliCommand("/context", "What is in the context window"),
+    CliCommand("/status", "Session status", terminal = true, sheet = true),
     CliCommand("/usage", "Plan usage and limits", terminal = true),
-    CliCommand("/stats", "Session statistics", terminal = true),
+    CliCommand("/stats", "Session statistics", terminal = true, sheet = true),
     CliCommand("/permissions", "Edit tool permissions", terminal = true),
     CliCommand("/resume", "Pick a past conversation", terminal = true),
     CliCommand("/rewind", "Undo recent changes", terminal = true),
@@ -63,6 +66,9 @@ val CLI_COMMANDS = listOf(
     CliCommand("/doctor", "Check the install", terminal = true),
     CliCommand("/help", "All commands", terminal = true),
 )
+
+/** A bare command (no argument) that the session sheet answers: "/model", "/cost". */
+fun opensSheet(text: String): Boolean = text.trim().let { t -> CLI_COMMANDS.any { it.sheet && it.name == t } }
 
 /** Commands matching what has been typed so far ("/mo" -> /model). */
 fun matchingCommands(draft: String): List<CliCommand> {
@@ -107,7 +113,7 @@ fun CommandSuggestions(
                     Text(cmd.summary, style = PortholeType.secondary, color = c.text)
                     if (cmd.arg != null) Text(cmd.arg, style = PortholeType.meta, color = c.faint)
                 }
-                if (cmd.terminal) {
+                if (cmd.terminal && !cmd.sheet) {
                     Icon(
                         Icons.Outlined.Terminal, contentDescription = "Shows in the terminal",
                         tint = c.faint, modifier = Modifier.padding(start = 4.dp),

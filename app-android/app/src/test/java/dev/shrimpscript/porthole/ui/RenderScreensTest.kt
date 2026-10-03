@@ -480,6 +480,113 @@ class RenderScreensTest {
         save("agents-sheet")
     }
 
+    private fun cmdRow(ts: String, cmd: dev.shrimpscript.porthole.net.CommandInfo, detail: String = "") = Row(
+        kind = "command", glyph = "/", text = "/${cmd.name}", metric = "", detail = detail, truncated = false, ts = ts,
+        toolId = "cmd:$ts", command = cmd,
+    )
+
+    private val contextFixture = dev.shrimpscript.porthole.net.ContextUsage(
+        "claude-opus-5-5", 27_100, 1_000_000, listOf(
+            dev.shrimpscript.porthole.net.ContextPart("System prompt", 2_400),
+            dev.shrimpscript.porthole.net.ContextPart("System tools", 12_200),
+            dev.shrimpscript.porthole.net.ContextPart("MCP tools", 137_800, "deferred"),
+            dev.shrimpscript.porthole.net.ContextPart("Skills", 10_000),
+            dev.shrimpscript.porthole.net.ContextPart("Memory files", 924),
+            dev.shrimpscript.porthole.net.ContextPart("Messages", 1_300),
+            dev.shrimpscript.porthole.net.ContextPart("Free space", 939_900, "free"),
+            dev.shrimpscript.porthole.net.ContextPart("Autocompact buffer", 33_000, "buffer"),
+        ),
+    )
+
+    @androidx.compose.runtime.Composable
+    private fun CommandsSession(rows: List<Row>) {
+        SessionScreen(
+            title = "Release prep", branch = "main · tmux work", ring = RingState.Live, live = true,
+            rows = rows, backfillCount = rows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+            view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+            terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+            notice = null, onDismissNotice = {}, state = state(working = false).copy(pendingTool = ""),
+            status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "", interruptible = false),
+            caps = listOf("attach", "files"),
+        )
+    }
+
+    /** Commands run at the desk: what each one set, not the CLI's echo. */
+    @Test
+    fun commandCardsInTheFeed() {
+        val rows = listOf(
+            cmdRow("2026-10-02T09:40:00Z", dev.shrimpscript.porthole.net.CommandInfo(
+                "effort", args = "high", value = "high", saved = true,
+                output = "Set effort level to high (saved as your default for new sessions): Comprehensive implementation with extensive testing and documentation",
+            )),
+            cmdRow("2026-10-02T09:41:00Z", dev.shrimpscript.porthole.net.CommandInfo(
+                "model", value = "Fable 5.1", output = "Kept model as `Fable 5.1`",
+            )),
+            cmdRow("2026-10-02T09:42:00Z", dev.shrimpscript.porthole.net.CommandInfo(
+                "rename", args = "release prep", value = "release prep", output = "Session renamed to: release prep",
+            )),
+            cmdRow("2026-10-02T09:43:00Z", dev.shrimpscript.porthole.net.CommandInfo("login", output = "Login interrupted", error = true), detail = "Login interrupted"),
+            cmdRow("2026-10-02T09:44:00Z", dev.shrimpscript.porthole.net.CommandInfo("scope-and-clarify", args = "the release checklist", skill = true)),
+        )
+        rule.setContent { PortholeTheme { CommandsSession(rows) } }
+        rule.waitForIdle()
+        rule.onNodeWithText("/effort").assertIsDisplayed()
+        rule.onNodeWithText("Also the default for new sessions").assertIsDisplayed()
+        rule.onNodeWithText("Comprehensive implementation", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Fable 5.1").assertIsDisplayed()
+        rule.onNodeWithText("Unchanged").assertIsDisplayed()
+        rule.onNodeWithText("The session's new name").assertIsDisplayed()
+        rule.onNodeWithText("Login interrupted").assertIsDisplayed()
+        rule.onNodeWithText("Skill loaded").assertIsDisplayed()
+        save("commands-feed")
+    }
+
+    /** /context as a card, and a compaction and a /clear as rules across the feed. */
+    @Test
+    fun contextCardAndCompactionInTheFeed() {
+        val rows = listOf(
+            row("user", "How full is the window?", "2026-10-02T09:39:00Z"),
+            cmdRow("2026-10-02T09:40:00Z", dev.shrimpscript.porthole.net.CommandInfo("context", context = contextFixture)),
+            cmdRow("2026-10-02T09:45:00Z", dev.shrimpscript.porthole.net.CommandInfo(
+                "compact", compact = dev.shrimpscript.porthole.net.Compaction("auto", 970_287, 13_445, 145_410),
+            )),
+            row("assistant", "Picking up from the summary: the checklist is half done.", "2026-10-02T09:45:30Z"),
+            cmdRow("2026-10-02T09:46:00Z", dev.shrimpscript.porthole.net.CommandInfo("workflow-authoring", skill = true, auto = true)),
+            cmdRow("2026-10-02T09:50:00Z", dev.shrimpscript.porthole.net.CommandInfo("clear")),
+        )
+        rule.setContent { PortholeTheme { CommandsSession(rows) } }
+        rule.waitForIdle()
+        rule.onNodeWithText("27k of 1.0M").assertIsDisplayed()
+        rule.onNodeWithText("3% · Opus 5.5").assertIsDisplayed()
+        rule.onNodeWithText("33k at the end is held back for autocompact.").assertIsDisplayed()
+        rule.onNodeWithText("System tools").assertIsDisplayed()
+        rule.onNodeWithText("Loaded only when used: MCP tools 138k").assertIsDisplayed()
+        rule.onNodeWithText("Compacted automatically · 970k → 13k tokens", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Conversation cleared", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Claude Code loaded the workflow-authoring skill").assertIsDisplayed()
+        save("commands-context")
+    }
+
+    /** The session sheet's own /context section, drawn without the modal sheet. */
+    @Test
+    fun contextSectionInTheSheet() {
+        rule.setContent {
+            PortholeTheme {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(20.dp)) {
+                    androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(24.dp)) {
+                        ContextSection(cmdRow("2026-10-02T09:40:00Z", dev.shrimpscript.porthole.net.CommandInfo("context", context = contextFixture)), true) {}
+                        ContextSection(null, true) {}
+                    }
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("From /context at", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Measure again").assertIsDisplayed()
+        rule.onNodeWithText("Run /context to see what fills the window.").assertIsDisplayed()
+        save("commands-sheet-context")
+    }
+
     /** The working icon, the screw: sizes, a turn in eighths, on the ground and on a card, and at rest. */
     @Test
     fun screwAtEverySizeAndThroughATurn() {

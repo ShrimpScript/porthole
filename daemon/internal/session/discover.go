@@ -86,7 +86,15 @@ func peek(path string, size int64) (peeked, error) {
 			AgentName   string `json:"agentName"`
 			CustomTitle string `json:"customTitle"`
 			Timestamp   string `json:"timestamp"`
-			Message     *struct {
+			// Text the CLI writes for itself is not a prompt (as in the feed): a compaction's
+			// summary, and the meta record holding /context's table. (A skill's text does
+			// mean work: a skill the person ran starts a turn, one Claude loads is mid-turn.)
+			IsMeta           bool `json:"isMeta"`
+			IsCompactSummary bool `json:"isCompactSummary"`
+			CompactMetadata  *struct {
+				Trigger string `json:"trigger"`
+			} `json:"compactMetadata"`
+			Message *struct {
 				Model      string          `json:"model"`
 				StopReason string          `json:"stop_reason"`
 				Content    json.RawMessage `json:"content"`
@@ -114,7 +122,7 @@ func peek(path string, size int64) (peeked, error) {
 			}
 		case "user":
 			if d.Message != nil {
-				if userStartsTurn(d.Message.Content) {
+				if !d.IsCompactSummary && !(d.IsMeta && contextTable(d.Message.Content)) && userStartsTurn(d.Message.Content) {
 					// A tool result or a prompt: the question was dealt with. An injected
 					// envelope (<task-notification>, a reminder) is not, and must not clear it.
 					// Only the record that opens the turn sets its start: a tool result
@@ -134,6 +142,11 @@ func peek(path string, size int64) (peeked, error) {
 			}
 		case "system":
 			if d.Subtype == "turn_duration" {
+				meta.Working = false
+				meta.Doing, meta.Asking = "", ""
+			}
+			// A manual /compact is over once its boundary is written; an auto one is mid-turn.
+			if d.Subtype == "compact_boundary" && (d.CompactMetadata == nil || d.CompactMetadata.Trigger != "auto") {
 				meta.Working = false
 				meta.Doing, meta.Asking = "", ""
 			}
@@ -374,6 +387,25 @@ func userStartsTurn(content json.RawMessage) bool {
 					return true
 				}
 			}
+		}
+	}
+	return false
+}
+
+// contextTable reports the meta user record /context writes its table into.
+func contextTable(content json.RawMessage) bool {
+	is := func(t string) bool { return strings.HasPrefix(strings.TrimSpace(t), "## Context Usage") }
+	var s string
+	if json.Unmarshal(content, &s) == nil {
+		return is(s)
+	}
+	var blocks []map[string]any
+	if json.Unmarshal(content, &blocks) != nil {
+		return false
+	}
+	for _, b := range blocks {
+		if t, ok := b["text"].(string); ok && is(t) {
+			return true
 		}
 	}
 	return false

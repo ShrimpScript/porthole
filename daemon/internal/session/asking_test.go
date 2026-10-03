@@ -89,3 +89,28 @@ func TestWorkingSinceIsWhenTheTurnBegan(t *testing.T) {
 		t.Fatalf("working since %s, want the prompt's 2026-09-14T06:05:22Z", got)
 	}
 }
+
+// Text the CLI writes for itself is not a prompt in the list either: /context's table and a
+// compaction's summary leave an idle session idle, and a manual /compact ends at its boundary.
+func TestTheCLIsOwnTextDoesNotStartWork(t *testing.T) {
+	end := `{"type":"assistant","message":{"model":"claude-fable-5-1","role":"assistant","content":[{"type":"text","text":"done"}],"stop_reason":"end_turn"},"timestamp":"2026-10-03T06:00:00.000Z","cwd":"/srv/proj","sessionId":"fixture"}`
+	for name, tail := range map[string]string{
+		"context table": `{"type":"user","isMeta":true,"message":{"role":"user","content":"## Context Usage\n\n**Tokens:** 27.1k / 1m (3%)"},"timestamp":"2026-10-03T06:01:00.000Z"}`,
+		"compaction": `{"type":"user","message":{"role":"user","content":"/compact"},"timestamp":"2026-10-03T06:01:00.000Z"}` + "\n" +
+			`{"type":"system","subtype":"compact_boundary","compactMetadata":{"trigger":"manual"},"timestamp":"2026-10-03T06:01:10.000Z"}` + "\n" +
+			`{"type":"user","isCompactSummary":true,"message":{"role":"user","content":"This session is being continued from a previous conversation."},"timestamp":"2026-10-03T06:01:11.000Z"}`,
+	} {
+		path := filepath.Join(t.TempDir(), "s.jsonl")
+		body := promptRec + "\n" + end + "\n" + tail + "\n"
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		m, err := peek(path, int64(len(body)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Working {
+			t.Errorf("%s: reads as working", name)
+		}
+	}
+}

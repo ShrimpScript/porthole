@@ -55,13 +55,6 @@ func TestInterruptBecomesASessionEvent(t *testing.T) {
 	}
 }
 
-func TestSlashCommandBecomesANamedEvent(t *testing.T) {
-	res := parse(t, `{"type":"user","message":{"content":"<command-name>compact</command-name><args/>"}}`)
-	if len(res.Rows) != 1 || res.Rows[0].Text != "You ran /compact" {
-		t.Fatalf("got %+v", res.Rows)
-	}
-}
-
 func TestToolCallAndResult(t *testing.T) {
 	res := parse(t,
 		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"cargo test"}}]}}`,
@@ -160,6 +153,7 @@ func TestParityWithReplayPy(t *testing.T) {
 		"tool call": KindTool, "result": KindResult,
 		"queued user message": KindQueued, "session event": KindEvent,
 		"turn summary": KindTurn, "image": KindImage, "question": KindQuestion,
+		"command": KindCommand,
 	}
 
 	checked, totalRecords, totalRows := 0, 0, 0
@@ -247,5 +241,27 @@ func TestAnAgentCallIsDelegatedWork(t *testing.T) {
 	}
 	if r.Agent == nil || r.Agent.Type != "general-purpose" || r.Agent.Model != "sonnet" || !r.Agent.Background || r.Agent.Description != "Fix the flaky test" {
 		t.Errorf("agent call: %+v", r.Agent)
+	}
+}
+
+// /rename writes custom-title: the person's name for the session, which a title Claude
+// Code generates later does not replace.
+func TestTheNameThePersonGaveWins(t *testing.T) {
+	res := parse(t,
+		`{"type":"ai-title","aiTitle":"Probe some commands"}`,
+	)
+	if res.Meta.Title != "Probe some commands" {
+		t.Fatalf("ai-title: %q", res.Meta.Title)
+	}
+	res = parse(t,
+		`{"type":"ai-title","aiTitle":"Probe some commands"}`,
+		`{"type":"custom-title","customTitle":"probe commands","sessionId":"s"}`,
+		`{"type":"ai-title","aiTitle":"Probe some commands again"}`,
+	)
+	if res.Meta.Title != "probe commands" {
+		t.Fatalf("title %q", res.Meta.Title)
+	}
+	if len(res.Stats.Unmapped) != 0 {
+		t.Fatalf("custom-title is a known record: %v", res.Stats.Unmapped)
 	}
 }

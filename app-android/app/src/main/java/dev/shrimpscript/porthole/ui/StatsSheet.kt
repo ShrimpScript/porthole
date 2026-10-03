@@ -61,6 +61,8 @@ fun StatsSheet(
     onMuted: (Boolean) -> Unit = {},
     /** Claude Code is running in the session, so /rename can be typed into it. */
     canRename: Boolean = false,
+    /** The feed's latest /context card, if any: the window by category. */
+    context: dev.shrimpscript.porthole.net.Row? = null,
 ) {
     val c = Porthole.colors
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -127,6 +129,7 @@ fun StatsSheet(
                     style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(top = 6.dp),
                 )
             }
+            ContextSection(context, canRename) { onSend("/context") }
 
             // tokens
             Section("Tokens this session") {
@@ -208,7 +211,7 @@ fun StatsSheet(
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("/cost", "/context", "/status", "/usage").forEach { n ->
+                    listOf("/cost", "/status", "/usage").forEach { n ->
                         val cmd = CLI_COMMANDS.first { it.name == n }
                         Chip(n, accent = true) { onCommand(cmd) }
                     }
@@ -393,7 +396,7 @@ fun SwitchesSection(state: SessionState?, status: TuiStatus?, onSend: (String) -
             effortDefault.isNotBlank() -> "$effortDefault (the saved default; this session's level shows after its next turn)"
             else -> "not shown"
         }) {
-            listOf("low", "medium", "high", "xhigh").forEach { level ->
+            EFFORT_LEVELS.forEach { level ->
                 Chip(level, accent = level == effort) { onSend("/effort $level") }
             }
         }
@@ -403,7 +406,7 @@ fun SwitchesSection(state: SessionState?, status: TuiStatus?, onSend: (String) -
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "Model and effort also become the defaults for new sessions; the CLI saves them.",
+            "Model and effort also become the defaults for new sessions; the CLI saves them. Max effort is the exception: it lasts this session only.",
             style = PortholeType.meta, color = c.faint,
         )
     }
@@ -418,4 +421,28 @@ private fun SwitchRow(name: String, current: String, chips: @Composable () -> Un
     }
     Spacer(Modifier.height(6.dp))
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
+}
+
+/**
+ * What the window is made of, from the feed's latest /context card, and a way to measure
+ * again: the CLI writes its table to the transcript, so the answer lands as a card in the
+ * feed and here, with no trip to the terminal.
+ */
+@Composable
+fun ContextSection(context: dev.shrimpscript.porthole.net.Row?, canMeasure: Boolean, onMeasure: () -> Unit) {
+    val c = Porthole.colors
+    val usage = context?.command?.context
+    Section("By category") {
+        if (usage != null) {
+            ContextBreakdown(usage)
+            val t = clockTime(context.ts)
+            if (t.isNotEmpty()) Text("From /context at $t.", style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(top = 6.dp))
+        } else {
+            Text("Run /context to see what fills the window.", style = PortholeType.meta, color = c.faint)
+        }
+        if (canMeasure) {
+            Spacer(Modifier.height(8.dp))
+            Chip(if (usage != null) "Measure again" else "Run /context", accent = true) { onMeasure() }
+        }
+    }
 }
