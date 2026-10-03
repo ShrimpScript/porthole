@@ -14,6 +14,9 @@
 # use the same key, or Android refuses the update. The store bundle is built with
 # -Pporthole.store=true, which compiles the GitHub update check out; point KEYSTORE_PROPS
 # at the store upload key's properties to sign it with that key instead.
+#
+# GRADLE_ARGS is passed to every Gradle run, for a machine short of memory:
+#   GRADLE_ARGS="--no-daemon -Dorg.gradle.jvmargs=-Xmx1400m -Dorg.gradle.parallel=false" tools/release.sh ...
 set -euo pipefail
 
 VERSION="${1:-}"
@@ -80,7 +83,7 @@ done
 # 4. App: unit tests and the APK, whose R8 mapping is kept before the bundle build
 # overwrites it - without it a crash report from this APK cannot be read.
 MAPPING="app-android/app/build/outputs/mapping/release/mapping.txt"
-run bash -c "cd app-android && ./gradlew -q :app:testDebugUnitTest :app:assembleRelease"
+run bash -c "cd app-android && ./gradlew -q ${GRADLE_ARGS:-} :app:testDebugUnitTest :app:assembleRelease"
 run cp app-android/app/build/outputs/apk/release/app-release.apk "$DIST/porthole.apk"
 run mkdir -p "$KEEP"
 if [ "$DRY" = 0 ]; then
@@ -92,10 +95,10 @@ fi
 STORE="-Pporthole.store=true"
 if [ -n "${KEYSTORE_PROPS:-}" ]; then
     echo "bundle signed with $KEYSTORE_PROPS"
-    run env -C app-android ./gradlew -q :app:bundleRelease "$STORE" -Pporthole.keystoreProps="$KEYSTORE_PROPS"
+    run env -C app-android ./gradlew -q ${GRADLE_ARGS:-} :app:bundleRelease "$STORE" -Pporthole.keystoreProps="$KEYSTORE_PROPS"
 else
     echo "no KEYSTORE_PROPS: the bundle is signed with the APK's key (fine for testing, not for a store)"
-    run env -C app-android ./gradlew -q :app:bundleRelease "$STORE"
+    run env -C app-android ./gradlew -q ${GRADLE_ARGS:-} :app:bundleRelease "$STORE"
 fi
 run cp app-android/app/build/outputs/bundle/release/app-release.aab "$DIST/porthole-$VERSION-store.aab"
 [ "$DRY" = 1 ] || gzip -c "$MAPPING" > "$KEEP/porthole-$VERSION-store.txt.gz"
