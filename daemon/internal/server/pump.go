@@ -1011,16 +1011,16 @@ func (s *Server) sendPrompt(ctx context.Context, w *writer, id, text, device, re
 
 	target := typeTarget(si)
 	dismissPanel(ctx, si)
-	// send-keys -l is literal: no key-name interpretation, so a prompt containing
-	// "Enter" or ";" is typed rather than executed.
-	// "--" ends tmux's own options, so a prompt beginning with "-" is typed, not parsed.
-	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, "-l", "--", text).Run(); err != nil {
+	submitted, err := typePrompt(ctx, si, text)
+	if err != nil {
 		_ = w.send(ctx, proto.NewErrorFor("send_failed", fmt.Sprintf("could not type into %s", target), ref))
 		return false
 	}
-	// A separate call, because -l would type the word "Enter".
-	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, "Enter").Run(); err != nil {
-		_ = w.send(ctx, proto.NewErrorFor("send_failed", "could not submit the prompt", ref))
+	if !submitted {
+		// In the box at the desk, not sent: the phone keeps its copy, and says where this one is.
+		s.log.Warn("prompt typed but not submitted", "session", si.Title, "from", device, "chars", len(text))
+		_ = w.send(ctx, proto.NewErrorFor("send_failed",
+			"Claude Code did not take the Enter: the message is waiting in its input box at the desk. Press Enter there, or clear the box before sending it again", ref))
 		return false
 	}
 	s.log.Info("prompt sent", "session", si.Title, "from", device, "chars", len(text))

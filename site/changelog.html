@@ -115,6 +115,16 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.37.1" class="v">0.37.1</span>
+        <h2>A long message with pictures is sent, not left at the desk</h2>
+        <div class="rel-date"><span>3 October 2026</span><span class="tag">fixes</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>Fix: a long message with pictures could be left unsent in Claude Code's box at the desk.</b> Claude Code attaches pictures named in a message one by one, and an Enter that arrives while it does is lost. The daemon pressed Enter at once, so the message sat in the box at the desk unsent, while the phone was told it had gone and let go of it. Now the daemon types the message as one paste, waits a moment longer for one with files, and watches for Claude Code to record it. If the message is still in the box, it presses Enter again (only then, so a stray Enter never answers anything else). If Claude Code still has not taken it, the phone is told, and the message and its files come back to the box. Checked against a real Claude Code with three pictures. Mac and Linux alike.</li>
+          </ul>
+        </div>
+      </section>
+      <section class="rel">
         <span id="v0.37.0" class="v">0.37.0</span>
         <h2>Steady through a bad connection</h2>
         <div class="rel-date"><span>3 October 2026</span><span class="tag">feature</span><span class="tag">fixes</span></div>
