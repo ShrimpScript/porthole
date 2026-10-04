@@ -115,6 +115,22 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.38.0" class="v">0.38.0</span>
+        <h2>Questions you can answer, screenshots that work</h2>
+        <div class="rel-date"><span>3 October 2026</span><span class="tag">fixes</span><span class="tag">feature</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>Fix: Claude's questions could show with nothing to tap.</b> A session's tmux window could be left one row tall, with nobody attached at the desk, and Claude Code then drew its question picker into that one line, so the phone found no choices to offer. The daemon now gives such a window a readable size while nobody is at the desk, and puts tmux's own sizing back, so your terminal still sizes it when you sit down. If a question still cannot be read from the screen, the phone shows it with a button to answer it in the terminal, instead of nothing.</li>
+            <li><b>Fix: screenshots failed whenever you were away.</b> Sleeping screens draw nothing, and the capture waited for a frame that never came. A screenshot or a clip now wakes the screens that are asleep, takes the picture, and puts them back to sleep a few seconds later, unless the mouse moved meanwhile because someone sat down. The caption says when it did. Failures are logged on the computer. Hyprland and sway on Linux; on a Mac the display wakes and sleeps again on its own timer.</li>
+            <li><b>Fix: the website button.</b> A dev server shared from the phone is now opened at the computer's tailnet address, which needs no name lookup in the phone's browser, and a share also answers to the computer's short MagicDNS name, which it used to refuse. Each step is logged on the computer. Checked end to end with a real dev server.</li>
+            <li><b>Fix: links ended in <code>**</code>.</b> When Claude writes a link in bold, the closing stars are no longer read as part of the address.</li>
+            <li><b>Sent files look like files.</b> A message with pictures or files shows them beside its bubble, pictures as thumbnails and other files as named chips, instead of the paths the daemon adds and the <code>[Image #1]</code> tokens and paste tags Claude Code writes. A picture Claude Code attached from your message sits small on your side of the feed.</li>
+            <li><b>Quick replies in Settings.</b> With every quick reply deleted, a pencil used to sit alone above the message box. Now the row goes, and Settings has a Quick replies entry to edit them or bring them back.</li>
+            <li><b>Live view removed.</b> "Watch the screen" was a loop of screenshots, slow and with the same problem with sleeping screens. A real remote desktop is planned as its own release.</li>
+          </ul>
+        </div>
+      </section>
+      <section class="rel">
         <span id="v0.37.1" class="v">0.37.1</span>
         <h2>A long message with pictures is sent, not left at the desk</h2>
         <div class="rel-date"><span>3 October 2026</span><span class="tag">fixes</span></div>

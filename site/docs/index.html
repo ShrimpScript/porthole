@@ -651,9 +651,9 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
 <section class="d-sec" id="capture">
   <h2><a href="#capture">Screen capture</a></h2>
   <div class="prose">
-    <p>The camera in a session's header takes a screenshot of the computer's screen, which lands in the feed as a row, or watches the screen with a new frame every two seconds, or records a 5 or 10 second clip. Only when you ask, and the Authorize screen says so.</p>
+    <p>The camera in a session's header takes a screenshot of the computer's screen, which lands in the feed as a row, or records a 5 or 10 second clip. Only when you ask, and the Authorize screen says so. Screens that have gone to sleep are woken for the capture and put back to sleep after it, and the picture's caption says so; on a Mac the display wakes and goes back to sleep on its own timer. A live view of the desktop is planned as a remote desktop of its own.</p>
     <p><b>On a Mac</b> it uses the system's own <code>screencapture</code>, of the main display. macOS asks once, at the Mac, to let portholed record the screen (System Settings &rsaquo; Privacy &amp; Security &rsaquo; Screen &amp; System Audio Recording); until it is allowed, a capture fails or shows only the wallpaper. Clips are shrunk with <code>ffmpeg</code> when it is installed, otherwise with the system's <code>avconvert</code>.</p>
-    <p><b>On Linux</b> it needs a Wayland desktop with <code>grim</code> for screenshots and <code>wf-recorder</code> for clips; with more than one monitor, Hyprland's focused one.</p>
+    <p><b>On Linux</b> it needs a Wayland desktop with <code>grim</code> for screenshots and <code>wf-recorder</code> for clips; with more than one monitor, Hyprland's focused one. Waking sleeping screens works on Hyprland and sway.</p>
   </div>
 </section>
 

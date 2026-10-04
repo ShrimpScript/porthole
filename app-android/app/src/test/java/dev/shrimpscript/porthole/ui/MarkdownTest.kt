@@ -99,6 +99,16 @@ class MarkdownTest {
         assertFalse(Markdown.looksFormatted("Just a sentence."))
     }
 
+    /** Claude writes a link in bold: the stars close the bold, they are not part of the address. */
+    @Test fun `a bold link keeps its stars out of the address`() {
+        val spans = Markdown.inlines("Open **https://porthole-one.vercel.app/docs** now, or *localhost:5173*!")
+        val links = spans.filter { it.link != null }
+        assertEquals(listOf("https://porthole-one.vercel.app/docs", "http://localhost:5173"), links.map { it.link })
+        assertEquals(listOf("https://porthole-one.vercel.app/docs", "localhost:5173"), links.map { it.text })
+        assertTrue("the link is bold", links[0].bold)
+        assertTrue("no stars are left over", spans.none { it.text.contains("*") })
+    }
+
     @Test fun `bare localhost addresses become http links, plain hosts do not`() {
         val spans = Markdown.inlines("running on localhost:5173/app now, see 127.0.0.1:8080.")
         val links = spans.filter { it.link != null }

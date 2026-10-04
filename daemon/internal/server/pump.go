@@ -787,11 +787,15 @@ func (s *Server) pollStatus(ctx context.Context, w *writer, id, target string) {
 	var last statusFrame
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
-	for {
+	for n := 0; ; n++ {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
+		}
+		// A window shrunk to a line hides everything read below; checked now and then.
+		if n%10 == 0 {
+			ensureReadable(ctx, target, s.log)
 		}
 		out, err := exec.CommandContext(ctx, "tmux", "capture-pane", "-p", "-t", target).Output()
 		if err != nil {
@@ -1010,6 +1014,7 @@ func (s *Server) sendPrompt(ctx context.Context, w *writer, id, text, device, re
 	}
 
 	target := typeTarget(si)
+	ensureReadable(ctx, captureTarget(si), s.log)
 	dismissPanel(ctx, si)
 	submitted, err := typePrompt(ctx, si, text)
 	if err != nil {
@@ -1113,23 +1118,34 @@ func (s *Server) serveImage(ctx context.Context, w *writer, id, ref string) {
 	if strings.HasPrefix(ref, "file:") {
 		path := strings.TrimPrefix(ref, "file:")
 		home, _ := os.UserHomeDir()
+		// Cleaned and resolved first: a path climbing out of home with ".." and a link out of home
+		// would otherwise pass a check on the text alone.
+		if filepath.IsAbs(path) {
+			path = filepath.Clean(path)
+			if real, err := filepath.EvalSymlinks(path); err == nil {
+				path = real
+			}
+		}
+		if realHome, err := filepath.EvalSymlinks(home); err == nil && home != "" {
+			home = realHome
+		}
 		if !filepath.IsAbs(path) || home == "" || !strings.HasPrefix(path, home+"/") {
-			_ = w.send(ctx, proto.NewError("bad_ref", "only files under your home can be shown"))
+			_ = w.send(ctx, proto.NewErrorFor("bad_ref", "only files under your home can be shown", ref))
 			return
 		}
 		media := transcript.ImageMedia(path)
 		if media == "" {
-			_ = w.send(ctx, proto.NewError("bad_ref", "not an image"))
+			_ = w.send(ctx, proto.NewErrorFor("bad_ref", "not an image", ref))
 			return
 		}
 		fi, err := os.Stat(path)
 		if err != nil || fi.Size() > maxImageBytes {
-			_ = w.send(ctx, proto.NewError("no_image", "that file is gone or too large to send"))
+			_ = w.send(ctx, proto.NewErrorFor("no_image", "that file is gone or too large to send", ref))
 			return
 		}
 		b, err := os.ReadFile(path)
 		if err != nil {
-			_ = w.send(ctx, proto.NewError("no_image", err.Error()))
+			_ = w.send(ctx, proto.NewErrorFor("no_image", err.Error(), ref))
 			return
 		}
 		reply(media, base64.StdEncoding.EncodeToString(b))
@@ -1139,7 +1155,7 @@ func (s *Server) serveImage(ctx context.Context, w *writer, id, ref string) {
 	n, _ := strconv.Atoi(nStr)
 	si, found := s.findSession(id)
 	if !ok || !found {
-		_ = w.send(ctx, proto.NewError("bad_ref", "unknown image reference"))
+		_ = w.send(ctx, proto.NewErrorFor("bad_ref", "unknown image reference", ref))
 		return
 	}
 	files, _ := filepath.Glob(filepath.Join(filepath.Dir(si.Transcript), "*.jsonl"))
@@ -1147,14 +1163,14 @@ func (s *Server) serveImage(ctx context.Context, w *writer, id, ref string) {
 		media, data, err := transcript.ImageBlock(f, uuid, n)
 		if err == nil {
 			if len(data) > maxImageBytes*4/3 {
-				_ = w.send(ctx, proto.NewError("no_image", "that image is too large to send"))
+				_ = w.send(ctx, proto.NewErrorFor("no_image", "that image is too large to send", ref))
 				return
 			}
 			reply(media, data)
 			return
 		}
 	}
-	_ = w.send(ctx, proto.NewError("no_image", "that image is no longer in the transcript"))
+	_ = w.send(ctx, proto.NewErrorFor("no_image", "that image is no longer in the transcript", ref))
 }
 
 func uploadsDir() string {
@@ -1231,19 +1247,34 @@ func (s *Server) captureStill(ctx context.Context, w *writer, device string, liv
 	sweepCaptures()
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	// An older app's live view asks for a frame every two seconds: never woken for that,
+	// or the screens would power-cycle all along.
+	woke := false
+	if !live {
+		woke = s.screens.acquire(cctx)
+		defer s.screens.release()
+	}
 	b, media, err := still(cctx)
 	if err != nil {
+		s.log.Warn("screenshot failed", "from", device, "err", err)
+		if cctx.Err() != nil {
+			err = errors.New("the screen did not give a picture in 10 seconds (is it asleep or locked?)")
+		}
 		_ = w.send(ctx, proto.NewError("capture_failed", err.Error()))
 		return
+	}
+	caption := "Screen"
+	if woke {
+		caption = "Screen (woke the displays for it)"
 	}
 	ref := fmt.Sprintf("capture:%d", time.Now().UnixMilli())
 	if live {
 		ref = "live" // one slot: the watch view shows the newest frame
 	} else {
-		s.log.Info("screenshot sent", "from", device, "bytes", len(b))
+		s.log.Info("screenshot sent", "from", device, "bytes", len(b), "woke", woke)
 	}
 	_ = w.send(ctx, imageFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeImageData},
-		Ref: ref, Media: media, Data: base64.StdEncoding.EncodeToString(b), Text: "Screen"})
+		Ref: ref, Media: media, Data: base64.StdEncoding.EncodeToString(b), Text: caption})
 }
 
 // still is one screenshot and its media type: screencapture on a Mac, grim on Wayland.
@@ -1279,12 +1310,15 @@ func (s *Server) captureClip(ctx context.Context, w *writer, seconds int, device
 	if seconds > 15 {
 		seconds = 15
 	}
+	s.screens.acquire(ctx)
 	b, err := clip(ctx, seconds)
+	s.screens.release()
 	if err != nil || len(b) == 0 {
 		msg := "the recording produced no file"
 		if err != nil {
 			msg = err.Error()
 		}
+		s.log.Warn("screen recording failed", "from", device, "err", msg)
 		_ = w.send(ctx, proto.NewError("capture_failed", msg))
 		return
 	}

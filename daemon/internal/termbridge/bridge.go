@@ -139,8 +139,14 @@ func Open(ctx context.Context, target, window, owner string, cols, rows int) (*B
 
 	// Size the PTY to the WINDOW, not the phone. tmux paints at the window's width, so a
 	// narrower PTY would simply clip the right-hand columns.
-	if wc, wr := WindowSize(ctx, winTarget); wc > 0 && wr > 0 {
+	// A window left unreadably small (a line, by some client long gone) is not copied:
+	// the phone's own size, at least 80x24, and window-size=largest grows the window to it.
+	// Only while nobody else is looking at the window: a small terminal at the desk is
+	// someone's choice, and growing the window would clip and pan it.
+	if wc, wr := WindowSize(ctx, winTarget); wc >= 40 && wr >= 12 || (wc > 0 && activeClients(ctx, winTarget) > 0) {
 		cols, rows = wc, wr
+	} else {
+		cols, rows = max(cols, 80), max(rows, 24)
 	}
 
 	// -d on attach detaches other clients of THIS mirror session only, so a stale phone
@@ -161,6 +167,17 @@ func Open(ctx context.Context, target, window, owner string, cols, rows int) (*B
 		window: winTarget,
 		Cols:   cols, Rows: rows,
 	}, nil
+}
+
+// activeClients is how many clients are showing the window right now.
+func activeClients(ctx context.Context, window string) int {
+	out, err := exec.CommandContext(ctx, "tmux", "display-message", "-p", "-t", window, "#{window_active_clients}").Output()
+	if err != nil {
+		return 0
+	}
+	n := 0
+	_, _ = fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &n)
+	return n
 }
 
 // windowOption reads one window option, returning "" when unset or unreadable.

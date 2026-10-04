@@ -43,6 +43,10 @@ type devServer struct {
 type previewShare struct {
 	Upstream int `json:"upstream"`
 	Port     int `json:"port"`
+	// Host is the address the phone opens the share at: the computer's tailnet IP, which
+	// needs no DNS. A browser with its own secure DNS skips Tailscale's resolver, and a
+	// MagicDNS name then does not resolve at all.
+	Host string `json:"host,omitempty"`
 }
 
 type previewProxy struct {
@@ -158,6 +162,7 @@ func (s *Server) previewList(ctx context.Context, w *writer) {
 	if servers == nil {
 		servers = []devServer{}
 	}
+	s.log.Debug("dev servers listed", "count", len(servers))
 	// A share whose dev server has exited is closed here, so the phone never shows a
 	// share it cannot stop and the port is not held for a page that is gone.
 	listening := map[int]bool{}
@@ -194,7 +199,9 @@ func (p *previewProxy) close() {
 }
 
 // hostsFor is every Host header a phone may legitimately send to a share on port:
-// each bound address and each known name, with the port.
+// each bound address and each known name, with the port. A MagicDNS name also counts
+// by its first label alone ("box" for box.tailnet.ts.net), which is how many phones
+// were paired - and a share refused it as "reached by the tailnet address only".
 func (s *Server) hostsFor(port int) map[string]bool {
 	out := map[string]bool{}
 	ps := strconv.Itoa(port)
@@ -202,11 +209,33 @@ func (s *Server) hostsFor(port int) map[string]bool {
 		out[strings.ToLower(net.JoinHostPort(ip, ps))] = true
 	}
 	for _, n := range s.bindNames {
-		if n != "" {
-			out[strings.ToLower(net.JoinHostPort(strings.TrimSuffix(n, "."), ps))] = true
+		n = strings.TrimSuffix(n, ".")
+		if n == "" {
+			continue
+		}
+		out[strings.ToLower(net.JoinHostPort(n, ps))] = true
+		if short, _, ok := strings.Cut(n, "."); ok && short != "" && net.ParseIP(n) == nil {
+			out[strings.ToLower(net.JoinHostPort(short, ps))] = true
 		}
 	}
 	return out
+}
+
+// shareHost is the address a share is opened at: an IPv4 tailnet address if the daemon
+// has one, else its first.
+func (s *Server) shareHost() string {
+	usable := func(ip string, v4 bool) bool {
+		p := net.ParseIP(ip)
+		return p != nil && !p.IsLoopback() && (p.To4() != nil) == v4
+	}
+	for _, v4 := range []bool{true, false} {
+		for _, ip := range s.bindIPs {
+			if usable(ip, v4) {
+				return ip
+			}
+		}
+	}
+	return "" // only loopback (the emulator setup): the app opens the address it knows
 }
 
 func (s *Server) previewOpen(ctx context.Context, w *writer, upstream int, device string) {
@@ -233,6 +262,7 @@ func (s *Server) previewOpen(ctx context.Context, w *writer, upstream int, devic
 			}
 		}
 		if !listening {
+			s.log.Warn("share refused: nothing listening", "upstream", upstream, "from", device)
 			_ = w.send(ctx, proto.NewError("not_listening", fmt.Sprintf("nothing is listening on localhost:%d", upstream)))
 			return
 		}
@@ -256,18 +286,25 @@ func (s *Server) previewOpen(ctx context.Context, w *writer, upstream int, devic
 	}
 	if lns == nil {
 		s.pmu.Unlock()
+		s.log.Warn("share refused: no free port", "upstream", upstream, "from", device)
 		_ = w.send(ctx, proto.NewError("no_port", "no free port to share on"))
 		return
 	}
 	hosts := s.hostsFor(port)
 	srv := &http.Server{
-		Handler:           newPreviewHandler(upstream, func(h string) bool { return hosts[strings.ToLower(h)] }, s.previewAllowed),
+		Handler: newPreviewHandler(upstream, func(h string) bool {
+			ok := hosts[strings.ToLower(h)]
+			if !ok {
+				s.log.Warn("share refused a foreign Host", "host", h, "port", port)
+			}
+			return ok
+		}, s.previewAllowed),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	for _, ln := range lns {
 		go func(l net.Listener) { _ = srv.Serve(l) }(ln)
 	}
-	share := previewShare{Upstream: upstream, Port: port}
+	share := previewShare{Upstream: upstream, Port: port, Host: s.shareHost()}
 	s.previews[upstream] = &previewProxy{share: share, srv: srv, listeners: lns}
 	s.pmu.Unlock()
 	s.log.Info("dev server shared", "upstream", upstream, "port", port, "from", device)

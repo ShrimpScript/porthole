@@ -240,7 +240,10 @@ object Markdown {
                 c == 'h' && bareUrl.matchAt(s, i) != null -> {
                     val m = bareUrl.matchAt(s, i)!!
                     flush()
-                    val url = m.value.trimEnd('.', ',', ';', ':')
+                    // An address ends before Markdown's own markers and closing punctuation:
+                    // Claude bolds links, and "**https://x.dev**" left the stars on the link
+                    // and the bold never closed.
+                    val url = m.value.trimEnd('.', ',', ';', ':', '*', '_', '~', '`', '!', '?', '"', '\'')
                     out += Span(url, bold, italic, false, strike, url)
                     i += url.length
                 }
@@ -248,7 +251,7 @@ object Markdown {
                     bareLocal.matchAt(s, i) != null -> {
                     val m = bareLocal.matchAt(s, i)!!
                     flush()
-                    val host = m.value.trimEnd('.', ',', ';', ':')
+                    val host = m.value.trimEnd('.', ',', ';', ':', '*', '_', '~', '`', '!', '?', '"', '\'')
                     out += Span(host, bold, italic, false, strike, "http://$host")
                     i += host.length
                 }

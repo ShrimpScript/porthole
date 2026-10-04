@@ -492,7 +492,10 @@ private fun PortholeApp(
     val tabColor = Porthole.colors.ground.toArgb()
     LaunchedEffect(active) {
         active.previewOpened.collect { share ->
-            val h = (openSession?.let { vm.fleet.hostOf(it) } ?: host).substringBeforeLast(':')
+            // The computer's tailnet IP when the daemon names it: the browser may resolve
+            // names with its own secure DNS, which never sees a MagicDNS name.
+            val h = share.host.ifBlank { (openSession?.let { vm.fleet.hostOf(it) } ?: host).substringBeforeLast(':') }
+                .let { if (it.contains(':') && !it.startsWith("[")) "[$it]" else it }
             val uri = Uri.parse("http://$h:${share.port}$previewPath")
             previewPath = "/"
             runCatching {
@@ -513,6 +516,7 @@ private fun PortholeApp(
     val liveStatus by key(active) { active.status.collectAsState() }
     val sessionAgents by key(active) { active.agents.collectAsState() }
     val sendingNow by key(active) { active.sending.collectAsState() }
+    val goneImages by key(active) { active.gone.collectAsState() }
     val savedCopy by key(active) { active.savedCopy.collectAsState() }
     // Since when the open session's computer has been unreachable (0 while connected), and
     // the latest try. Reconnecting alternates Retrying and Connecting; the bar follows the
@@ -1295,6 +1299,7 @@ private fun PortholeApp(
                             onDraft = { sc.store?.setDraft(s.id, it) },
                             pendingSends = sendingNow.values.filter { it.sessionId == s.id },
                             confirmedSends = sc.confirmed,
+                            goneImages = goneImages,
                             returnedSends = sc.returned,
                             reconnecting = if (showDown && activeConn !is Connection.Live && activeConn !is Connection.Failed)
                                 "Reconnecting to ${s.machine.ifBlank { activeDaemon?.host?.ifBlank { null } ?: host.ifBlank { "your computer" } }}…" else null,
@@ -1314,7 +1319,6 @@ private fun PortholeApp(
                             onNeedImage = { ref -> sc.requestImage(s.id, ref) },
                             caps = activeDaemon?.caps ?: emptyList(),
                             onCapture = { secs -> if (secs == 0) sc.captureStill() else sc.captureClip(secs) },
-                            onLiveFrame = { sc.captureLive() },
                             hostLabel = openSession?.let { vm.fleet.hostOf(it) } ?: host.substringBeforeLast(':'),
                             preview = preview,
                             onPreviewRefresh = { sc.previewList() },
@@ -1336,6 +1340,8 @@ private fun PortholeApp(
                 }
 
                 Route.Settings -> SettingsScreen(
+                    quickReplies = quickReplies,
+                    onQuickReplies = { quickReplies = it; prefs.edit().putString("quick_replies", it.joinToString("\n")).apply() },
                     host = host,
                     machines = machines,
                     machineStates = fleetConns.mapValues { dev.shrimpscript.porthole.net.Fleet.stateWord(it.value) },

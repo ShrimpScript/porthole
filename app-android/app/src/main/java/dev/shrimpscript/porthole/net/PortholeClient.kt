@@ -46,7 +46,12 @@ data class Row(
     val command: CommandInfo? = null,
     /** Not a transcript row: made by the daemon live (a switch notice), never saved or counted. */
     val local: Boolean = false,
+    /** A prompt's attached files, by path on the computer (the daemon took them out of its text). */
+    val files: List<String> = emptyList(),
 )
+
+/** Whether a path names a picture the feed can show. */
+fun isImagePath(path: String): Boolean = path.substringAfterLast('.', "").lowercase() in setOf("png", "jpg", "jpeg", "webp", "gif")
 
 /** A slash command and its reply, as the daemon read them from the transcript. */
 data class CommandInfo(
@@ -146,6 +151,7 @@ fun parseRow(r: JSONObject): Row = Row(
         AgentCall(a.optString("type"), a.optString("description"), a.optString("model"), a.optBoolean("background"))
     },
     command = parseCommand(r.optJSONObject("command")),
+    files = r.optJSONArray("files")?.let { a -> List(a.length()) { a.optString(it) } }.orEmpty(),
 )
 
 fun parseQuestionList(arr: org.json.JSONArray?): List<Question> = buildList {
@@ -174,6 +180,7 @@ fun Row.toJson(): JSONObject {
     if (toolId.isNotEmpty()) o.put("tool_id", toolId)
     if (imageRef.isNotEmpty()) o.put("image_ref", imageRef)
     if (media.isNotEmpty()) o.put("media", media)
+    if (files.isNotEmpty()) o.put("files", org.json.JSONArray(files))
     if (questions.isNotEmpty()) o.put("questions", org.json.JSONArray().also { a ->
         questions.forEach { q ->
             a.put(JSONObject().put("header", q.header).put("text", q.text).put("multi", q.multi).put("options", org.json.JSONArray().also { opts ->
@@ -346,7 +353,8 @@ data class Attachment(val name: String, val media: String, val bytes: ByteArray)
 data class DevServer(val port: Int, val process: String, val name: String)
 
 /** A dev server the daemon is currently sharing: local `upstream`, reachable on `port`. */
-data class PreviewShare(val upstream: Int, val port: Int)
+/** [host]: the address to open the share at (the computer's tailnet IP); blank from an older daemon. */
+data class PreviewShare(val upstream: Int, val port: Int, val host: String = "")
 
 data class PreviewState(val servers: List<DevServer>, val active: List<PreviewShare>)
 
@@ -390,7 +398,8 @@ data class SessionState(
     val costUsd: Double = 0.0,
     val apiMs: Long = 0,
     val linesAdded: Long = 0,
-    val linesRemoved: Long = 0,
+    val linesRemoved: Long = 0,    /** The question Claude is waiting on the person to answer (AskUserQuestion), "" otherwise. */
+    val asking: String = "",
 )
 
 /** What the CLI's own screen says right now, read from the tmux pane once a second. */
@@ -1052,8 +1061,12 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     }
 
     /** Ask for an image row's bytes once; the answer lands in [images]. */
+    private val _gone = MutableStateFlow<Set<String>>(emptySet())
+    /** Image refs the computer no longer has (an upload cleared after two weeks): shown as gone, not asked for again. */
+    val gone: StateFlow<Set<String>> = _gone
+
     fun requestImage(sessionId: String, ref: String) {
-        if (ref.isBlank() || _images.value.containsKey(ref)) return
+        if (ref.isBlank() || _images.value.containsKey(ref) || ref in _gone.value) return
         synchronized(inflight) { if (!inflight.add(ref)) return }
         send(JSONObject().put("type", "image.get").put("session_id", sessionId).put("ref", ref).toString())
     }
@@ -1340,6 +1353,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
             firstTs = o.optString("first_ts"), lastTs = o.optString("last_ts"),
             costUsd = o.optDouble("cost_usd", 0.0), apiMs = o.optLong("api_ms"),
             linesAdded = o.optLong("lines_added"), linesRemoved = o.optLong("lines_removed"),
+            asking = o.optString("asking"),
         )
     }
 
@@ -1554,7 +1568,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                         active = buildList {
                             for (i in 0 until (ac?.length() ?: 0)) {
                                 val o = ac!!.getJSONObject(i)
-                                add(PreviewShare(o.optInt("upstream"), o.optInt("port")))
+                                add(PreviewShare(o.optInt("upstream"), o.optInt("port"), o.optString("host")))
                             }
                         },
                     )
@@ -1566,7 +1580,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     _failsafeKeyError.value = obj.optString("error").ifBlank { null }
                 }
                 "preview.state" -> {
-                    val share = PreviewShare(obj.optInt("upstream"), obj.optInt("port"))
+                    val share = PreviewShare(obj.optInt("upstream"), obj.optInt("port"), obj.optString("host"))
                     val open = obj.optBoolean("open")
                     val cur = _preview.value ?: PreviewState(emptyList(), emptyList())
                     val rest = cur.active.filter { it.upstream != share.upstream }
@@ -1617,6 +1631,14 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                 "error" -> {
                     val code = obj.optString("code")
                     val message = obj.optString("message")
+                    // A picture that cannot be fetched (gone, too large, not an image) says so
+                    // on its own tile; a notice for every one that scrolls into view would nag.
+                    val imageRef = obj.optString("ref")
+                    if ((code == "no_image" || code == "bad_ref") && imageRef.isNotEmpty()) {
+                        _gone.value = _gone.value + imageRef
+                        synchronized(inflight) { inflight.remove(imageRef) }
+                        return
+                    }
                     val fatal = FATAL[code]
                     if (fatal != null) {
                         // Retrying a revoked device just reproduces the rejection.

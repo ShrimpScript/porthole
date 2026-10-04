@@ -658,6 +658,73 @@ class RenderScreensTest {
         save("offline-list")
     }
 
+    /** A message with files: the pictures as thumbnails and the file as a chip beside the bubble, no paths. */
+    @Test
+    fun sentFilesSitBesideTheBubble() {
+        val png = java.io.ByteArrayOutputStream().also { out ->
+            android.graphics.Bitmap.createBitmap(64, 48, android.graphics.Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF2A6B62.toInt()) }
+                .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+        }.toByteArray()
+        val shot = "/srv/u/.config/porthole/uploads/2026-10-03/175738-Screenshot_20261003-145616.png"
+        val log = "/srv/u/.config/porthole/uploads/2026-10-03/175741-render.log"
+        val old = "/srv/u/.config/porthole/uploads/2026-09-10/101010-gone.png"
+        val rows = listOf(
+            Row(kind = "user", glyph = "", text = "Check the render. Here are the stills.", metric = "", detail = "", truncated = false,
+                ts = "2026-10-03T21:56:00Z", files = listOf(shot, log)),
+            Row(kind = "image", glyph = "", text = "Image you sent", metric = "", detail = "", truncated = false, ts = "2026-10-03T21:57:00Z", imageRef = "u1:0"),
+            Row(kind = "user", glyph = "", text = "", metric = "", detail = "", truncated = false, ts = "2026-10-03T21:58:00Z", files = listOf(log)),
+            Row(kind = "queued", glyph = "", text = "", metric = "queued", detail = "", truncated = false, ts = "2026-10-03T21:59:00Z", files = listOf(old)),
+        )
+        rule.setContent {
+            PortholeTheme {
+                SessionScreen(
+                    title = "Video editing", branch = "main · tmux 2", ring = RingState.Live, live = true,
+                    rows = rows, backfillCount = rows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+                    view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                    terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                    notice = null, onDismissNotice = {}, state = state(working = false).copy(pendingTool = ""),
+                    status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "", interruptible = false),
+                    caps = listOf("attach", "files"), images = mapOf("file:$shot" to png, "u1:0" to png), goneImages = setOf("file:$old"),
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Check the render. Here are the stills.").assertIsDisplayed()
+        rule.onAllNodesWithText("render.log").assertCountEquals(2)
+        rule.onNodeWithContentDescription("Screenshot_20261003-145616.png").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Picture you sent").assertIsDisplayed()
+        // A removed upload says so on its tile; the queued message shows its file too.
+        rule.onNodeWithText("No longer\non the computer").assertIsDisplayed()
+        assertTrue(rule.onAllNodesWithText("uploads", substring = true).fetchSemanticsNodes().isEmpty())
+        save("sent-files")
+    }
+
+    /** Claude is asking but the picker cannot be read off the screen: the terminal is offered, not nothing. */
+    @Test
+    fun aQuestionThatCannotBeReadOffersTheTerminal() {
+        var view = SessionView.Feed
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            PortholeTheme {
+                SessionScreen(
+                    title = "Porthole", branch = "HEAD · tmux work", ring = RingState.Live, live = true,
+                    rows = agentRows.take(2), backfillCount = 2, loaded = true, canSend = true, onSend = {}, onBack = {},
+                    view = SessionView.Feed, onViewChange = { view = it }, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                    terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                    notice = null, onDismissNotice = {}, state = state(working = true).copy(asking = "How should a screenshot handle sleeping screens?"),
+                    status = TuiStatus(working = true, text = "", elapsed = "", tokens = "", permissionMode = "", interruptible = true),
+                    caps = listOf("attach", "files"),
+                )
+            }
+        }
+        rule.mainClock.advanceTimeBy(3_000)
+        rule.waitForIdle()
+        rule.onNodeWithText("How should a screenshot handle sleeping screens?").assertIsDisplayed()
+        rule.onNodeWithText("Answer in the terminal").performClick()
+        assertEquals(SessionView.Terminal, view)
+        save("asking-unreadable")
+    }
+
     /** The working icon, the screw: sizes, a turn in eighths, on the ground and on a card, and at rest. */
     @Test
     fun screwAtEverySizeAndThroughATurn() {

@@ -84,6 +84,9 @@ type Row struct {
 	Agent *AgentCall `json:"agent,omitempty"`
 	// Command is set on a command row: which command, and what it said back.
 	Command *Command `json:"command,omitempty"`
+	// Files are the paths a prompt named as attachments (see cleanPrompt); its pictures
+	// that the CLI attached follow it as image rows.
+	Files []string `json:"files,omitempty"`
 }
 
 // AgentCall is what an Agent call asked for, from its input.
@@ -675,9 +678,10 @@ func ParseFrom(r io.Reader, prev State) (*Result, error) {
 					res.Stats.ByKind["(injected envelope, not shown)"]++
 					continue
 				}
-				body, trunc := capText(disp)
+				clean, files := cleanPrompt(disp)
+				body, trunc := capText(clean)
 				queued[truncRunes(strings.ReplaceAll(disp, "\n", " "), 60)] = len(res.Rows)
-				res.add(Row{Kind: KindQueued, Glyph: "⋯", Text: body, Metric: "queued", TS: ts, Truncated: trunc})
+				res.add(Row{Kind: KindQueued, Glyph: "⋯", Text: body, Metric: "queued", TS: ts, Truncated: trunc, Files: files})
 			} else {
 				res.Stats.Silent++
 			}
@@ -822,17 +826,18 @@ func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, 
 		res.State.startWorking(ts)
 		one := strings.ReplaceAll(display, "\n", " ")
 		key := truncRunes(one, 60)
-		body, trunc := capText(display)
+		clean, files := cleanPrompt(display)
+		body, trunc := capText(clean)
 		// A prompt that was queued earlier resolves into this row instead of appearing
 		// twice: the pending bubble becomes the real message.
 		if idx, ok := queued[key]; ok && idx < len(res.Rows) {
 			delete(queued, key)
-			res.Rows[idx] = Row{Kind: KindUser, Text: body, TS: ts, Truncated: trunc}
+			res.Rows[idx] = Row{Kind: KindUser, Text: body, TS: ts, Truncated: trunc, Files: files}
 			res.Stats.ByKind[string(KindQueued)]--
 			res.Stats.ByKind[string(KindUser)]++
 			return
 		}
-		res.add(Row{Kind: KindUser, Text: body, TS: ts, Truncated: trunc})
+		res.add(Row{Kind: KindUser, Text: body, TS: ts, Truncated: trunc, Files: files})
 	}
 }
 

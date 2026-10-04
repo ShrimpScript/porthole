@@ -106,13 +106,16 @@ func TestHostsForNamesEveryBindAndName(t *testing.T) {
 	s := &Server{}
 	s.SetBind([]string{"192.0.2.10", "2001:db8::10"}, 8737, []string{"box.example.ts.net."})
 	hosts := s.hostsFor(8741)
-	for _, want := range []string{"192.0.2.10:8741", "[2001:db8::10]:8741", "box.example.ts.net:8741"} {
+	for _, want := range []string{"192.0.2.10:8741", "[2001:db8::10]:8741", "box.example.ts.net:8741", "box:8741"} {
 		if !hosts[want] {
 			t.Errorf("%q not accepted: %v", want, hosts)
 		}
 	}
-	if hosts["evil.example:8741"] || hosts["192.0.2.10:8737"] {
+	if hosts["evil.example:8741"] || hosts["192.0.2.10:8737"] || hosts["192:8741"] {
 		t.Errorf("foreign host or wrong port accepted: %v", hosts)
+	}
+	if got := s.shareHost(); got != "192.0.2.10" {
+		t.Errorf("share host %q, want the IPv4 address", got)
 	}
 }
 

@@ -59,6 +59,7 @@ type Server struct {
 	// addresses (tailnet only, or the dev loopback) and never anything wider.
 	bindIPs   []string
 	bindNames []string // hostnames a phone may use for this machine (MagicDNS; dev aliases)
+	screens   waker    // wakes sleeping screens for captures, shared by every phone
 	bindPort  int
 	pmu       sync.Mutex
 	previews  map[int]*previewProxy // upstream port -> the share

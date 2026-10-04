@@ -77,6 +77,9 @@ import dev.shrimpscript.porthole.ui.theme.motionEnabled
  */
 @Composable
 fun SettingsScreen(
+    /** The one-tap replies above the message box; edited here too, so deleting them all is not for good. */
+    quickReplies: List<String> = emptyList(),
+    onQuickReplies: (List<String>) -> Unit = {},
     host: String,
     deviceName: String,
     daemonVersion: String,
@@ -362,6 +365,19 @@ fun SettingsScreen(
                     style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(top = 4.dp),
                 )
             }
+
+            var editReplies by remember { mutableStateOf(false) }
+            Section("Quick replies") {
+                val set = quickReplies.filter { it.isNotBlank() }
+                Text(
+                    if (set.isEmpty()) "None. When Claude is idle, quick replies sit above the message box for a one-tap answer."
+                    else set.joinToString(" · "),
+                    style = PortholeType.secondary, color = if (set.isEmpty()) c.faint else c.text,
+                )
+                Spacer(Modifier.height(8.dp))
+                GhostButton("Edit quick replies", { editReplies = true })
+            }
+            if (editReplies) QuickReplyEditor(quickReplies, onSave = { onQuickReplies(it); editReplies = false }) { editReplies = false }
 
             Section("Terminal") {
                 Text("Text size", style = PortholeType.secondary, color = c.muted)

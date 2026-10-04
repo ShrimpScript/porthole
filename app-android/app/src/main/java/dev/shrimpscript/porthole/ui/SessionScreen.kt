@@ -172,7 +172,6 @@ fun SessionScreen(
     onNeedImage: (String) -> Unit = {},
     caps: List<String> = emptyList(),
     onCapture: (Int) -> Unit = {},
-    onLiveFrame: () -> Unit = {},
     hostLabel: String = "",
     preview: PreviewState? = null,
     /** What git sees changed in the session's directory; null until asked. */
@@ -200,6 +199,8 @@ fun SessionScreen(
     /** Notifications for this session are off. */
     muted: Boolean = false,
     onMuted: (Boolean) -> Unit = {},
+    /** Image refs the computer no longer has (an upload cleared after two weeks). */
+    goneImages: Set<String> = emptySet(),
     /** The draft this session was left with, kept on the phone; [onDraft] keeps every change. */
     initialDraft: String = "",
     onDraft: (String) -> Unit = {},
@@ -284,7 +285,6 @@ fun SessionScreen(
     }
     var viewImage by remember { mutableStateOf<FeedRow?>(null) }
     var viewClip by remember { mutableStateOf<FeedRow?>(null) }
-    var watching by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<List<dev.shrimpscript.porthole.net.Attachment>>(emptyList()) }
     // Why the last picked file was not attached; cleared by the next one that is.
     var attachError by remember { mutableStateOf<String?>(null) }
@@ -317,7 +317,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                 androidx.activity.compose.BackHandler(enabled = fullTerm) { termFull = false }
                 if (!fullTerm) SessionHeader(title, branch, ring, onBack, compact = landscape, state = state, sharedKey = sharedKey,
                     canCapture = "capture" in caps, canRecord = "record" in caps,
-                    onCapture = { if (it < 0) watching = true else onCapture(it) },
+                    onCapture = { if (it >= 0) onCapture(it) },
                     canPreview = "preview" in caps, onPreview = { showPreview = true },
                     canChanges = "changes" in caps, onChanges = { showChanges = true }) { showStats = true }
                 androidx.compose.animation.AnimatedVisibility(
@@ -373,7 +373,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             asking = status?.question != null,
                             lastSeen = lastSeen,
 
-                            imageFor = { images[it] }, clipFor = { clips[it] }, onNeedImage = onNeedImage,
+                            imageFor = { images[it] }, clipFor = { clips[it] }, onNeedImage = onNeedImage, goneImages = goneImages,
                             onOpenImage = { viewImage = it }, onOpenClip = { viewClip = it },
                             agents = agents, onAgents = { showAgents = true },
                         ) { detail = it }
@@ -497,6 +497,18 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                         if (screenQ != null && live) {
                             LiveQuestionCard(screenQ, onAnswer = { a -> onAnswer(a) }, onType = { answering = true })
                         }
+                        // Claude is asking (the transcript says so) but the picker cannot be read
+                        // off the screen: never a question with nothing to answer it with. After a
+                        // moment's grace for the screen to catch up, the terminal is offered.
+                        val askingText = state?.asking.orEmpty()
+                        var unreadable by remember(askingText) { mutableStateOf(false) }
+                        LaunchedEffect(askingText, screenQ == null) {
+                            unreadable = false
+                            if (askingText.isNotBlank() && screenQ == null) { kotlinx.coroutines.delay(2_500); unreadable = true }
+                        }
+                        if (unreadable && screenQ == null && live && tmux && askingText.isNotBlank()) {
+                            AskingAtTheDesk(askingText) { onViewChange(SessionView.Terminal) }
+                        }
                         if (answering && screenQ != null) {
                             LayoutSpacer(Modifier.height(6.dp))
                             Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -586,7 +598,6 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
             detail?.let { r -> DetailSheet(r) { detail = null } }
             viewImage?.let { r -> images[r.imageRef]?.let { b -> ImageViewer(b, r.text) { viewImage = null } } }
             viewClip?.let { r -> clips[r.imageRef]?.let { f -> VideoViewer(f, r.text) { viewClip = null } } }
-            if (watching) LiveScreen(frame = images["live"], onRequest = onLiveFrame) { watching = false }
             if (showChanges) ChangesSheet(state = changes, connected = canSend || tmux, onRefresh = onChangesRefresh) { showChanges = false }
             if (editReplies) QuickReplyEditor(quickReplies, onSave = { onQuickReplies(it); editReplies = false }) { editReplies = false }
             if (showPreview) PreviewSheet(
@@ -657,10 +668,6 @@ private fun SessionHeader(
                         text = { Text("Screenshot", style = PortholeType.body, color = c.text) },
                         onClick = { captureMenu = false; onCapture(0) },
                     )
-                    androidx.compose.material3.DropdownMenuItem(
-                        text = { Text("Watch the screen", style = PortholeType.body, color = c.text) },
-                        onClick = { captureMenu = false; onCapture(-1) },
-                    )
                     if (canRecord) {
                         androidx.compose.material3.DropdownMenuItem(
                             text = { Text("Record 5 seconds", style = PortholeType.body, color = c.text) },
@@ -705,6 +712,8 @@ private fun Feed(
     /** "Earlier" can be asked for: connected, and showing the live feed. */
     canLoadEarlier: Boolean = true,
     imageFor: (String) -> ByteArray? = { null },
+    /** Image refs the computer no longer has. */
+    goneImages: Set<String> = emptySet(),
     clipFor: (String) -> java.io.File? = { null },
     onNeedImage: (String) -> Unit = {},
     onOpenImage: (FeedRow) -> Unit = {},
@@ -828,6 +837,7 @@ private fun Feed(
                     val pending = working && r.kind == "tool" && r.toolId.isNotBlank() && !took.containsKey(r.toolId)
                     val done = r.toolId.isNotBlank() && took.containsKey(r.toolId)
                     FeedRowView(r, keys[i].hashCode(), onOpen, animate, expanded, pending, imageFor(r.imageRef), clipFor(r.imageRef),
+                        fileImage = { imageFor(it) }, onNeedFile = { onNeedImage(it) }, onOpenRef = onOpenImage, fileGone = { it in goneImages },
                         onNeedImage = { onNeedImage(r.imageRef) }, onOpenImage = { onOpenImage(r) }, onOpenClip = { onOpenClip(r) },
                         duration = if (r.kind == "tool" && done) tookLabel(took[r.toolId] ?: -1L) else "",
                         dim = done && i < lastToolIndex,
@@ -956,14 +966,21 @@ fun FeedRowView(
     /** An Agent call's row: its agent, as last read. */
     agentInfo: dev.shrimpscript.porthole.net.AgentInfo? = null,
     onAgents: () -> Unit = {},
+    /** A sent file's picture by ref ("file:<path>"), asked for with [onNeedFile]; [onOpenRef] opens one. */
+    fileImage: (String) -> ByteArray? = { null },
+    onNeedFile: (String) -> Unit = {},
+    onOpenRef: (FeedRow) -> Unit = {},
+    fileGone: (String) -> Boolean = { false },
 ) {
     val c = Porthole.colors
     Appear(enabled = animate) {
         when (r.kind) {
             "question" -> QuestionRow(r, answered)
             "user" -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Box(
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // The files it carried, as pictures and named chips, not as paths.
+                    if (r.files.isNotEmpty()) SentFiles(r.files, fileImage, onNeedFile, onOpenRef, fileGone)
+                    if (r.text.isNotBlank()) Box(
                         Modifier
                             .widthIn(max = 320.dp)
                             .background(c.raised, PortholeShape.card)
@@ -981,8 +998,9 @@ fun FeedRowView(
             // A prompt sent while Claude was busy. Dimmed and labelled, so a message never
             // just disappears between sending and delivery.
             "queued" -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Box(
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (r.files.isNotEmpty()) SentFiles(r.files, fileImage, onNeedFile, onOpenRef, fileGone)
+                    if (r.text.isNotBlank()) Box(
                         Modifier
                             .widthIn(max = 320.dp)
                             .background(c.surface, PortholeShape.card)
@@ -1086,7 +1104,10 @@ fun FeedRowView(
             "command" -> if (r.command != null) CommandCard(r, r.command) { onOpen(r) }
                 else Text(r.text, style = PortholeType.mono, color = c.muted)
 
-            "image" -> ImageRow(r.text, imageBytes, onNeedImage, onOpenImage)
+            // A picture the person sent sits on their side, small, like the files of a message.
+            "image" -> if (r.text == "Image you sent") Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                SentThumb(imageBytes, "Picture you sent", onNeedImage, onOpen = onOpenImage)
+            } else ImageRow(r.text, imageBytes, onNeedImage, onOpenImage)
             "video" -> VideoRow(r.text, clipFile, onOpenClip)
 
             // The CLI's own "Cooked for 1m 6s · done 6:05 PM", in our type.
@@ -1456,6 +1477,8 @@ private fun LiveQuestionCard(q: ScreenQuestion, onAnswer: (Answer) -> Unit, onTy
 @Composable
 private fun QuickReplies(replies: List<String>, onSend: (String) -> Unit, onEdit: () -> Unit) {
     val c = Porthole.colors
+    // None left: no row at all, rather than a pencil on its own. Settings brings them back.
+    if (replies.none { it.isNotBlank() }) return
     Row(
         Modifier
             .fillMaxWidth()
@@ -1471,7 +1494,7 @@ private fun QuickReplies(replies: List<String>, onSend: (String) -> Unit, onEdit
 
 /** Four slots, blank to remove one. What is typed here is sent verbatim, like the composer. */
 @Composable
-private fun QuickReplyEditor(current: List<String>, onSave: (List<String>) -> Unit, onDismiss: () -> Unit) {
+internal fun QuickReplyEditor(current: List<String>, onSave: (List<String>) -> Unit, onDismiss: () -> Unit) {
     val c = Porthole.colors
     val slots = remember { (0 until 4).map { androidx.compose.runtime.mutableStateOf(current.getOrNull(it) ?: "") } }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
@@ -1490,5 +1513,32 @@ private fun QuickReplyEditor(current: List<String>, onSave: (List<String>) -> Un
                 Pill("Save", filled = true) { onSave(slots.map { it.value.trim() }) }
             }
         }
+    }
+}
+
+
+/**
+ * Claude is asking, and the phone cannot read the picker off the screen to offer its
+ * choices: the question, and the way to answer it now - the terminal, where the picker is.
+ */
+@Composable
+private fun AskingAtTheDesk(question: String, onTerminal: () -> Unit) {
+    val c = Porthole.colors
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .background(c.surface, PortholeShape.card)
+            .border(1.dp, c.warn.copy(alpha = 0.5f), PortholeShape.card)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Claude is asking", style = PortholeType.meta, color = c.warn)
+        Text(question, style = PortholeType.body, color = c.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        Text(
+            "Its choices could not be read from the screen here. Answer in the terminal.",
+            style = PortholeType.meta, color = c.muted,
+        )
+        Pill("Answer in the terminal", filled = true, onClick = onTerminal)
     }
 }

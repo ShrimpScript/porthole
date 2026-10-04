@@ -4,6 +4,9 @@ import android.graphics.BitmapFactory
 import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.Image
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -185,40 +188,63 @@ fun VideoViewer(file: File, label: String, onClose: () -> Unit) {
     }
 }
 
+/** What a sent file is called on the phone: its own name, without the upload's time prefix. */
+fun sentFileName(path: String): String = path.substringAfterLast('/').replaceFirst(Regex("^\\d{6}-"), "")
+
 /**
- * Watch the desktop: a fresh screenshot every couple of seconds while this is open. It
- * is a slideshow, not a video stream - honest about its rate ("updated 1s ago") and
- * cheap enough for a phone radio. Nothing is written to the feed.
+ * The files a message carried, beside its bubble: pictures as small thumbnails (fetched
+ * from the computer, tap to open), anything else as a chip with its name.
  */
 @Composable
-fun LiveScreen(frame: ByteArray?, onRequest: () -> Unit, onClose: () -> Unit) {
+fun SentFiles(paths: List<String>, image: (String) -> ByteArray?, onNeed: (String) -> Unit, onOpen: (dev.shrimpscript.porthole.net.Row) -> Unit, gone: (String) -> Boolean = { false }) {
     val c = Porthole.colors
-    androidx.activity.compose.BackHandler(onBack = onClose)
-    var lastAt by remember { mutableStateOf(0L) }
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(frame) { if (frame != null) lastAt = System.currentTimeMillis() }
-    LaunchedEffect(Unit) {
-        while (true) { onRequest(); kotlinx.coroutines.delay(2000); now = System.currentTimeMillis() }
-    }
-    val bitmap = remember(frame) { frame?.let { decodeBounded(it, 2048) } }
-    Box(Modifier.fillMaxSize().background(Porthole.colors.deep)) {
-        if (bitmap != null) {
-            Image(bitmap.asImageBitmap(), contentDescription = "The computer's screen", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-        } else {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Waiting for the first frame…", style = PortholeType.body, color = c.faint)
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = Modifier.widthIn(max = 320.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        paths.forEach { path ->
+            val name = sentFileName(path)
+            val ref = "file:$path"
+            if (dev.shrimpscript.porthole.net.isImagePath(path)) {
+                SentThumb(image(ref), name, { onNeed(ref) }, gone = gone(ref)) {
+                    onOpen(dev.shrimpscript.porthole.net.Row(kind = "image", glyph = "", text = name, metric = "", detail = "", truncated = false, imageRef = ref))
+                }
+            } else {
+                Row(
+                    Modifier
+                        .background(c.surface, PortholeShape.control)
+                        .border(1.dp, c.edge, PortholeShape.control)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.InsertDriveFile, contentDescription = null, tint = c.accent, modifier = Modifier.size(16.dp))
+                    Text(name, style = PortholeType.meta, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp))
+                }
             }
         }
-        Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Ring(state = RingState.Connecting, size = 16.dp)
-            Text(
-                if (lastAt == 0L) "Live screen" else "Live screen · updated ${((now - lastAt) / 1000).coerceAtLeast(0)}s ago",
-                style = PortholeType.secondary, color = c.muted, modifier = Modifier.weight(1f).padding(start = 8.dp),
-            )
-            IconTarget(Icons.Outlined.Close, "Stop watching", onClose, tint = c.text)
-        }
+    }
+}
+
+/** A sent picture, small and rounded; a quiet tile while it loads. */
+@Composable
+fun SentThumb(bytes: ByteArray?, label: String, onNeed: () -> Unit, gone: Boolean = false, onOpen: () -> Unit) {
+    val c = Porthole.colors
+    LaunchedEffect(bytes == null, gone) { if (bytes == null && !gone) onNeed() }
+    val bitmap = remember(bytes) { bytes?.let { decodeBounded(it, 512) } }
+    Box(
+        Modifier
+            .size(96.dp)
+            .clip(PortholeShape.control)
+            .background(c.surface)
+            .border(1.dp, c.edge, PortholeShape.control)
+            .clickable(enabled = bitmap != null, onClick = onOpen),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) Image(bitmap.asImageBitmap(), contentDescription = label, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        else if (gone) Text("No longer\non the computer", style = PortholeType.meta, color = c.faint, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(6.dp))
+        else Icon(Icons.Outlined.Image, contentDescription = label, tint = c.faint, modifier = Modifier.size(20.dp))
     }
 }
