@@ -256,4 +256,44 @@ class TerminalEmulatorTest {
         e.write("${ESC}[=5u${ESC}[<1u${ESC}[?2026h${ESC}[4:3mok${ESC}[38:2::255:0:0m!".toByteArray())
         assertEquals("ok!", e.buffer.snapshotText().lines()[0].trimEnd())
     }
+
+    /** What fish 4 sends on start (captured from fish 4.9.3), then waits on: it must be answered. */
+    @Test
+    fun fishsStartupQuestionsAreAnsweredAndNothingPrints() {
+        val e = emu(40, 5)
+        val replies = mutableListOf<String>()
+        e.onReply = { replies += it }
+        e.feed("\u001b[?u\u001b[>0q\u001b]11;?\u001b\\\u001b[?1049h\u001bP+q696e646e\u001b\\" +
+            "\u001bP+q71756572792d6f732d6e616d65\u001b\\\u001b[?1049l\u001b[0c")
+        assertEquals(listOf("\u001b[?62;22c"), replies)
+        assertEquals("", e.line(0).trim())
+        // Its next burst asks where the cursor is, then again what the terminal is.
+        e.feed("\r\u001b]0;~\u001b\\\u001b[m\u001b]11;?\u001b\\\u001b[6n\u001b[0c")
+        assertEquals(listOf("\u001b[?62;22c", "\u001b[1;1R", "\u001b[?62;22c"), replies)
+    }
+
+    @Test
+    fun theCursorReportIsWhereTheCursorIs() {
+        val e = emu(20, 5)
+        val replies = mutableListOf<String>()
+        e.onReply = { replies += it }
+        e.feed("ab\r\nxyz\u001b[6n\u001b[5n\u001b[>c")
+        assertEquals(listOf("\u001b[2;4R", "\u001b[0n", "\u001b[>1;10;0c"), replies)
+    }
+
+    /** A capability query is consumed whole, on the main screen too, and asks for nothing back. */
+    @Test
+    fun dcsStringsNeverPrint() {
+        val e = emu(30, 3)
+        e.feed("\u001bP+q696e646e\u001b\\ok\u001b_Gi=1;AAAA\u001b\\!")
+        assertEquals("ok!", e.line(0).trim())
+    }
+
+    /** With nobody to tell (the session terminal, where tmux answers), a question changes nothing. */
+    @Test
+    fun noReplyWithoutAListener() {
+        val e = emu(10, 2)
+        e.feed("\u001b[c\u001b[6nhi")
+        assertEquals("hi", e.line(0).trim())
+    }
 }

@@ -47,6 +47,19 @@ class TerminalEmulator(cols: Int, rows: Int) {
     val cols get() = buffer.cols
     val rows get() = buffer.rows
 
+    /**
+     * Where the answers to a program's questions go: what kind of terminal this is (DA1,
+     * DA2), and where the cursor is (DSR). fish 4 asks on start and draws nothing until it
+     * hears back, giving up only after ten seconds. Left unset where something in between
+     * answers already (tmux, for the session terminal); the failsafe's plain shell sets it.
+     */
+    @Volatile
+    var onReply: ((String) -> Unit)? = null
+
+    private fun reply(s: String) {
+        onReply?.invoke(s)
+    }
+
     /** A line that scrolled off the top of the main screen, kept at the width it had then. */
     class HistoryLine(val chars: IntArray, val fg: IntArray, val bg: IntArray, val attrs: IntArray)
 
@@ -88,7 +101,7 @@ class TerminalEmulator(cols: Int, rows: Int) {
     }
 
     // ---- parser state ----------------------------------------------------------
-    private enum class State { GROUND, ESC, CSI, OSC, CHARSET }
+    private enum class State { GROUND, ESC, CSI, OSC, CHARSET, STRING }
 
     private var state = State.GROUND
     private val params = ArrayList<Int>(8)
@@ -99,6 +112,8 @@ class TerminalEmulator(cols: Int, rows: Int) {
     // drawing this way, and a missing run shifts the rest of the line.
     private var lastPrinted = ' '.code
     private val oscAcc = StringBuilder()
+    // Inside a DCS, SOS, PM or APC string, an ESC that may be the start of its terminator.
+    private var stringEsc = false
 
     // UTF-8 accumulation
     private var utf8Remaining = 0
@@ -145,6 +160,7 @@ class TerminalEmulator(cols: Int, rows: Int) {
             State.CSI -> csi(b)
             State.OSC -> osc(b)
             State.CHARSET -> state = State.GROUND // consume the charset designator
+            State.STRING -> string(b)
         }
     }
 
@@ -221,7 +237,18 @@ class TerminalEmulator(cols: Int, rows: Int) {
             'D' -> { lineFeed(); state = State.GROUND }
             'E' -> { cursorX = 0; lineFeed(); state = State.GROUND }
             'c' -> { fullReset(); state = State.GROUND }
+            // DCS, SOS, PM, APC: strings for the terminal itself (fish asks for capabilities
+            // with DCS + q). Consumed whole; read as text they print their hex on screen.
+            'P', 'X', '^', '_' -> { state = State.STRING; stringEsc = false }
             else -> state = State.GROUND
+        }
+    }
+
+    private fun string(b: Int) {
+        when {
+            stringEsc && b == '\\'.code -> state = State.GROUND
+            b == 0x18 || b == 0x1A -> state = State.GROUND // CAN, SUB: abandoned
+            else -> stringEsc = b == 0x1B
         }
     }
 
@@ -282,6 +309,8 @@ class TerminalEmulator(cols: Int, rows: Int) {
         // (tmux's CSI > 4 ; 1 m sets a keyboard mode - read as SGR it would turn on
         // underline and bold), and '?' only means something to the mode switches.
         if (marker == 0.toChar() || (marker == '?' && (c == 'h' || c == 'l' || c == 'J' || c == 'K'))) dispatchCsi(c)
+        // Secondary DA: a VT220-class terminal, version 10, as xterm's own answer reads.
+        else if (marker == '>' && c == 'c' && (params.getOrNull(0) ?: 0) == 0) reply("\u001b[>1;10;0c")
         state = State.GROUND
         params.clear()
         priv = false
@@ -332,6 +361,12 @@ class TerminalEmulator(cols: Int, rows: Int) {
             'l' -> setMode(false)
             's' -> saveCursor()
             'u' -> restoreCursor()
+            // Primary DA: a VT220 with ANSI colour.
+            'c' -> if ((params.getOrNull(0) ?: 0) == 0) reply("\u001b[?62;22c")
+            'n' -> when (params.getOrNull(0)) {
+                5 -> reply("\u001b[0n") // status: fine
+                6 -> reply("\u001b[${cursorY + 1};${cursorX + 1}R") // where the cursor is
+            }
         }
     }
 

@@ -185,6 +185,9 @@ class SshFailsafe(
 
             val box = Channel<Op>(Channel.UNLIMITED)
             outbox = box
+            // A plain shell talks to this emulator directly, with no tmux in between to
+            // answer what it asks the terminal: the emulator answers, in order with the keys.
+            emulator.onReply = { r -> box.trySend(Op.Data(r)) }
             scope.launch(Dispatchers.IO) {
                 for (op in box) {
                     runCatching {
@@ -205,6 +208,9 @@ class SshFailsafe(
                     while (running.get()) {
                         val n = sh.inputStream.read(buf)
                         if (n <= 0) break
+                        // A shell opened again since: this one's last bytes are not drawn on
+                        // the new screen, nor answered into the new connection.
+                        if (outbox !== box) break
                         emulator.write(buf, n)
                         onRevision()
                     }
@@ -255,6 +261,7 @@ class SshFailsafe(
 
     fun close() {
         running.set(false)
+        emulator.onReply = null
         outbox?.close()
         outbox = null
         runCatching { session?.close() }
