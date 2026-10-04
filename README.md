@@ -22,6 +22,14 @@ between your phone and your computer.
 - **The feed.** The conversation as rendered markdown with tool calls, timings and turn
   lines, a line where you left off, quick replies, slash commands, @ file mentions, and
   photos or other files attached from the phone.
+- **Agents and commands.** When Claude hands work to subagents, each is a card with what it
+  was asked, its kind and model, and its progress, read from the agent's own transcript.
+  Slash commands show what they did: the effort level on a meter, the model by name, and
+  `/context` as a breakdown of the context window.
+- **Steady on a bad connection.** A drop leaves the session on screen and the message box
+  writable. Each session's draft and its recent feed are kept on the phone, so a session opens
+  at once, even with no connection, and a message stays in its box until the computer says
+  it typed it.
 - **What changed.** The git diff of the session's directory, file by file.
 - **A real terminal.** The tmux pane at the desk's width, with a key row built for
   Claude Code.
@@ -32,7 +40,8 @@ between your phone and your computer.
 - **Builds of your own Android projects**, published on the computer, installed on the
   phone in one tap.
 - **Preview a dev server** from the computer in the phone's browser.
-- **Screenshots and clips** of the computer's screen, when you ask.
+- **Screenshots and clips** of the computer's screen, when you ask, waking screens that have
+  gone to sleep for the shot.
 - **A failsafe.** If the daemon stops answering, open a shell over SSH and restart it from the
   phone: Tailscale SSH on Linux, or on a Mac (whose Tailscale app has no SSH server) Remote
   Login with a key the phone makes and the daemon adds to `authorized_keys`, tied to the

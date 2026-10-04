@@ -139,7 +139,7 @@ fun ConsentScreen(machine: String, onCancel: () -> Unit, onAuthorize: () -> Unit
                 add(Triple("✓", "Approve tool calls", "Decide permission prompts remotely"))
                 add(Triple("≡", "Read session history", "Transcripts of your Claude Code sessions"))
                 if ("capture" in caps || "record" in caps) {
-                    add(Triple("▣", "Capture your screen", "Screenshots and short clips of the desktop, only when you ask"))
+                    add(Triple("▣", "Capture your screen", "Screenshots and short clips of the desktop, only when you ask; screens asleep are woken for them"))
                 }
                 if ("preview" in caps) {
                     add(Triple("⇢", "Share a dev server", "Open a site running on the computer in this phone's browser, over the tailnet, only when you ask"))

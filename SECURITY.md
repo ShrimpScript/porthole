@@ -29,12 +29,18 @@ WhoIs, with the address-to-node answer cached for one minute, and then the allow
 every single request, so a revoke is honoured by the very next one. Gate 0 does not apply
 as such - a browser on the phone is the intended caller - but its concern is met another
 way: the proxy answers only to a `Host` that names the computer on the share's port (its
-tailnet addresses and MagicDNS name), and returns 421 to anything else. Without that, a
+tailnet addresses, its MagicDNS name, and that name's first label), and returns 421 to
+anything else. The phone opens a share at the computer's tailnet address. Without that, a
 page open in the phone's browser could rebind its own hostname to that address and read
 the dev server as its own origin, since the proxy presents `Host` as localhost upstream.
 The share reaches only what is listed: loopback listeners owned by the daemon's own user,
 with the ephemeral range and known tooling hidden. A share whose server has exited is
 closed on the next listing. Shares die with the daemon; nothing is written into tailscaled.
+
+**Pictures by path** (0.38.0). The feed shows pictures the phone sent and ones Claude sent
+by their path on the computer. The daemon serves such a path only if it is an image (png,
+jpeg, webp, gif) of at most 8 MB under the user's home, after the path is cleaned and links
+are resolved, so `..` or a link cannot reach outside it.
 
 **The failsafe key** (0.27.0). Where Tailscale SSH does not serve the computer - a Mac,
 whose Tailscale app has no SSH server - the failsafe signs in to the system's sshd with a key

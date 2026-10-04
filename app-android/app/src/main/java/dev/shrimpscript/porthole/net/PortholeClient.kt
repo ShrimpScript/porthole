@@ -1133,8 +1133,6 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     val failsafeKeyError: StateFlow<String?> = _failsafeKeyError
 
     fun captureStill() = send("""{"type":"capture.still"}""")
-    /** One frame for the watch view; lands under the single key "live", never as a row. */
-    fun captureLive() = send("""{"type":"capture.still","live":true}""")
     fun captureClip(seconds: Int) = send(JSONObject().put("type", "capture.clip").put("seconds", seconds).toString())
 
     private fun remember(ref: String, bytes: ByteArray) {

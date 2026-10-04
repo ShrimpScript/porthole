@@ -46,15 +46,24 @@ cannot be established - the standard DERP behaviour, documented by Tailscale.
 - when each session was last opened (for the "since you left" line), and which builds you
   put away
 - the result of the last update check
-- the last session list the app saw (titles and what each was doing), for the home-screen
-  widget and the quick tile
+- the last session list the app saw (titles, folders, branches, and what each was doing or
+  asking), for the home-screen widget, the quick tile, and the list while the computer cannot
+  be reached
+- a copy of the recent feed of the 20 sessions you opened most recently, up to the last 200
+  rows of each, so a session opens at once and stays readable while the computer cannot be
+  reached. A copy holds what the feed showed, tool output and file contents included, so
+  anything a session printed (a secret among it) is in its copy too. Images are not kept,
+  only where they were
+- what you have typed in a session's message box and not sent yet, until it is sent or you
+  clear it
 - in the app's cache, APKs you downloaded and screen clips you opened, which Android clears
   as needed
 - if the app crashes, a report of that crash; it is sent to your own computer the next time
   the app connects (it lands in `~/.config/porthole/crashes/`) and then deleted from the phone
 
-No transcripts, no credentials, no message history. Uninstalling the app removes all of
-it. Revoking the device with `portholed revoke` on the computer cuts it off immediately,
+Nothing beyond those recent copies, and no credentials of the app's own. All of it is in the
+app's private storage, which other apps cannot read. Forgetting a computer (or unpairing)
+deletes the copies of its sessions and their drafts. Uninstalling the app removes all of it. Revoking the device with `portholed revoke` on the computer cuts it off immediately,
 whether or not the phone cooperates.
 
 ## Permissions the app asks for
