@@ -544,6 +544,70 @@ data class DaemonInfo(
 /** How the failsafe would sign in: see [DaemonInfo.failsafe] and [DaemonInfo.sshServer]. */
 data class FailsafeState(val via: String, val sshServer: Boolean)
 
+/** The Claude account Claude Code on a computer is signed in to: one for the whole computer. */
+data class ClaudeAccount(
+    val signedIn: Boolean,
+    val email: String = "",
+    /** As the CLI says it: "max", "pro", "team", "enterprise". */
+    val plan: String = "",
+    /** "claude.ai" for a subscription, "console" for API billing. */
+    val method: String = "",
+    /** The status could not be read. */
+    val error: String? = null,
+) {
+    val planName: String get() = when (plan.lowercase()) {
+        "" -> if (method == "console") "API billing" else ""
+        "max" -> "Max"
+        "pro" -> "Pro"
+        "team" -> "Team"
+        "enterprise" -> "Enterprise"
+        else -> plan.replaceFirstChar { it.uppercase() }
+    }
+}
+
+/** Signing Claude Code in to an account, from the phone. */
+sealed interface SignIn {
+    data object Idle : SignIn
+    /** Asked the computer to start; its sign-in page is on its way. */
+    data object Starting : SignIn
+    /** The page is out; the code it shows is what finishes it. */
+    data class Waiting(val url: String, val sending: Boolean = false, val error: String? = null) : SignIn {
+        /** The code the page shows ends with the link's state, so a pasted code can be recognised. */
+        val state: String get() = Regex("[?&]state=([^&]+)").find(url)?.groupValues?.get(1).orEmpty()
+        fun isCode(text: String): Boolean = state.isNotEmpty() && text.trim().let { it.endsWith("#$state") && it.length > state.length + 10 && !it.contains(' ') }
+    }
+    data class Failed(val error: String) : SignIn
+    data class Done(val account: ClaudeAccount?) : SignIn
+}
+
+/**
+ * Where a sign-in goes when the computer says how one ended. Only the sign-in under way
+ * here moves: the daemon resends how the last one ended to whoever asks, and that may be
+ * another phone's, or an older one. A result with no state is about one that never gave a
+ * link (or none waiting); with one, it is about the sign-in whose link carried it.
+ */
+fun SignIn.after(ok: Boolean, retry: Boolean, error: String, state: String, account: ClaudeAccount?): SignIn {
+    val mine = when (this) {
+        SignIn.Starting -> state.isEmpty()
+        is SignIn.Waiting -> state.isEmpty() || state == this.state
+        else -> false
+    }
+    if (!mine) return this
+    return when {
+        ok -> SignIn.Done(account)
+        retry && this is SignIn.Waiting -> copy(sending = false, error = error)
+        else -> SignIn.Failed(error.ifBlank { "Claude Code did not sign in" })
+    }
+}
+
+/** A session restarted to pick up the computer's account. */
+data class Restart(val state: String, val error: String = "") {
+    val waiting get() = state == "waiting"
+    val restarted get() = state == "restarted"
+    val failed get() = state == "failed"
+    val cancelled get() = state == "cancelled"
+}
+
 /**
  * Why the connection dropped. The app shows a specific card per case, because "couldn't
  * connect" with no reason is the failure mode that sends people back to their desk.
@@ -1143,6 +1207,49 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
     private val _failsafeKeyError = MutableStateFlow<String?>(null)
     val failsafeKeyError: StateFlow<String?> = _failsafeKeyError
 
+    private val _account = MutableStateFlow<ClaudeAccount?>(null)
+    /** The Claude account on the computer, as it last said; null before it has. */
+    val account: StateFlow<ClaudeAccount?> = _account
+    private val _signIn = MutableStateFlow<SignIn>(SignIn.Idle)
+    val signIn: StateFlow<SignIn> = _signIn
+    private val _restarts = MutableStateFlow<Map<String, Restart>>(emptyMap())
+    /** Sessions asked to restart, by id, and how each is getting on. */
+    val restarts: StateFlow<Map<String, Restart>> = _restarts
+
+    fun requestAccount() = send("""{"type":"account.get"}""")
+
+    /** Starts Claude Code's sign-in on the computer; its page arrives in [signIn]. */
+    fun startSignIn() {
+        _signIn.value = SignIn.Starting
+        send("""{"type":"account.signin"}""")
+    }
+
+    fun sendSignInCode(code: String) {
+        val cur = _signIn.value as? SignIn.Waiting ?: return
+        _signIn.value = cur.copy(sending = true, error = null)
+        send(JSONObject().put("type", "account.code").put("code", code.trim()).toString())
+    }
+
+    /** Abandons a sign-in under way, or puts away one that has ended. */
+    fun closeSignIn() {
+        val cur = _signIn.value
+        if (cur is SignIn.Starting || cur is SignIn.Waiting) send("""{"type":"account.cancel"}""")
+        _signIn.value = SignIn.Idle
+    }
+
+    fun signOut() = send("""{"type":"account.signout"}""")
+
+    fun restartSessions(ids: List<String>) {
+        if (ids.isEmpty()) return
+        _restarts.value = _restarts.value - ids.toSet()
+        send(JSONObject().put("type", "sessions.restart").put("ids", org.json.JSONArray(ids)).toString())
+    }
+
+    fun forgetRestarts() { _restarts.value = emptyMap() }
+
+    /** Calls off restarts still waiting for their session to be free. */
+    fun cancelRestart(id: String) = send(JSONObject().put("type", "sessions.restart_cancel").put("ids", org.json.JSONArray(listOf(id))).toString())
+
     fun captureStill() = send("""{"type":"capture.still"}""")
     fun captureClip(seconds: Int) = send(JSONObject().put("type", "capture.clip").put("seconds", seconds).toString())
 
@@ -1384,6 +1491,11 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     }
                     val caps = obj.optJSONArray("caps")
                     _failsafe.value = FailsafeState(obj.optString("failsafe"), obj.optBoolean("ssh_server"))
+                    // Which Claude account the computer is on, for Settings and the limit card. A
+                    // code sent before the connection dropped may never have been answered: the
+                    // button comes back, and the daemon says how a sign-in that ended went.
+                    (_signIn.value as? SignIn.Waiting)?.takeIf { it.sending }?.let { _signIn.value = it.copy(sending = false) }
+                    if ((0 until (caps?.length() ?: 0)).any { caps!!.getString(it) == "account" }) requestAccount()
                     _connection.value = Connection.Live(
                         DaemonInfo(
                             version = obj.optString("daemon_version"),
@@ -1588,6 +1700,20 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     _failsafe.value = FailsafeState(obj.optString("failsafe"), obj.optBoolean("ssh_server"))
                     _failsafeKeyError.value = obj.optString("error").ifBlank { null }
                 }
+                "account.state" -> _account.value = ClaudeAccount(
+                    signedIn = obj.optBoolean("logged_in"), email = obj.optString("email"),
+                    plan = obj.optString("plan"), method = obj.optString("method"),
+                    error = obj.optString("error").ifBlank { null },
+                )
+                "account.link" -> _signIn.value = SignIn.Waiting(obj.optString("url"))
+                "account.done" -> _signIn.value = _signIn.value.after(
+                    ok = obj.optBoolean("ok"), retry = obj.optBoolean("retry"),
+                    error = obj.optString("error"), state = obj.optString("state"), account = _account.value,
+                )
+                "session.restarted" -> {
+                    val id = obj.optString("session_id")
+                    if (id.isNotEmpty()) _restarts.value = _restarts.value + (id to Restart(obj.optString("state"), obj.optString("error")))
+                }
                 "preview.state" -> {
                     val share = PreviewShare(obj.optInt("upstream"), obj.optInt("port"), obj.optString("host"))
                     val open = obj.optBoolean("open")
@@ -1646,6 +1772,11 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     if ((code == "no_image" || code == "bad_ref") && imageRef.isNotEmpty()) {
                         _gone.value = _gone.value + imageRef
                         synchronized(inflight) { inflight.remove(imageRef) }
+                        return
+                    }
+                    // The sign-in that could not start says so in its own sheet.
+                    if ((code == "no_claude" || code == "signin_failed") && _signIn.value != SignIn.Idle) {
+                        _signIn.value = SignIn.Failed(message.ifBlank { "Claude Code's sign-in could not start" })
                         return
                     }
                     val fatal = FATAL[code]

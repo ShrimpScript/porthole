@@ -128,6 +128,11 @@ fun SettingsScreen(
     /** Sessions silenced one at a time from their details sheet. */
     mutedCount: Int = 0,
     onUnmuteAll: () -> Unit = {},
+    /** The Claude account on the computer; shown when the computer can switch it. */
+    canAccount: Boolean = false,
+    account: dev.shrimpscript.porthole.net.ClaudeAccount? = null,
+    onSwitchAccount: () -> Unit = {},
+    onSignOut: () -> Unit = {},
 ) = Screen {
     val c = Porthole.colors
     var confirmUnpair by remember { mutableStateOf(false) }
@@ -152,6 +157,25 @@ fun SettingsScreen(
                 KeyValue("Host", host.ifBlank { "—" })
                 KeyValue("This phone is known as", deviceName.ifBlank { "—" })
                 KeyValue("portholed", daemonVersion.ifBlank { "not connected" })
+            }
+
+            Section("Claude Code") {
+                if (canAccount) {
+                    ClaudeAccountRows(account, onSwitchAccount, onSignOut)
+                    Spacer(Modifier.height(10.dp))
+                }
+                KeyValue("Continue after a usage limit", if (autoContinue) "on" else "off")
+                Text(
+                    if (autoContinue)
+                        "When a claude.ai usage limit stops a task, Claude Code waits in the session and " +
+                            "continues on its own after the reset. The feed shows the countdown and lets you " +
+                            "cancel it, or press Enter if the computer slept through the reset."
+                    else
+                        "Claude Code will not continue on its own after a limit. Turn it on at the computer: " +
+                            "/config, then \"Continue automatically at usage limit\". Porthole never edits " +
+                            "Claude Code's settings.",
+                    style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(top = 4.dp),
+                )
             }
 
             // Porthole's own updates come from its GitHub releases. A store build has
@@ -349,21 +373,6 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
                     GhostButton("Unmute all", onClick = onUnmuteAll)
                 }
-            }
-
-            Section("Claude Code") {
-                KeyValue("Continue after a usage limit", if (autoContinue) "on" else "off")
-                Text(
-                    if (autoContinue)
-                        "When a claude.ai usage limit stops a task, Claude Code waits in the session and " +
-                            "continues on its own after the reset. The feed shows the countdown and lets you " +
-                            "cancel it, or press Enter if the computer slept through the reset."
-                    else
-                        "Claude Code will not continue on its own after a limit. Turn it on at the computer: " +
-                            "/config, then \"Continue automatically at usage limit\". Porthole never edits " +
-                            "Claude Code's settings.",
-                    style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(top = 4.dp),
-                )
             }
 
             var editReplies by remember { mutableStateOf(false) }

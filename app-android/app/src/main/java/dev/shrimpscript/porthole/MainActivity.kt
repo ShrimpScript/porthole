@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.flow.drop
 import androidx.compose.runtime.key
 import androidx.compose.runtime.SideEffect
+import dev.shrimpscript.porthole.ui.AccountSheet
 import dev.shrimpscript.porthole.ui.LocalSharedTransition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.SharedTransitionLayout
@@ -449,6 +450,9 @@ private fun PortholeApp(
         if (listDownSince != 0L) { kotlinx.coroutines.delay(1_500); listDown = true }
     }
     val failsafe by client.failsafe.collectAsState()
+    val claudeAccount by client.account.collectAsState()
+    // The Claude account sheet, and the computer it signs in.
+    var accountClient by remember { mutableStateOf<dev.shrimpscript.porthole.net.PortholeClient?>(null) }
     val failsafeKeyError by client.failsafeKeyError.collectAsState()
     val sessions by vm.fleet.sessions.collectAsState()
     val machines by vm.fleet.machines.collectAsState()
@@ -683,6 +687,12 @@ private fun PortholeApp(
 
     // One shell, two doors. Opening it needs the daemon only for the user name, which was
     // learned while it was still answering and kept in preferences for exactly this moment.
+    fun openAccount(on: dev.shrimpscript.porthole.net.PortholeClient) {
+        accountClient = on
+        on.forgetRestarts()
+        on.startSignIn()
+    }
+
     fun openFailsafeShell(from: Route) {
         vm.ssh.debugPort = sshDebugPort
         failsafeNote = "Opening a shell over SSH\u2026"
@@ -1318,6 +1328,7 @@ private fun PortholeApp(
                             clips = clips,
                             onNeedImage = { ref -> sc.requestImage(s.id, ref) },
                             caps = activeDaemon?.caps ?: emptyList(),
+                            onSwitchAccount = if ("account" in (activeDaemon?.caps ?: emptyList())) ({ openAccount(sc) }) else null,
                             onCapture = { secs -> if (secs == 0) sc.captureStill() else sc.captureClip(secs) },
                             hostLabel = openSession?.let { vm.fleet.hostOf(it) } ?: host.substringBeforeLast(':'),
                             preview = preview,
@@ -1353,6 +1364,10 @@ private fun PortholeApp(
                     onForgetMachine = { id -> vm.fleet.remove(id) },
                     mutedCount = mutedIds.size,
                     onUnmuteAll = { Mutes.clear(context); mutedIds = emptySet() },
+                    canAccount = daemon?.caps?.contains("account") == true,
+                    account = claudeAccount,
+                    onSwitchAccount = { openAccount(client) },
+                    onSignOut = { client.signOut() },
                     onOpenShell = { openFailsafeShell(Route.Settings) },
                     sshNote = failsafeNote,
                     failsafe = failsafe,
@@ -1467,6 +1482,26 @@ private fun PortholeApp(
                     daemonDown = failsafeFrom != Route.Settings,
                 )
             }
+        }
+
+        accountClient?.let { ac ->
+            val signIn by ac.signIn.collectAsState()
+            val restarts by ac.restarts.collectAsState()
+            val acSessions by ac.sessions.collectAsState()
+            val acConn by ac.connection.collectAsState()
+            AccountSheet(
+                machine = (acConn as? Connection.Live)?.daemon?.host?.ifBlank { null } ?: host.ifBlank { "the computer" },
+                signIn = signIn,
+                sessions = acSessions,
+                restarts = restarts,
+                onCode = { ac.sendSignInCode(it) },
+                onRetry = { ac.startSignIn() },
+                // A session waiting out a usage limit is told to stop waiting by the
+                // computer, when its restart comes up.
+                onRestart = { ids -> ac.restartSessions(ids) },
+                onCancelRestart = { ac.cancelRestart(it) },
+                onClose = { ac.closeSignIn(); accountClient = null },
+            )
         }
 
         // An approval can arrive on any screen - it is the reason the app exists, so it

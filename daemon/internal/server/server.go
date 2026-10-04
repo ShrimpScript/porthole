@@ -57,12 +57,14 @@ type Server struct {
 
 	// Where the daemon is reachable, so a preview proxy binds exactly the same
 	// addresses (tailnet only, or the dev loopback) and never anything wider.
-	bindIPs   []string
-	bindNames []string // hostnames a phone may use for this machine (MagicDNS; dev aliases)
-	screens   waker    // wakes sleeping screens for captures, shared by every phone
-	bindPort  int
-	pmu       sync.Mutex
-	previews  map[int]*previewProxy // upstream port -> the share
+	bindIPs    []string
+	bindNames  []string // hostnames a phone may use for this machine (MagicDNS; dev aliases)
+	screens    waker    // wakes sleeping screens for captures, shared by every phone
+	accounts   accounts // the Claude sign-in in progress, if one is
+	restarting restarts // sessions being restarted onto the computer's account
+	bindPort   int
+	pmu        sync.Mutex
+	previews   map[int]*previewProxy // upstream port -> the share
 
 	// What each live session's screen is asking right now, from the turn watcher's
 	// scan of its pane (the transcript only records a question once answered).
@@ -382,6 +384,9 @@ func detectCaps() []string {
 	caps = append(caps, proto.CapFiles) // git's list in a repository, a walk outside one
 	if _, err := exec.LookPath("tmux"); err == nil {
 		caps = append(caps, proto.CapStart) // starting Claude needs a tmux to put it in
+	}
+	if findClaude() != "" {
+		caps = append(caps, proto.CapAccount)
 	}
 	return caps
 }

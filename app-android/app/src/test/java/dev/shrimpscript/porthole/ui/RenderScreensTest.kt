@@ -47,6 +47,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
+import org.junit.Assert.assertFalse
+import dev.shrimpscript.porthole.ui.theme.Appearance
+import dev.shrimpscript.porthole.ui.theme.ThemeChoice
 
 /**
  * Screens drawn on the JVM and saved as PNGs under build/reports/screens. Each test also
@@ -1231,5 +1234,108 @@ index 4cb29ea..8b1d0e1 100644
         rule.waitForIdle()
         rule.onNodeWithText("back to the prompt", substring = true).assertIsDisplayed()
         save("failsafe-scrolled")
+    }
+
+    // ---- the Claude account ---------------------------------------------------------
+
+    private fun live(id: String, title: String, working: Boolean = false) =
+        dev.shrimpscript.porthole.net.SessionInfo(id = id, title = title, cwd = "/srv/$id", branch = "main", lastActive = "2026-10-04T10:00:00Z", live = true, tmux = true, working = working)
+
+    /** Settings: who the computer is signed in as, Switch account, and a Sign out that asks first. */
+    @Test
+    fun settingsShowTheClaudeAccount() {
+        var switched = false
+        var signedOut = false
+        rule.setContent {
+            PortholeTheme {
+                SettingsScreen(
+                    host = "workstation", deviceName = "pixel", daemonVersion = "0.40.0", appVersion = "0.40.0",
+                    theme = ThemeChoice.Porthole, appearance = Appearance.System, fontSp = 13f, onFontSp = {},
+                    onGuide = {}, onSetup = {}, onUnpair = {}, onBack = {},
+                    canAccount = true, account = dev.shrimpscript.porthole.net.ClaudeAccount(true, "you@example.com", "max", "claude.ai"),
+                    onSwitchAccount = { switched = true }, onSignOut = { signedOut = true },
+                )
+            }
+        }
+        rule.onNodeWithText("you@example.com · Max").performScrollTo().assertIsDisplayed()
+        save("account-settings")
+        rule.onNodeWithText("Switch account").performScrollTo().performClick()
+        assertTrue(switched)
+        rule.onNodeWithText("Sign out").performScrollTo().performClick()
+        assertFalse("asks first", signedOut)
+        rule.onNodeWithText("Keep").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Sign out").performScrollTo().performClick()
+        assertTrue(signedOut)
+    }
+
+    /** The sign-in: Claude's page, then the code - picked up from the clipboard, or pasted. */
+    @Test
+    fun signingInStepByStep() {
+        rule.setContent {
+            PortholeTheme {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(top = 24.dp)) {
+                    AccountFlow(
+                        machine = "workstation",
+                        signIn = dev.shrimpscript.porthole.net.SignIn.Waiting("https://claude.com/cai/oauth/authorize?code=true&state=abc", error = "OAuth error: Invalid code"),
+                        sessions = emptyList(), restarts = emptyMap(), onCode = {}, onRetry = {}, onRestart = {}, onClose = {},
+                    )
+                }
+            }
+        }
+        rule.onNodeWithText("Sign in on Claude's page").assertIsDisplayed()
+        rule.onNodeWithText("Bring back the code").assertIsDisplayed()
+        save("account-signin")
+    }
+
+    /** Signed in: the sessions already running, restarted or waiting for their turn to end. */
+    @Test
+    fun signedInSessionsRestart() {
+        var asked: List<String> = emptyList()
+        val sessions = listOf(live("a", "Video editing", working = true), live("b", "Porthole"), live("c", "Deadlap"),
+            dev.shrimpscript.porthole.net.SessionInfo(id = "d", title = "Not running", cwd = "/srv/d", branch = "", lastActive = "", live = false))
+        var restarts by androidx.compose.runtime.mutableStateOf<Map<String, dev.shrimpscript.porthole.net.Restart>>(emptyMap())
+        rule.setContent {
+            PortholeTheme {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(top = 24.dp)) {
+                    AccountFlow(
+                        machine = "workstation",
+                        signIn = dev.shrimpscript.porthole.net.SignIn.Done(dev.shrimpscript.porthole.net.ClaudeAccount(true, "other@example.com", "pro", "claude.ai")),
+                        sessions = sessions, restarts = restarts, onCode = {}, onRetry = {}, onRestart = { asked = it }, onClose = {},
+                    )
+                }
+            }
+        }
+        rule.onNodeWithText("Claude Code on workstation now uses other@example.com · Pro.").assertIsDisplayed()
+        rule.onNodeWithText("Not running").assertDoesNotExist()
+        rule.onNodeWithText("Restart all 3").performClick()
+        assertEquals(listOf("a", "b", "c"), asked)
+        restarts = mapOf(
+            "a" to dev.shrimpscript.porthole.net.Restart("waiting"),
+            "b" to dev.shrimpscript.porthole.net.Restart("restarted"),
+            "c" to dev.shrimpscript.porthole.net.Restart("failed", "its tmux pane closed with Claude Code; start it again from the session"),
+        )
+        rule.waitForIdle()
+        rule.onNodeWithText("after it finishes").assertIsDisplayed()
+        rule.onNodeWithText("restarted").assertIsDisplayed()
+        rule.onNodeWithText("Done").assertIsDisplayed()
+        save("account-restart")
+    }
+
+    /** The limit card offers the other account. */
+    @Test
+    fun theLimitCardOffersAnotherAccount() {
+        var switched = false
+        rule.setContent {
+            PortholeTheme {
+                LimitCard(
+                    status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "", interruptible = false,
+                        limitText = "5-hour limit reached · resets 3pm", limitWaiting = true, limitResumeAt = "3pm"),
+                    autoContinue = true, onKey = {}, onOptions = {}, onSwitchAccount = { switched = true },
+                )
+            }
+        }
+        rule.onNodeWithText("Switch Claude account").performClick()
+        assertTrue(switched)
+        save("account-limit")
     }
 }

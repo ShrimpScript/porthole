@@ -21,7 +21,12 @@ address reaches GitHub, as it does when you open any web page. Turn it off in
 **Settings > Updates**. A build of the app made for a store has no update check at all.
 
 Links in the app (Tailscale's store page, links in Claude's replies, a dev server you
-choose to open) are things you tap, not requests the app makes on its own. Scanning a
+choose to open) are things you tap, not requests the app makes on its own. Switching the
+computer's Claude account opens Claude's own sign-in page in the phone's browser, where you
+sign in with Anthropic as on any device; the code that page shows goes from the phone to
+Claude Code on your computer across your tailnet, and Porthole keeps no copy of it or of
+the sign-in. While that sign-in waits for its code, the app reads the clipboard whenever its
+window has focus, only to recognise that page's code, and does nothing else with it. Scanning a
 pairing QR code uses Google's code scanner, part of Google Play services on the phone;
 Porthole receives only the scanned text and needs no camera permission. Play services runs
 the scanner under Google's own terms, which let it send Google usage metrics; typing the

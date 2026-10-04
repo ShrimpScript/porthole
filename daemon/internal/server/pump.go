@@ -106,6 +106,8 @@ type clientFrame struct {
 	Name    string   `json:"name"`
 	Media   string   `json:"media"`
 	Uploads []string `json:"uploads"`
+	Code    string   `json:"code"` // account.code: what the sign-in page showed
+	IDs     []string `json:"ids"`  // sessions.restart: the sessions to restart
 }
 
 type promptImage struct {
@@ -330,6 +332,20 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 			s.previewClose(ctx, w, f.Port, deviceName)
 		case proto.TypeSSHKey:
 			s.sshKey(ctx, w, peer, f.PublicKey, deviceName)
+		case proto.TypeAccountGet:
+			go s.accountGet(ctx, w)
+		case proto.TypeAccountSignIn:
+			go s.signInStart(ctx, w, deviceName) // waits for the CLI's link
+		case proto.TypeAccountCode:
+			go s.signInCode(w, f.Code, deviceName) // waits for the CLI to finish
+		case proto.TypeAccountCancel:
+			s.signInCancel()
+		case proto.TypeAccountSignOut:
+			go s.signOut(ctx, w, deviceName)
+		case proto.TypeSessionsRestart:
+			s.restartSessions(w, f.IDs, deviceName)
+		case proto.TypeRestartCancel:
+			s.restartCancel(f.IDs)
 		}
 	}
 }

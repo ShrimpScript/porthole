@@ -42,6 +42,25 @@ by their path on the computer. The daemon serves such a path only if it is an im
 jpeg, webp, gif) of at most 8 MB under the user's home, after the path is cleaned and links
 are resolved, so `..` or a link cannot reach outside it.
 
+**The Claude account** (0.40.0). A paired phone can sign Claude Code on the computer out,
+or in to another account, and restart running sessions. This is Claude Code's own
+`claude auth login` and `logout`, run as the daemon's user: nothing a paired phone could not
+already do from the terminal. Under the systemd service they run as a transient user unit of
+their own, outside the daemon's sandbox, whose read-only filesystem would keep Claude Code
+from writing its sign-in. The sign-in runs with no display and with every command that opens
+a browser (`xdg-open`, `open`, `$BROWSER` and the rest) replaced by a stub, so nothing opens
+on the computer, where a browser could finish the sign-in with whatever account it holds.
+The phone gets the sign-in link the CLI prints for another device; a code is typed into the
+waiting CLI only if it ends with that link's own `state`, and is kept nowhere. One sign-in
+runs at a time, and one nobody finishes is ended after ten minutes. A restart takes only a
+session id of the CLI's own form (a UUID), finds the CLI by the process ID Claude Code
+registered (checked against its start time where Claude Code recorded one), and stops it
+only if it was started by its tmux pane's own shell - so the pane stays, and nothing else is
+stopped. It waits while the session is in a turn, a `!` command, a question or a permission
+prompt, presses Escape once on a usage-limit wait, and types `claude --resume <id>` into that
+shell only once it is idle again in the session's folder. A restart still waiting can be
+called off, and one session is never restarted twice at once.
+
 **The failsafe key** (0.27.0). Where Tailscale SSH does not serve the computer - a Mac,
 whose Tailscale app has no SSH server - the failsafe signs in to the system's sshd with a key
 of the phone's own. The phone makes an Ed25519 key; the 32-byte seed is stored encrypted with

@@ -33,6 +33,11 @@ between your phone and your computer.
   at once, even with no connection, and a message stays in its box until the computer says
   it typed it.
 - **What changed.** The git diff of the session's directory, file by file.
+- **Switch Claude accounts.** Settings shows which Claude account Claude Code on the computer
+  is signed in to. Switch account opens Claude's own sign-in page on the phone and picks up
+  the code it shows when you come back; sessions already running can restart on the new
+  account, each when it is free. Sign out is there too, and Switch account is on the
+  usage-limit card.
 - **A real terminal.** The tmux pane at the desk's width, with a key row built for
   Claude Code.
 - **Start, resume, or start another.** The + on the session list starts a fresh Claude Code in

@@ -75,6 +75,7 @@
               <li><a href="#approvals">Approvals</a></li>
               <li><a href="#terminal">The terminal</a></li>
               <li><a href="#changes">Changes</a></li>
+              <li><a href="#account">Claude account</a></li>
               <li><a href="#details">Session details</a></li>
               <li><a href="#start">Start and resume</a></li>
               <li><a href="#notifications">Notifications</a></li>
@@ -134,6 +135,7 @@
         <li><a href="#approvals">Approvals</a></li>
         <li><a href="#terminal">The terminal</a></li>
         <li><a href="#changes">Changes</a></li>
+        <li><a href="#account">Claude account</a></li>
         <li><a href="#details">Session details</a></li>
         <li><a href="#start">Start and resume</a></li>
         <li><a href="#notifications">Notifications</a></li>
@@ -554,6 +556,16 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
     <div class="d-side">
       <div class="pk-scene" data-scene="changes"><noscript><img class="pk-still-img" src="/assets/frames/changes.webp" width="407" height="777" alt="The Changes sheet over a finished session: six files with lines added and removed."></noscript></div>
     </div>
+  </div>
+</section>
+
+<!-- ============================================================ account -->
+<section class="d-sec" id="account">
+  <h2><a href="#account">Claude account</a></h2>
+  <div class="prose">
+    <p>Claude Code keeps one sign-in per user on a computer, so the account is the computer's, for every session on it. <b>Settings &rsaquo; Claude Code</b> shows which account that is and its plan, with <b>Switch account</b> and <b>Sign out</b>; Sign out asks first, in place, and sessions cannot reach Claude until the computer is signed in again. The usage-limit card offers <b>Switch Claude account</b> too.</p>
+    <p>Switch account starts Claude Code's own sign-in (<code>claude auth login</code>) on the computer and opens Claude's sign-in page in the phone's browser. Sign in there with the account you want, copy the code the page shows, and come back: Porthole recognises that page's code on the clipboard (it ends with the link's own state, so no other text is taken for it) and finishes the sign-in, or you can paste it. The page signs in with whichever Claude account the browser uses, so for another one sign out of claude.ai in the browser first, or open the link in a private tab (<b>Copy link</b>). Nothing opens on the computer, and Porthole keeps no copy of the code.</p>
+    <p>Sessions already running may keep the account they started with. Once signed in, Porthole lists them and offers to restart them: each one's Claude Code stops and comes back in the same tmux pane on the same conversation (<code>claude --resume</code>), signed in as the new account. A session in the middle of a turn, a <code>!</code> command, a question or a permission prompt restarts when it is free, and <b>Cancel</b> calls that off; one waiting out a usage limit stops waiting, since another account is why it is restarting. A session whose Claude Code was not started from its tmux pane's own shell is left running, for you to restart yourself.</p>
   </div>
 </section>
 

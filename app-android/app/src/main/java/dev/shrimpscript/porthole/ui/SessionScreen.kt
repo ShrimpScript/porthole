@@ -177,6 +177,8 @@ fun SessionScreen(
     clips: Map<String, java.io.File> = emptyMap(),
     onNeedImage: (String) -> Unit = {},
     caps: List<String> = emptyList(),
+    /** Sign the computer in to another Claude account, from the limit card. */
+    onSwitchAccount: (() -> Unit)? = null,
     onCapture: (Int) -> Unit = {},
     hostLabel: String = "",
     preview: PreviewState? = null,
@@ -374,6 +376,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             LimitCard(
                                 status = status, autoContinue = autoContinue, onKey = onKey,
                                 onOptions = { onCommand(CLI_COMMANDS.first { it.name == "/rate-limit-options" }) },
+                                onSwitchAccount = onSwitchAccount,
                             )
                             LayoutSpacer(Modifier.height(8.dp))
                         } else {

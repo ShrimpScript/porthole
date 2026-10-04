@@ -60,6 +60,18 @@ const (
 	TypePreviewState     = "preview.state" // the daemon's answer to open/close
 	TypeSSHKey           = "ssh.key"       // add this phone's failsafe key (public_key set) or remove it (empty)
 	TypeSSHKeyState      = "ssh.key.state" // the daemon's answer: how the failsafe would sign in now
+	// The Claude account Claude Code on the computer is signed in to (CapAccount).
+	TypeAccountGet       = "account.get"             // phone: which account is it
+	TypeAccountState     = "account.state"           // daemon: signed in or not, as whom, on which plan
+	TypeAccountSignIn    = "account.signin"          // phone: start Claude Code's sign-in
+	TypeAccountLink      = "account.link"            // daemon: the sign-in page for the phone to open
+	TypeAccountCode      = "account.code"            // phone: the code that page showed
+	TypeAccountDone      = "account.done"            // daemon: how the sign-in ended
+	TypeAccountCancel    = "account.cancel"          // phone: abandon the sign-in
+	TypeAccountSignOut   = "account.signout"         // phone: sign Claude Code out
+	TypeSessionsRestart  = "sessions.restart"        // phone: restart these sessions, each when it is free
+	TypeSessionRestarted = "session.restarted"       // daemon: one session's restart, waiting, done, failed or cancelled
+	TypeRestartCancel    = "sessions.restart_cancel" // phone: call off restarts still waiting
 )
 
 // Capabilities advertised in Hello. The app shows an optional feature only when the
@@ -83,6 +95,9 @@ const (
 	// naming it) answers every prompt that does, so the phone can keep a message in its box
 	// until it has been typed.
 	CapPromptAck = "prompt_ack"
+	// CapAccount: which Claude account Claude Code is signed in to, signing in to another
+	// from the phone, signing out, and restarting sessions so they use it.
+	CapAccount = "account"
 )
 
 type Frame struct {

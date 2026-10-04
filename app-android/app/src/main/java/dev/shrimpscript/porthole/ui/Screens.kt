@@ -147,6 +147,9 @@ fun ConsentScreen(machine: String, onCancel: () -> Unit, onAuthorize: () -> Unit
                 if ("start" in caps) {
                     add(Triple("▶", "Start Claude Code", "In a project it has been used in before, only when you ask"))
                 }
+                if ("account" in caps) {
+                    add(Triple("◎", "Switch Claude accounts", "Sign Claude Code out, or in to another account through Claude's own sign-in, and restart sessions on it, only when you ask"))
+                }
             }.forEachIndexed { i, (g, n, a) ->
                 Appear(delayMs = i * PortholeMotion.STAGGER_MS) { ScopeRow(g, n, a) }
             }

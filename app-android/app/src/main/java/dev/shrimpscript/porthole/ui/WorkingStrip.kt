@@ -109,6 +109,8 @@ fun LimitCard(
     onKey: (String) -> Unit,
     onOptions: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Sign the computer in to another Claude account; null where the computer cannot. */
+    onSwitchAccount: (() -> Unit)? = null,
 ) {
     val c = Porthole.colors
     Appear(modifier) {
@@ -156,6 +158,7 @@ fun LimitCard(
                 }
                 if (status.limitWaiting || status.limitEnter) GhostButton("Options", onOptions, Modifier.weight(1f))
             }
+            if (onSwitchAccount != null) GhostButton("Switch Claude account", onSwitchAccount)
         }
     }
 }
