@@ -646,9 +646,11 @@ func (s *Server) restartSessions(w *writer, ids []string, device string) {
 			continue
 		}
 		go func(id string) {
-			defer cancel()
-			defer s.restarting.end(id)
-			s.restartOne(ctx, w, id, device)
+			state, msg := s.restartOne(ctx, w, id, device)
+			// Free before saying so: a phone told it ended may ask again at once.
+			s.restarting.end(id)
+			cancel()
+			sendLater(w, restartFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeSessionRestarted}, SessionID: id, State: state, Error: msg})
 		}(id)
 	}
 }
@@ -659,34 +661,28 @@ func (s *Server) restartCancel(ids []string) {
 	}
 }
 
-func (s *Server) restartOne(ctx context.Context, w *writer, id, device string) {
-	report := func(state, msg string) {
-		sendLater(w, restartFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeSessionRestarted}, SessionID: id, State: state, Error: msg})
-	}
+// restartOne restarts a session when it is free and returns how that ended; it says only
+// "waiting" itself, while it waits.
+func (s *Server) restartOne(ctx context.Context, w *writer, id, device string) (string, string) {
 	told, escaped := false, false
 	pinned := 0 // the CLI first found: only it is stopped
 	for {
 		p, ok := procFor(id)
 		switch {
 		case !ok:
-			report("failed", "that session is not running")
-			return
+			return "failed", "that session is not running"
 		case pinned != 0 && p.PID != pinned:
-			report("failed", "it was started again meanwhile")
-			return
+			return "failed", "it was started again meanwhile"
 		case !paneID.MatchString(p.Pane):
-			report("failed", "that session is not running in tmux, so it cannot be restarted from here")
-			return
+			return "failed", "that session is not running in tmux, so it cannot be restarted from here"
 		}
 		pinned = p.PID
 		if !busy(p) {
 			if err := s.restartIn(ctx, p); err != nil {
-				report("failed", err.Error())
-				return
+				return "failed", err.Error()
 			}
 			s.log.Info("session restarted from the phone", "session", id, "pane", p.Pane, "from", device)
-			report("restarted", "")
-			return
+			return "restarted", ""
 		}
 		if !escaped && waitingOutLimit(ctx, p.Pane) {
 			// Counting down to the reset (or holding at it for Enter): another account is
@@ -695,17 +691,15 @@ func (s *Server) restartOne(ctx context.Context, w *writer, id, device string) {
 			escaped = true
 		}
 		if !told {
-			report("waiting", "")
+			sendLater(w, restartFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeSessionRestarted}, SessionID: id, State: "waiting"})
 			told = true
 		}
 		select {
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.Canceled) {
-				report("cancelled", "")
-			} else {
-				report("failed", "it was still busy after "+restartPatient.String())
+				return "cancelled", ""
 			}
-			return
+			return "failed", "it was still busy after " + restartPatient.String()
 		case <-time.After(restartPoll):
 		}
 	}
