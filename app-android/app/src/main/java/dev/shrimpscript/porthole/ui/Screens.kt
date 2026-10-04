@@ -399,48 +399,42 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                     // Finished since you last opened it: a mark, not a badge with a number.
                     if (unseen) Box(Modifier.size(7.dp).background(c.accent, PortholeShape.pill).semantics { contentDescription = "new since you looked" })
                 }
+                // The state on a line of its own, in colour; the details quieter beneath it.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (s.working && !s.needsYou && !s.machineDown) {
-                        Spinner(Modifier.padding(end = 2.dp))
+                        Spinner(Modifier.padding(end = 6.dp))
                     }
                     Text(
-                        buildString {
-                            if (s.asking.isNotBlank()) {
-                                append("asking you: ").append(s.asking).append(" · ")
-                            } else if (s.waiting) {
-                                append("waiting for you")
-                                if (s.waitingWhat.isNotBlank()) append(": ").append(s.waitingWhat)
-                                append(" · ")
-                            } else if (s.working) {
-                                // Time first: it is the number that decides whether to wait, and a
-                                // long command must never push it off the row.
-                                if (s.workingSince > 0 && now > 0 && !s.machineDown) append(elapsedLabel(now - s.workingSince)).append(" · ")
-                                append(s.doing.ifBlank { "working" }).append(" · ")
-                            }
-                            if (s.agents > 0) append(if (s.agents == 1) "1 agent" else "${s.agents} agents").append(" · ")
-                            if (s.machine.isNotBlank()) append(s.machine).append(" · ")
-                            if (s.branch.isNotBlank()) append(s.branch).append(" · ")
-                            append(
-                                when {
-                                    s.machineDown -> "as last seen"
-                                    // The tmux session is the handle the person has for "which
-                                    // terminal": with two sessions in one directory it is the
-                                    // only thing on the row that tells them apart.
-                                    s.live && s.tmuxName.isNotBlank() -> "live · tmux ${s.tmuxName}"
-                                    s.live -> "live"
-                                    s.tmux -> "shell only, Claude not running"
-                                    else -> "idle"
-                                }
-                            )
-                            val m = modelShortName(s.model)
-                            if (m.isNotBlank()) append(" · ").append(m)
+                        when {
+                            s.machineDown -> "as last seen"
+                            s.asking.isNotBlank() -> "asking you: ${s.asking}"
+                            s.waiting -> if (s.waitingWhat.isNotBlank()) "waiting for you: ${s.waitingWhat}" else "waiting for you"
+                            // Time first: it is the number that decides whether to wait, and a
+                            // long command must never push it off the row.
+                            s.working -> listOfNotNull(
+                                if (s.workingSince > 0 && now > 0) elapsedLabel(now - s.workingSince) else null,
+                                s.doing.ifBlank { "working" },
+                            ).joinToString(" · ")
+                            s.live -> "live"
+                            s.tmux -> "shell only, Claude not running"
+                            else -> "idle"
                         },
                         style = PortholeType.secondary,
-                        color = when { s.needsYou -> c.accent; s.working -> c.text; else -> c.muted },
+                        color = when { s.needsYou -> c.accent; s.working && !s.machineDown -> c.text; else -> c.muted },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                // The tmux session is the handle the person has for "which terminal": with two
+                // sessions in one directory it is the only thing on the row that tells them apart.
+                val details = listOfNotNull(
+                    if (s.agents > 0) (if (s.agents == 1) "1 agent" else "${s.agents} agents") else null,
+                    s.machine.ifBlank { null },
+                    s.branch.ifBlank { null },
+                    if (s.tmuxName.isNotBlank() && (s.live || s.tmux)) "tmux ${s.tmuxName}" else null,
+                    modelShortName(s.model).ifBlank { null },
+                ).joinToString(" · ")
+                if (details.isNotBlank()) Text(details, style = PortholeType.meta, color = c.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(relativeTime(s.lastActive), style = PortholeType.meta, color = c.faint)
         }

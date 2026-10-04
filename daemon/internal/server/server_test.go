@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -39,6 +40,12 @@ const testNode = "nTESTDEVICE001CNTRL"
 
 func newTestServer(t *testing.T, res tailnet.Resolver) (*Server, *httptest.Server, *store.Store) {
 	t.Helper()
+	// Every connection sends the sessions list first, read from Claude Code's projects
+	// folder: a test that brings none of its own gets an empty one, never the real one,
+	// which on a busy machine took longer to read than a test waits for its reply.
+	if os.Getenv("CLAUDE_CONFIG_DIR") == "" {
+		t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	}
 	st, err := store.Open(filepath.Join(t.TempDir(), "devices.json"))
 	if err != nil {
 		t.Fatalf("store: %v", err)

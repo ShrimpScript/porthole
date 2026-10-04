@@ -48,7 +48,14 @@ data class Row(
     val local: Boolean = false,
     /** A prompt's attached files, by path on the computer (the daemon took them out of its text). */
     val files: List<String> = emptyList(),
+    /** A tool row's tool ("Bash", "Edit"); blank from an older daemon. */
+    val tool: String = "",
+    /** The lines an edit added and removed; null for anything else. */
+    val diff: LineDiff? = null,
 )
+
+/** An edit's lines: added and removed. */
+data class LineDiff(val add: Int, val del: Int)
 
 /** Whether a path names a picture the feed can show. */
 fun isImagePath(path: String): Boolean = path.substringAfterLast('.', "").lowercase() in setOf("png", "jpg", "jpeg", "webp", "gif")
@@ -152,6 +159,8 @@ fun parseRow(r: JSONObject): Row = Row(
     },
     command = parseCommand(r.optJSONObject("command")),
     files = r.optJSONArray("files")?.let { a -> List(a.length()) { a.optString(it) } }.orEmpty(),
+    tool = r.optString("tool"),
+    diff = r.optJSONObject("diff")?.let { LineDiff(it.optInt("add"), it.optInt("del")) },
 )
 
 fun parseQuestionList(arr: org.json.JSONArray?): List<Question> = buildList {
@@ -181,6 +190,8 @@ fun Row.toJson(): JSONObject {
     if (imageRef.isNotEmpty()) o.put("image_ref", imageRef)
     if (media.isNotEmpty()) o.put("media", media)
     if (files.isNotEmpty()) o.put("files", org.json.JSONArray(files))
+    if (tool.isNotEmpty()) o.put("tool", tool)
+    diff?.let { o.put("diff", JSONObject().put("add", it.add).put("del", it.del)) }
     if (questions.isNotEmpty()) o.put("questions", org.json.JSONArray().also { a ->
         questions.forEach { q ->
             a.put(JSONObject().put("header", q.header).put("text", q.text).put("multi", q.multi).put("options", org.json.JSONArray().also { opts ->

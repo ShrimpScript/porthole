@@ -70,6 +70,7 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +80,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.automirrored.outlined.Chat
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -319,7 +325,8 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                     canCapture = "capture" in caps, canRecord = "record" in caps,
                     onCapture = { if (it >= 0) onCapture(it) },
                     canPreview = "preview" in caps, onPreview = { showPreview = true },
-                    canChanges = "changes" in caps, onChanges = { showChanges = true }) { showStats = true }
+                    canChanges = "changes" in caps, onChanges = { showChanges = true },
+                    canTerminal = tmux, view = view, onViewChange = onViewChange) { showStats = true }
                 androidx.compose.animation.AnimatedVisibility(
                     visible = reconnecting != null && !fullTerm,
                     enter = androidx.compose.animation.fadeIn(spec(PortholeMotion.ENTER_MS)) + androidx.compose.animation.expandVertically(spec(PortholeMotion.ENTER_MS)),
@@ -327,23 +334,8 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                 ) {
                     ReconnectBar(barLine, savedCopyAt, onConnectionOptions)
                 }
-                // With the keyboard up in the feed, the space goes to the conversation: the
-                // toggle steps aside until the keyboard closes. In the terminal the keyboard is
-                // the input, and the toggle is the way back, so it stays.
-                val imeUp = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = !(imeUp && view == SessionView.Feed) && !fullTerm,
-                    enter = androidx.compose.animation.fadeIn(spec(PortholeMotion.ENTER_MS)) + androidx.compose.animation.expandVertically(spec(PortholeMotion.ENTER_MS)),
-                    exit = androidx.compose.animation.fadeOut(spec(PortholeMotion.EXIT_MS)) + androidx.compose.animation.shrinkVertically(spec(PortholeMotion.EXIT_MS)),
-                ) {
-                    Box(Modifier.padding(horizontal = 16.dp, vertical = if (landscape) 4.dp else 8.dp)) {
-                        SegmentedToggle(
-                            "Feed" to "Terminal",
-                            selected = view.ordinal,
-                            onSelect = { onViewChange(SessionView.entries[it]) },
-                        )
-                    }
-                }
+                // Feed and terminal switch from the header now: a whole row for the toggle
+                // took the feed's room on every session.
     
                 notice?.let { text ->
                     Appear {
@@ -370,6 +362,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             rows, backfillCount, loaded, state?.working == true, Modifier.weight(1f),
                             verb = status?.text.orEmpty(), remaining = remaining, earlierEpoch = earlierEpoch, loadedEpoch = loadedEpoch, onEarlier = onEarlier,
                             canLoadEarlier = canSend && savedCopyAt == 0L,
+                            onChanges = if ("changes" in caps) ({ showChanges = true }) else null,
                             asking = status?.question != null,
                             lastSeen = lastSeen,
 
@@ -518,7 +511,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                         Composer(
                             value = draft,
                             onValueChange = { draft = it },
-                            placeholder = if (answering) "Your answer" else "Message $title",
+                            placeholder = if (answering) "Your answer" else "Message, or / for commands",
                             enabled = canSend,
                             sending = awaiting,
                             // An older daemon closes the connection on any photo (its 32 KB
@@ -541,7 +534,11 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 !live -> "Claude Code isn't running here - open Terminal and run claude"
                                 else -> "Not connected"
                             },
-                            onSlash = { if (!draft.startsWith("/")) draft = "/" },
+                            modelLabel = listOfNotNull(
+                                modelShortName(state?.model.orEmpty()).ifBlank { null },
+                                status?.effort?.ifBlank { null },
+                            ).joinToString(" · "),
+                            onModel = { showStats = true },
                             onSend = {
                                 val typingInto = status?.question
                                 if (pending.isEmpty() && opensSheet(draft)) {
@@ -626,6 +623,8 @@ private fun SessionHeader(
     state: SessionState?, sharedKey: String = "", canCapture: Boolean = false, canRecord: Boolean = false,
     onCapture: (Int) -> Unit = {}, canPreview: Boolean = false, onPreview: () -> Unit = {},
     canChanges: Boolean = false, onChanges: () -> Unit = {},
+    /** A tmux pane to show: the header offers the terminal, and from it the way back. */
+    canTerminal: Boolean = false, view: SessionView = SessionView.Feed, onViewChange: (SessionView) -> Unit = {},
     onStats: () -> Unit,
 ) {
     val c = Porthole.colors
@@ -681,13 +680,17 @@ private fun SessionHeader(
                 }
             }
         }
-        // model + how full the context is; the tap opens the full picture
+        if (canTerminal || view == SessionView.Terminal) {
+            if (view == SessionView.Feed) IconTarget(Icons.Outlined.Terminal, "Open the terminal", { onViewChange(SessionView.Terminal) }, tint = c.muted)
+            else IconTarget(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.Chat, "Back to the feed", { onViewChange(SessionView.Feed) }, tint = c.accent)
+        }
+        // How full the context is (the model and effort sit in the message box); the tap
+        // opens the full picture.
         if (state != null) {
             val window = contextWindow(state.model)
             val pct = if (window > 0) (state.lastContext * 100 / window).toInt() else -1
             Chip(
-                listOfNotNull(modelShortName(state.model).ifBlank { null }, if (pct >= 0) "$pct%" else null)
-                    .joinToString(" · ").ifBlank { "session" },
+                if (pct >= 0) "$pct%" else modelShortName(state.model).ifBlank { "session" },
                 onClick = onStats,
             )
         } else {
@@ -725,6 +728,8 @@ private fun Feed(
     /** The session's subagents: an Agent call's row shows its agent's progress. */
     agents: List<dev.shrimpscript.porthole.net.AgentInfo> = emptyList(),
     onAgents: () -> Unit = {},
+    /** The changes sheet, for a turn's diff chip; null when the computer cannot show them. */
+    onChanges: (() -> Unit)? = null,
     onOpen: (FeedRow) -> Unit,
 ) {
     val c = Porthole.colors
@@ -739,6 +744,12 @@ private fun Feed(
             .associate { r -> r.toolId to ((parseIsoMs(r.ts) - (toolStart[r.toolId] ?: 0L)).takeIf { it > 0 && (toolStart[r.toolId] ?: 0L) > 0 } ?: -1L) }
     }
     val lastToolIndex = remember(rows) { rows.indexOfLast { it.kind == "tool" } }
+    // What is drawn: a stretch of tool calls folds into one line, Claude's words are told
+    // apart (narration, answer), and a turn line carries its edits.
+    val items = remember(rows) { feedItems(rows) }
+    var workSheet by remember { mutableStateOf<FeedItem.Work?>(null) }
+    // Reading aloud stops when the session is left; with the screen off it reads on.
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Narrator.stop() } }
     // Stable identity per row, so history can be prepended without re-animating or
     // re-folding what is already on screen. Duplicates get a suffix.
     val keys = remember(rows) {
@@ -774,6 +785,8 @@ private fun Feed(
     }
     var pendingNew by remember { mutableStateOf(0) }
     var lastSize by remember { mutableStateOf(-1) }
+    // Counted in what the feed draws: a result folding into its work line is nothing new.
+    var lastItems by remember { mutableStateOf(-1) }
     var lastBackfill by remember { mutableStateOf(backfillCount) }
     var lastEpoch by remember { mutableStateOf(loadedEpoch) }
     // No "composing" while Claude is blocked on the person: a question on screen (the
@@ -781,7 +794,9 @@ private fun Feed(
     val composing = working && !asking && rows.isNotEmpty() && rows.last().kind != "tool" && rows.last().kind != "question"
     // The last list index, from what the list will hold rather than what it has laid
     // out: on first composition the layout is still empty.
-    val lastIndex = rows.size - 1 + (if (remaining > 0) 1 else 0) + (if (composing) 1 else 0)
+    val lastIndex = items.size - 1 + (if (remaining > 0) 1 else 0) + (if (composing) 1 else 0)
+    // The item where the rows since the last visit begin.
+    val newItem = if (newFrom > 0) items.indexOfFirst { it.last >= newFrom } else -1
     LaunchedEffect(rows.size, backfillCount, loadedEpoch) {
         // The feed filling for the first time, or refilled by a re-attach (a new load
         // epoch; the count reset says the same), lands at the end. History prepended
@@ -790,17 +805,18 @@ private fun Feed(
         val first = lastSize <= 0 || loadedEpoch != lastEpoch || backfillCount < lastBackfill
         val delta = if (lastSize < 0) 0 else rows.size - lastSize
         val grewFromHistory = !first && lastSize > 0 && backfillCount > lastBackfill && delta == backfillCount - lastBackfill
-        lastSize = rows.size; lastBackfill = backfillCount; lastEpoch = loadedEpoch
+        val newItems = if (lastItems < 0) 0 else items.size - lastItems
+        lastSize = rows.size; lastBackfill = backfillCount; lastEpoch = loadedEpoch; lastItems = items.size
         if (rows.isEmpty() || grewFromHistory) return@LaunchedEffect
         // Coming back to a session that ran on without you: land on the line where you
         // stopped reading, not at the bottom, so what happened is above you in order.
         // Only when there is enough of it to be worth the scroll back down.
-        val marker = if (newFrom > 0 && rows.size - newFrom >= 3) newFrom + (if (remaining > 0) 1 else 0) else -1
+        val marker = if (newItem > 0 && rows.size - newFrom >= 3) newItem + (if (remaining > 0) 1 else 0) else -1
         when {
             first && marker > 0 -> { listState.scrollToItem(marker); pendingNew = 0 }
             first || atEnd -> listState.animateScrollToItem(lastIndex.coerceAtLeast(0))
             // Rows merged in after a reconnect, or a queued bubble resolved: no jump for a reader above.
-            delta > 0 -> pendingNew += delta
+            newItems > 0 -> pendingNew += newItems
         }
     }
     LaunchedEffect(atEnd) { if (atEnd) pendingNew = 0 }
@@ -831,8 +847,16 @@ private fun Feed(
                         }
                     }
                 }
-                itemsIndexed(rows, key = { i, _ -> keys[i] }) { i, r ->
-                    if (i == newFrom) SinceYouLeft(rows.drop(newFrom).count { it.kind == "turn" }, lastSeen)
+                itemsIndexed(items, key = { _, it -> if (it is FeedItem.Work) "w|" + keys[it.first] else keys[it.first] }) { n, item ->
+                    if (n == newItem) SinceYouLeft(rows.drop(newFrom).count { it.kind == "turn" }, lastSeen)
+                    if (item is FeedItem.Work) {
+                        val animate = item.first >= backfillCount && seen.add("w|" + keys[item.first])
+                        Appear(enabled = animate) { WorkLine(item, working) { workSheet = item } }
+                        return@itemsIndexed
+                    }
+                    val one = item as FeedItem.One
+                    val i = one.index
+                    val r = one.row
                     val animate = i >= backfillCount && seen.add(keys[i])
                     val pending = working && r.kind == "tool" && r.toolId.isNotBlank() && !took.containsKey(r.toolId)
                     val done = r.toolId.isNotBlank() && took.containsKey(r.toolId)
@@ -843,10 +867,15 @@ private fun Feed(
                         dim = done && i < lastToolIndex,
                         answered = r.kind == "question" && (done || !working),
                         agentInfo = if (r.agent != null) agents.firstOrNull { it.toolId == r.toolId } else null,
-                        onAgents = onAgents)
+                        onAgents = onAgents, narration = one.narration, answer = one.answer, turnDiff = one.turnDiff, onChanges = onChanges)
                 }
                 if (composing) item(key = "composing") { ComposingChip(verb) }
             }
+        }
+        workSheet?.let { w ->
+            // The sheet follows the feed: a step that finishes while it is open shows so.
+            val live = items.filterIsInstance<FeedItem.Work>().firstOrNull { it.first == w.first } ?: w
+            WorkSheet(live, working, took = { id -> tookLabel(took[id] ?: -1L) }, onStep = { onOpen(it) }) { workSheet = null }
         }
         // New rows arrived below a reader who scrolled up.
         androidx.compose.animation.AnimatedVisibility(
@@ -971,6 +1000,13 @@ fun FeedRowView(
     onNeedFile: (String) -> Unit = {},
     onOpenRef: (FeedRow) -> Unit = {},
     fileGone: (String) -> Boolean = { false },
+    /** Claude's words with more work after them: quieter, set off by a rule. */
+    narration: Boolean = false,
+    /** Claude's last words of a turn: copy, listen and share under them. */
+    answer: Boolean = false,
+    /** On a turn line: the lines its edits added and removed, as a chip that opens the changes. */
+    turnDiff: Pair<Int, Int>? = null,
+    onChanges: (() -> Unit)? = null,
 ) {
     val c = Porthole.colors
     Appear(enabled = animate) {
@@ -1021,7 +1057,17 @@ fun FeedRowView(
                         if (open) Modifier.fillMaxWidth()
                         else Modifier.fillMaxWidth().heightIn(max = 210.dp).clipToBounds()
                     ) {
-                        SelectionContainer { MarkdownText(r.text) }
+                        SelectionContainer {
+                            if (narration) MarkdownText(
+                                r.text,
+                                modifier = Modifier
+                                    .drawBehind { drawLine(c.edge, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(0f, size.height), 2.dp.toPx()) }
+                                    .padding(start = 12.dp)
+                                    .revealDown(animate),
+                                style = PortholeType.secondary.copy(lineHeight = PortholeType.secondary.lineHeight),
+                                color = c.muted,
+                            ) else MarkdownText(r.text, modifier = Modifier.revealDown(animate))
+                        }
                         if (!open) {
                             Box(
                                 Modifier
@@ -1047,6 +1093,10 @@ fun FeedRowView(
                             style = PortholeType.meta, color = c.faint,
                         )
                     }
+                    // Words that became narration while being read keep their Stop.
+                    val voice = "${r.ts}|${r.text.hashCode()}"
+                    val speaking by Narrator.speaking.collectAsState()
+                    if (answer || speaking == voice) AnswerActions(voice, r.text)
                 }
             }
 
@@ -1111,17 +1161,33 @@ fun FeedRowView(
             "video" -> VideoRow(r.text, clipFile, onOpenClip)
 
             // The CLI's own "Cooked for 1m 6s · done 6:05 PM", in our type.
-            "turn" -> Row(
-                Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ScrewMark()
-                val t = clockTime(r.ts)
-                Text(
-                    if (t.isNotEmpty()) "${r.text} · done $t" else r.text,
-                    style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(start = 8.dp),
-                )
+            "turn" -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // What the turn changed, as a chip that opens the changes (Claude Code's Diff).
+                turnDiff?.let { (add, del) ->
+                    Row(
+                        Modifier
+                            .border(1.dp, c.edge, PortholeShape.control)
+                            .clickable(enabled = onChanges != null, role = Role.Button) { onChanges?.invoke() }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Diff", style = PortholeType.secondary, color = c.text)
+                        DiffBadge(add, del)
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ScrewMark()
+                    val t = clockTime(r.ts)
+                    Text(
+                        if (t.isNotEmpty()) "${r.text} · done $t" else r.text,
+                        style = PortholeType.meta, color = c.faint, modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
 
             "event" -> Row(
@@ -1202,7 +1268,9 @@ private fun Composer(
     reason: String,
     /** The message is on its way: the text stays, read-only, and the send button turns. */
     sending: Boolean = false,
-    onSlash: () -> Unit,
+    /** "Opus 5.5 · high": the model and effort, a tap away from their switches. */
+    modelLabel: String = "",
+    onModel: () -> Unit = {},
     canAttach: Boolean = false,
     /** The daemon takes any file, not only photos. */
     canAttachFiles: Boolean = false,
@@ -1241,99 +1309,25 @@ private fun Composer(
             picked.fold(onSuccess = onAttach, onFailure = { onAttachError(it.message ?: "That file could not be read") })
         }
     }
-    // Typing folds the photo and command buttons into one, so the field gets their width
-    // (a third more on a typical phone) and wraps later. The fold opens again on a tap and
-    // closes with the next keystroke.
-    var tools by remember { mutableStateOf(false) }
-    LaunchedEffect(value) { tools = false }
     // The field keeps its own cursor. When the draft is changed from outside - a command or
     // a file picked from the list above - the cursor goes to the end, where typing goes on;
     // a plain string field would leave it where the finger last was, mid-word.
     var field by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(value, androidx.compose.ui.text.TextRange(value.length))) }
     val shown = if (field.text == value) field
         else androidx.compose.ui.text.input.TextFieldValue(value, androidx.compose.ui.text.TextRange(value.length))
-    val folded = value.isNotEmpty() && !tools
-    Row(
+    // One box, as in Claude's own app: the words on top, and beneath them attach, the
+    // model and effort (a tap opens the switches) and send. Commands are typed: "/" opens
+    // them above the box.
+    Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .background(c.surface, RoundedCornerShape(22.dp))
+            .border(1.dp, c.edge, RoundedCornerShape(22.dp))
+            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (folded) {
-            Box(
-                Modifier
-                    .size(48.dp)
-                    .clip(PortholeShape.pill)
-                    .clickable(enabled = enabled, role = Role.Button) { tools = true }
-                    .semantics { contentDescription = "Photo and commands" },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    androidx.compose.material.icons.Icons.Outlined.Add, contentDescription = null,
-                    tint = if (enabled) c.muted else c.faint, modifier = Modifier.size(22.dp),
-                )
-            }
-        }
-        if (canAttach && !folded) {
-            val photo = {
-                picker.launch(androidx.activity.result.PickVisualMediaRequest(
-                    androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }
-            var attachMenu by remember { mutableStateOf(false) }
-            Box {
-                Box(
-                    Modifier
-                        .size(48.dp)
-                        .background(c.raised, PortholeShape.pill)
-                        // A daemon that takes files gets a choice; an older one, the photo picker.
-                        .clickable(enabled = enabled, role = Role.Button) { if (canAttachFiles) attachMenu = true else photo() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        if (canAttachFiles) androidx.compose.material.icons.Icons.Outlined.AttachFile
-                        else androidx.compose.material.icons.Icons.Outlined.Image,
-                        contentDescription = if (canAttachFiles) "Attach a photo or a file" else "Attach a photo",
-                        tint = if (enabled) c.muted else c.faint, modifier = Modifier.size(20.dp),
-                    )
-                }
-                androidx.compose.material3.DropdownMenu(
-                    expanded = attachMenu, onDismissRequest = { attachMenu = false },
-                    containerColor = c.raised,
-                ) {
-                    androidx.compose.material3.DropdownMenuItem(
-                        text = { Text("Photo", style = PortholeType.body, color = c.text) },
-                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Image, contentDescription = null, tint = c.muted) },
-                        onClick = { attachMenu = false; photo() },
-                    )
-                    androidx.compose.material3.DropdownMenuItem(
-                        text = { Text("File", style = PortholeType.body, color = c.text) },
-                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Description, contentDescription = null, tint = c.muted) },
-                        onClick = { attachMenu = false; filePicker.launch(arrayOf("*/*")) },
-                    )
-                }
-            }
-        }
-        // Claude Code's slash commands, one tap away.
-        if (!folded) Box(
-            Modifier
-                .size(48.dp)
-                .background(c.raised, PortholeShape.pill)
-                .clickable(enabled = enabled, role = Role.Button) { onSlash() }
-                .semantics { contentDescription = "Slash commands" },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                "/", style = PortholeType.mono.copy(fontSize = 18.sp), color = if (enabled) c.muted else c.faint,
-                modifier = Modifier.clearAndSetSemantics {},
-            )
-        }
-        Box(
-            Modifier
-                .weight(1f)
-                .background(c.raised, PortholeShape.card)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        ) {
+        Box(Modifier.fillMaxWidth().padding(end = 8.dp)) {
             if (value.isEmpty()) {
                 // The field itself carries the label for screen readers; the drawn
                 // placeholder would otherwise be announced a second time as loose text.
@@ -1353,9 +1347,9 @@ private fun Composer(
                 // mid-word. Only sending waits for it.
                 enabled = true,
                 readOnly = sending,
-                // Five lines, then it scrolls: past that the draft is better read than seen whole,
+                // Six lines, then it scrolls: past that the draft is better read than seen whole,
                 // and the feed above it is what the person is answering.
-                maxLines = 5,
+                maxLines = 6,
                 textStyle = PortholeType.body.copy(color = if (sending) c.muted else c.text),
                 cursorBrush = SolidColor(c.accent),
                 // The keyboard's own send key submits, so the thumb never has to travel
@@ -1367,18 +1361,70 @@ private fun Composer(
                     .semantics { contentDescription = if (enabled) placeholder else reason },
             )
         }
-        Box(
-            Modifier
-                .size(48.dp)
-                .background(if (ready) c.accent else c.raised, PortholeShape.pill)
-                .clickable(enabled = ready, role = Role.Button) { onSend() },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (sending) Spinner(color = c.accent, background = c.raised)
-            else Icon(
-                Icons.AutoMirrored.Outlined.Send, contentDescription = "Send",
-                tint = if (ready) c.onAccent else c.faint, modifier = Modifier.size(20.dp),
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (canAttach) {
+                val photo = {
+                    picker.launch(androidx.activity.result.PickVisualMediaRequest(
+                        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+                var attachMenu by remember { mutableStateOf(false) }
+                Box {
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .background(c.raised, PortholeShape.pill)
+                            // A daemon that takes files gets a choice; an older one, the photo picker.
+                            .clickable(enabled = enabled, role = Role.Button) { if (canAttachFiles) attachMenu = true else photo() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            androidx.compose.material.icons.Icons.Outlined.Add,
+                            contentDescription = if (canAttachFiles) "Attach a photo or a file" else "Attach a photo",
+                            tint = if (enabled) c.muted else c.faint, modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = attachMenu, onDismissRequest = { attachMenu = false },
+                        containerColor = c.raised,
+                    ) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Photo", style = PortholeType.body, color = c.text) },
+                            leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Image, contentDescription = null, tint = c.muted) },
+                            onClick = { attachMenu = false; photo() },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("File", style = PortholeType.body, color = c.text) },
+                            leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Description, contentDescription = null, tint = c.muted) },
+                            onClick = { attachMenu = false; filePicker.launch(arrayOf("*/*")) },
+                        )
+                    }
+                }
+            }
+            if (modelLabel.isNotBlank()) {
+                Text(
+                    modelLabel, style = PortholeType.meta, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .clip(PortholeShape.pill)
+                        .background(c.raised)
+                        .clickable(role = Role.Button, onClick = onModel)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .semantics { contentDescription = "Model and effort: $modelLabel" },
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .background(if (ready) c.accent else c.raised, PortholeShape.pill)
+                    .clickable(enabled = ready, role = Role.Button) { onSend() },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (sending) Spinner(color = c.accent, background = c.raised)
+                else Icon(
+                    androidx.compose.material.icons.Icons.Outlined.ArrowUpward, contentDescription = "Send",
+                    tint = if (ready) c.onAccent else c.faint, modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }

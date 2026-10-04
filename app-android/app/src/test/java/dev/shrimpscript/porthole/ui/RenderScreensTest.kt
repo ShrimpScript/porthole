@@ -98,9 +98,12 @@ class RenderScreensTest {
         }
         rule.waitForIdle()
         rule.onNodeWithText("Needs you").assertIsDisplayed()
-        rule.onNodeWithText("asking you: Which colour? · main · live · tmux 0 · Fable 5.1").assertIsDisplayed()
+        // The state on its own line, the details beneath it.
+        rule.onNodeWithText("asking you: Which colour?").assertIsDisplayed()
+        rule.onNodeWithText("main · tmux 0 · Fable 5.1").assertIsDisplayed()
         // The one held on a permission prompt is under Needs you too, above Live, saying what it wants to run.
-        val held = rule.onNodeWithText("waiting for you: Bash: git push --force origin main · release/2.4 · live · tmux 2 · Fable 5.1").fetchSemanticsNode().boundsInRoot
+        val held = rule.onNodeWithText("waiting for you: Bash: git push --force origin main").fetchSemanticsNode().boundsInRoot
+        rule.onNodeWithText("release/2.4 · tmux 2 · Fable 5.1").assertIsDisplayed()
         val liveLabel = rule.onNodeWithText("Live").fetchSemanticsNode().boundsInRoot
         assertTrue("the waiting session sits under Needs you, above Live", held.bottom <= liveLabel.top)
         rule.onNodeWithText("Recent").assertIsDisplayed()
@@ -218,7 +221,7 @@ class RenderScreensTest {
      * so the field gets the width and the feed keeps the height.
      */
     @Test
-    fun composerMakesRoomWhileTyping() {
+    fun theMessageBoxIsOneBox() {
         val rows = listOf(
             row("user", "Rename the helper and run the tests.", "2026-09-14T09:58:00Z"),
             row("assistant", "Done: renamed `fetchAll` to `loadAll`, 42 tests pass.", "2026-09-14T09:58:40Z"),
@@ -243,15 +246,11 @@ class RenderScreensTest {
             "Good. Now make the toggle remember its state across restarts, and add a test for it"
         )
         rule.waitForIdle()
-        rule.onNodeWithContentDescription("Photo and commands").assertIsDisplayed()
-        rule.onAllNodesWithContentDescription("Attach a photo or a file").assertCountEquals(0)
+        // One box: the words on top, attach and the model beneath them, whatever is typed.
+        rule.onNodeWithContentDescription("Attach a photo or a file").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Model and effort: Fable 5.1").assertIsDisplayed()
         rule.onAllNodesWithText("Looks good").assertCountEquals(0)
         save("session-typing")
-        // One tap brings the tools back until the next keystroke.
-        rule.onNodeWithContentDescription("Photo and commands").performClick()
-        rule.waitForIdle()
-        rule.onNodeWithContentDescription("Attach a photo or a file").assertIsDisplayed()
-        rule.onNodeWithContentDescription("Slash commands").assertIsDisplayed()
     }
 
     /**
@@ -533,7 +532,7 @@ class RenderScreensTest {
         rule.onNodeWithText("/effort").assertIsDisplayed()
         rule.onNodeWithText("Also the default for new sessions").assertIsDisplayed()
         rule.onNodeWithText("Comprehensive implementation", substring = true).assertIsDisplayed()
-        rule.onNodeWithText("Fable 5.1").assertIsDisplayed()
+        rule.onAllNodesWithText("Fable 5.1")[0].assertIsDisplayed()
         rule.onNodeWithText("Unchanged").assertIsDisplayed()
         rule.onNodeWithText("The session's new name").assertIsDisplayed()
         rule.onNodeWithText("Login interrupted").assertIsDisplayed()
@@ -654,7 +653,8 @@ class RenderScreensTest {
         rule.onNodeWithText("Reconnecting to workstation…").assertIsDisplayed()
         rule.onNodeWithText("Live").assertIsDisplayed()
         rule.onNodeWithText("Recent").assertIsDisplayed()
-        rule.onNodeWithText("Bash: go test ./... · main · as last seen · Fable 5.1").assertIsDisplayed()
+        rule.onAllNodesWithText("as last seen").assertCountEquals(2)
+        rule.onNodeWithText("main · tmux 0 · Fable 5.1").assertIsDisplayed()
         save("offline-list")
     }
 
@@ -723,6 +723,85 @@ class RenderScreensTest {
         rule.onNodeWithText("Answer in the terminal").performClick()
         assertEquals(SessionView.Terminal, view)
         save("asking-unreadable")
+    }
+
+    private fun tool(id: String, text: String, tool: String, ts: String, diff: dev.shrimpscript.porthole.net.LineDiff? = null) = Row(
+        kind = "tool", glyph = "▸", text = text, metric = "", detail = "", truncated = false, ts = ts, toolId = id, tool = tool, diff = diff,
+    )
+    private fun result(id: String, ok: Boolean, ts: String, diff: dev.shrimpscript.porthole.net.LineDiff? = null, why: String = "") = Row(
+        kind = "result", glyph = if (ok) "✓" else "✗", text = if (ok) "done" else "failed", metric = why, detail = why, truncated = false, ts = ts, toolId = id, diff = diff,
+    )
+    private val busyTurn = listOf(
+        row("user", "The render hangs at 90 minutes. Find out why and fix it.", "2026-10-03T21:50:00Z"),
+        row("assistant", "Checking whether a render worker was killed for memory.", "2026-10-03T21:50:10Z"),
+        tool("t1", "Ran journalctl -k --since -2h | grep -i oom", "Bash", "2026-10-03T21:50:12Z"),
+        result("t1", true, "2026-10-03T21:50:13Z"),
+        tool("t2", "Edited render.py", "Edit", "2026-10-03T21:51:00Z"),
+        result("t2", true, "2026-10-03T21:51:01Z", dev.shrimpscript.porthole.net.LineDiff(12, 3)),
+        tool("t3", "Ran python render.py --workers 3", "Bash", "2026-10-03T21:51:05Z"),
+        result("t3", false, "2026-10-03T21:55:15Z", why = "Exit code 1: worker 2 killed (signal 9)"),
+        row("assistant", "One of four workers ran out of memory and the renderer waited instead of failing. I fixed it so a killed worker's section is rendered again.", "2026-10-03T21:56:00Z"),
+        row("turn", "Worked for 6m 2s", "2026-10-03T21:56:02Z"),
+    )
+
+    @androidx.compose.runtime.Composable
+    private fun BusySession(rows: List<Row>, working: Boolean, onViewChange: (SessionView) -> Unit = {}) {
+        SessionScreen(
+            title = "Video editing", branch = "main · tmux 2", ring = RingState.Live, live = true,
+            rows = rows, backfillCount = rows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+            view = SessionView.Feed, onViewChange = onViewChange, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+            terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+            notice = null, onDismissNotice = {}, state = state(working = working).copy(pendingTool = if (working) "Bash" else "", model = "claude-opus-5-5"),
+            status = TuiStatus(working = working, text = if (working) "Rendering…" else "", elapsed = "", tokens = "", permissionMode = "", interruptible = working, effort = "high"),
+            caps = listOf("attach", "files", "changes"),
+        )
+    }
+
+    /** A busy turn: one work line for the stretch of tools, the narration quiet, the answer with its actions, the turn's diff. */
+    @Test
+    fun aBusyTurnReadsAsOneWorkLine() {
+        var view = SessionView.Feed
+        rule.setContent { PortholeTheme { BusySession(busyTurn, working = false) { view = it } } }
+        rule.waitForIdle()
+        rule.onNodeWithText("Ran 2 commands, edited a file").assertIsDisplayed()
+        rule.onNodeWithText("1 failed").assertIsDisplayed()
+        rule.onAllNodesWithText("Ran journalctl", substring = true).assertCountEquals(0)
+        rule.onNodeWithText("Checking whether a render worker was killed for memory.").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Copy the answer").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Read the answer aloud").assertIsDisplayed()
+        rule.onNodeWithText("Diff").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Model and effort: Opus 5.5 · high").assertIsDisplayed()
+        save("redesign-feed")
+        rule.onNodeWithContentDescription("Open the terminal").performClick()
+        assertEquals(SessionView.Terminal, view)
+    }
+
+    /** While a step runs: the stretch so far on one line, the running step beneath it with the screw and its time. */
+    @Test
+    fun aRunningStepIsItsOwnLine() {
+        rule.setContent { PortholeTheme { BusySession(busyTurn.take(7), working = true) } }
+        rule.waitForIdle()
+        rule.onNodeWithText("Ran a command, edited a file").assertIsDisplayed()
+        rule.onNodeWithText("Ran python render.py --workers 3").assertIsDisplayed()
+        save("redesign-running")
+    }
+
+    /** The sheet behind a work line: every step, joined by a line, with its lines or its time. */
+    @Test
+    fun aWorkLinesStepsInOrder() {
+        val work = feedItems(busyTurn).filterIsInstance<FeedItem.Work>().single()
+        rule.setContent {
+            PortholeTheme {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(top = 24.dp)) {
+                    WorkSteps(work, working = false, took = { "1.2s" }, onStep = {})
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("journalctl -k --since -2h | grep -i oom").assertIsDisplayed()
+        rule.onNodeWithText("+12").assertIsDisplayed()
+        rule.onNodeWithText("failed").assertIsDisplayed()
+        save("redesign-sheet")
     }
 
     /** The working icon, the screw: sizes, a turn in eighths, on the ground and on a card, and at rest. */
@@ -881,7 +960,7 @@ index 4cb29ea..8b1d0e1 100644
             }
         }
         rule.waitForIdle()
-        rule.onNodeWithText("laptop · main · live · tmux work · Sonnet 5").assertIsDisplayed()
+        rule.onNodeWithText("laptop · main · tmux work · Sonnet 5").assertIsDisplayed()
         save("sessions-two-machines")
     }
 
@@ -902,7 +981,8 @@ index 4cb29ea..8b1d0e1 100644
         rule.waitForIdle()
         rule.onNodeWithText("laptop · reconnecting").assertIsDisplayed()
         rule.onNodeWithText("2 sessions · 1 of 2 connected").assertIsDisplayed()
-        rule.onNodeWithText("laptop · main · as last seen · Sonnet 5").assertIsDisplayed()
+        rule.onNodeWithText("as last seen").assertIsDisplayed()
+        rule.onNodeWithText("laptop · main · Sonnet 5").assertIsDisplayed()
         save("sessions-unreachable")
     }
 

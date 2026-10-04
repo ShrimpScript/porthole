@@ -87,6 +87,19 @@ type Row struct {
 	// Files are the paths a prompt named as attachments (see cleanPrompt); its pictures
 	// that the CLI attached follow it as image rows.
 	Files []string `json:"files,omitempty"`
+	// Tool is a tool row's tool ("Bash", "Edit"), so the phone can say what a stretch of
+	// work was ("Ran 2 commands, edited a file") without reading it back out of the verb.
+	Tool string `json:"tool,omitempty"`
+	// Diff, on an edit's result row, is the lines the edit added and removed: from the
+	// patch the CLI recorded for it, as git counts them, or estimated from the call's
+	// input when there is none. A failed edit has none.
+	Diff *LineDiff `json:"diff,omitempty"`
+}
+
+// LineDiff counts an edit's lines: Add from what it wrote, Del from what it replaced.
+type LineDiff struct {
+	Add int `json:"add"`
+	Del int `json:"del"`
 }
 
 // AgentCall is what an Agent call asked for, from its input.
@@ -146,6 +159,8 @@ type State struct {
 	LinesRemoved int64   `json:"lines_removed,omitempty"`
 
 	cmd cmdTrack // the latest slash command, so its reply finds its row
+	// edits are edit calls waiting for their result, with the lines their input suggests.
+	edits map[string]*LineDiff
 }
 
 func (st *State) clone() State {
@@ -153,6 +168,12 @@ func (st *State) clone() State {
 	c.Tools = map[string]int{}
 	for k, v := range st.Tools {
 		c.Tools[k] = v
+	}
+	if st.edits != nil {
+		c.edits = make(map[string]*LineDiff, len(st.edits))
+		for k, v := range st.edits {
+			c.edits[k] = v
+		}
 	}
 	return c
 }
@@ -457,6 +478,8 @@ type record struct {
 	SourceToolUseID  string       `json:"sourceToolUseID"`
 	IsCompactSummary bool         `json:"isCompactSummary"`
 	CompactMetadata  *compactMeta `json:"compactMetadata"`
+	// ToolUseResult is what the CLI kept of a tool's result: for an edit, its patch.
+	ToolUseResult json.RawMessage `json:"toolUseResult"`
 }
 
 type message struct {
@@ -641,7 +664,14 @@ func ParseFrom(r io.Reader, prev State) (*Result, error) {
 							continue
 						}
 					}
-					row := Row{Kind: KindTool, Glyph: "▸", Text: text, TS: ts, Detail: detail, ToolID: str(m["id"])}
+					row := Row{Kind: KindTool, Glyph: "▸", Text: text, TS: ts, Detail: detail, ToolID: str(m["id"]), Tool: name}
+					if d := editDiff(name, input); d != nil && row.ToolID != "" {
+						// Counted when the result lands, from the patch the CLI records then.
+						if res.State.edits == nil || len(res.State.edits) > 256 {
+							res.State.edits = map[string]*LineDiff{}
+						}
+						res.State.edits[row.ToolID] = d
+					}
 					if (name == "Agent" || name == "Task") && input != nil {
 						bg, _ := input["run_in_background"].(bool)
 						row.Agent = &AgentCall{Type: str(input["subagent_type"]), Description: str(input["description"]), Model: str(input["model"]), Background: bg}
@@ -716,6 +746,12 @@ func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, 
 	case []any:
 		got := false
 		images := 0 // image blocks seen in this record, in order - the n in "<uuid>:<n>"
+		results := 0
+		for _, b := range v {
+			if m, ok := b.(map[string]any); ok && m["type"] == "tool_result" {
+				results++
+			}
+		}
 		for _, b := range v {
 			m, ok := b.(map[string]any)
 			if !ok {
@@ -730,10 +766,23 @@ func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, 
 						s = "Answered: " + a
 					}
 				}
-				res.add(Row{
+				row := Row{
 					Kind: KindResult, Glyph: g, Text: s, Metric: metric, TS: ts,
 					Detail: detail, Truncated: trunc, ToolID: str(m["tool_use_id"]),
-				})
+				}
+				if est, ok := res.State.edits[row.ToolID]; ok {
+					delete(res.State.edits, row.ToolID)
+					if m["is_error"] != true && g != "✗" {
+						// The record's patch belongs to its one result; several share none.
+						row.Diff = est
+						if results == 1 {
+							if p := patchDiff(d.ToolUseResult); p != nil {
+								row.Diff = p
+							}
+						}
+					}
+				}
+				res.add(row)
 				// The result is in; Claude picks the turn back up.
 				res.State.PendingTool = ""
 				res.State.Asking = ""
@@ -839,6 +888,89 @@ func (res *Result) handleUser(content any, ts time.Time, queued map[string]int, 
 		}
 		res.add(Row{Kind: KindUser, Text: body, TS: ts, Truncated: trunc, Files: files})
 	}
+}
+
+// editDiff estimates what an editing tool will change, in lines, from its input: Edit
+// replaces old_string with new_string (MultiEdit, each of its edits), less the lines the
+// two share at either end; Write writes content; NotebookEdit a cell's new_source. Nil for
+// any other tool. patchDiff replaces it with the CLI's own count once the result is in.
+func editDiff(tool string, input map[string]any) *LineDiff {
+	if input == nil {
+		return nil
+	}
+	changed := func(oldV, newV any) (add, del int) {
+		a, b := splitLines(oldV), splitLines(newV)
+		for len(a) > 0 && len(b) > 0 && a[0] == b[0] {
+			a, b = a[1:], b[1:]
+		}
+		for len(a) > 0 && len(b) > 0 && a[len(a)-1] == b[len(b)-1] {
+			a, b = a[:len(a)-1], b[:len(b)-1]
+		}
+		return len(b), len(a)
+	}
+	switch tool {
+	case "Edit":
+		add, del := changed(input["old_string"], input["new_string"])
+		return &LineDiff{Add: add, Del: del}
+	case "MultiEdit":
+		d := &LineDiff{}
+		edits, _ := input["edits"].([]any)
+		for _, e := range edits {
+			if m, ok := e.(map[string]any); ok {
+				add, del := changed(m["old_string"], m["new_string"])
+				d.Add += add
+				d.Del += del
+			}
+		}
+		return d
+	case "Write":
+		return &LineDiff{Add: len(splitLines(input["content"]))}
+	case "NotebookEdit":
+		return &LineDiff{Add: len(splitLines(input["new_source"]))}
+	}
+	return nil
+}
+
+func splitLines(v any) []string {
+	s, _ := v.(string)
+	if s == "" {
+		return nil
+	}
+	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
+}
+
+// patchDiff counts the patch the CLI recorded for an edit (toolUseResult.structuredPatch:
+// hunks of " ", "-" and "+" lines), as git would. A Write that created its file has an
+// empty patch, and its content is all added. Nil when the record carries no patch.
+func patchDiff(raw json.RawMessage) *LineDiff {
+	if len(raw) == 0 || raw[0] != '{' {
+		return nil
+	}
+	var r struct {
+		Type    string  `json:"type"`
+		Content *string `json:"content"`
+		Patch   *[]struct {
+			Lines []string `json:"lines"`
+		} `json:"structuredPatch"`
+	}
+	if json.Unmarshal(raw, &r) != nil || r.Patch == nil {
+		return nil
+	}
+	if r.Type == "create" && len(*r.Patch) == 0 && r.Content != nil {
+		return &LineDiff{Add: len(splitLines(*r.Content))}
+	}
+	d := &LineDiff{}
+	for _, h := range *r.Patch {
+		for _, l := range h.Lines {
+			switch {
+			case strings.HasPrefix(l, "+"):
+				d.Add++
+			case strings.HasPrefix(l, "-"):
+				d.Del++
+			}
+		}
+	}
+	return d
 }
 
 // answerText pulls the chosen answers out of an AskUserQuestion result. The CLI writes

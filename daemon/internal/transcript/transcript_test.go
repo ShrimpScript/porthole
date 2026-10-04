@@ -265,3 +265,60 @@ func TestTheNameThePersonGaveWins(t *testing.T) {
 		t.Fatalf("custom-title is a known record: %v", res.Stats.Unmapped)
 	}
 }
+
+// A tool row names its tool, and an edit's result says how many lines it added and
+// removed: from the patch the CLI recorded, else estimated from the call's input.
+func TestAToolRowNamesItsToolAndItsResultItsLines(t *testing.T) {
+	res := parse(t,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"/srv/a.go","old_string":"x\ny","new_string":"x\nY\nz"}}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"The file has been updated."}]},"toolUseResult":{"filePath":"/srv/a.go","structuredPatch":[{"oldStart":1,"oldLines":3,"newStart":1,"newLines":4,"lines":[" x","-y","+Y","+z"," w"]}]}}`,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t2","name":"Write","input":{"file_path":"/srv/b.go","content":"one\ntwo\nthree\n"}}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t2","content":"File created"}]},"toolUseResult":{"type":"create","filePath":"/srv/b.go","content":"one\ntwo\nthree\n","structuredPatch":[]}}`,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t3","name":"Edit","input":{"file_path":"/srv/c.go","old_string":"a\nb","new_string":"a\nb\nc\nd"}}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t3","content":"The file has been updated."}]}}`,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t4","name":"Edit","input":{"file_path":"/srv/d.go","old_string":"q","new_string":"r"}}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t4","is_error":true,"content":"<tool_use_error>String to replace not found in file.</tool_use_error>"}]},"toolUseResult":"Error: String to replace not found in file."}`,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t5","name":"Bash","input":{"command":"go test ./..."}}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t5","content":"ok"}]}}`,
+	)
+	want := []struct {
+		kind     Kind
+		tool     string
+		add, del int
+		hasDiff  bool
+	}{
+		{KindTool, "Edit", 0, 0, false}, {KindResult, "", 2, 1, true},
+		{KindTool, "Write", 0, 0, false}, {KindResult, "", 3, 0, true},
+		{KindTool, "Edit", 0, 0, false}, {KindResult, "", 2, 0, true}, // no patch: the input, less the shared lines
+		{KindTool, "Edit", 0, 0, false}, {KindResult, "", 0, 0, false}, // failed: nothing changed
+		{KindTool, "Bash", 0, 0, false}, {KindResult, "", 0, 0, false},
+	}
+	if len(res.Rows) != len(want) {
+		t.Fatalf("rows: %d", len(res.Rows))
+	}
+	for i, w := range want {
+		r := res.Rows[i]
+		if r.Kind != w.kind || r.Tool != w.tool || (r.Diff != nil) != w.hasDiff || (r.Diff != nil && (r.Diff.Add != w.add || r.Diff.Del != w.del)) {
+			t.Errorf("row %d: %s %q %+v, want %+v", i, r.Kind, r.Tool, r.Diff, w)
+		}
+	}
+}
+
+// The tailer reads a transcript in batches: an edit's call and its result can land in
+// different ones, and the count still comes out.
+func TestAnEditCountsAcrossBatches(t *testing.T) {
+	first, err := Parse(strings.NewReader(`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"/srv/a.go","old_string":"a","new_string":"b\nc"}}]}}` + "\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := ParseFrom(strings.NewReader(`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}`+"\n"), first.State)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := next.Rows[0]; r.Diff == nil || r.Diff.Add != 2 || r.Diff.Del != 1 {
+		t.Fatalf("result: %+v %+v", r, r.Diff)
+	}
+	if len(first.State.edits) != 1 || len(next.State.edits) != 0 {
+		t.Fatalf("waiting edits: %d then %d", len(first.State.edits), len(next.State.edits))
+	}
+}

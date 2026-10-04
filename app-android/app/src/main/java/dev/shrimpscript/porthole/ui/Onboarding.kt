@@ -560,8 +560,8 @@ fun TourScreen(onDone: () -> Unit, onSkip: (() -> Unit)?) = Screen {
             TourPage(
                 "The feed",
                 "Everything Claude does, as it happens, read from its own transcript: your prompts, " +
-                    "its replies, each tool call and its result. Long replies fold; tap to unfold. " +
-                    "Tap a tool row for the full output.",
+                    "its replies, and its work folded into one line per stretch (\"Ran 2 commands, " +
+                    "edited a file\"). Tap a work line for every step, a step for its full output.",
             ) { SampleFeed() },
             TourPage(
                 "Approve from anywhere",
@@ -577,8 +577,8 @@ fun TourScreen(onDone: () -> Unit, onSkip: (() -> Unit)?) = Screen {
             },
             TourPage(
                 "The real terminal",
-                "Switch to Terminal to see the exact tmux window from your computer, at the " +
-                    "computer's own width, and type into it. Pinch to zoom, or tap fit to see the " +
+                "The terminal button in a session's header opens the exact tmux window from your computer, at the " +
+                    "computer's own width, to read and type into. Pinch to zoom, or tap fit to see the " +
                     "whole screen. The key row has what Claude Code needs; try one below.",
             ) { SampleKeyRow() },
             TourPage(
@@ -676,9 +676,17 @@ private fun SampleFeed() {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FeedRowView(FeedRow("user", "", "Run the tests and fix whatever fails.", "", "", false), 0, {}, false)
-        FeedRowView(FeedRow("tool", "▸", "Ran cargo test", "", "", false), 1, {}, false)
-        FeedRowView(FeedRow("result", "✓", "done", "41 lines", "", false), 2, {}, false)
-        FeedRowView(FeedRow("assistant", "", "Two failures in `solver.rs`, both the same off-by-one. Fixed and **all 41 pass**.", "", "", false), 3, {}, false)
+        // As the feed draws it: the stretch of work as one line, then the answer with its actions.
+        val work = remember {
+            feedItems(listOf(
+                FeedRow("tool", "▸", "Ran cargo test", "", "", false, toolId = "a", tool = "Bash"),
+                FeedRow("result", "✓", "done", "41 lines", "", false, toolId = "a"),
+                FeedRow("tool", "▸", "Edited solver.rs", "", "", false, toolId = "b", tool = "Edit"),
+                FeedRow("result", "✓", "done", "", "", false, toolId = "b", diff = dev.shrimpscript.porthole.net.LineDiff(2, 2)),
+            )).single() as FeedItem.Work
+        }
+        WorkLine(work, working = false) {}
+        FeedRowView(FeedRow("assistant", "", "Two failures in `solver.rs`, both the same off-by-one. Fixed and **all 41 pass**.", "", "", false), 3, {}, false, answer = true)
         Text("Example", style = PortholeType.meta, color = c.faint)
     }
 }
@@ -689,7 +697,6 @@ private fun SampleKeyRow() {
     val c = Porthole.colors
     var last by remember { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SegmentedToggle("Feed" to "Terminal", selected = 1, onSelect = {})
         KeyRow(onSend = { last = it })
         Text(
             when (val k = last) {

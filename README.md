@@ -19,9 +19,11 @@ between your phone and your computer.
   the choices appear as buttons exactly as they stand on the computer's screen.
 - **Approve or deny tool calls** from anywhere, with the command in full and a countdown.
   There is no "always allow".
-- **The feed.** The conversation as rendered markdown with tool calls, timings and turn
-  lines, a line where you left off, quick replies, slash commands, @ file mentions, and
-  photos or other files attached from the phone.
+- **The feed.** The conversation as rendered markdown. Each stretch of work folds into one
+  line ("Ran 2 commands, edited a file", with its lines added and removed) that opens every
+  step; Claude's answer carries Copy, Listen (read aloud by the phone) and Share, and a turn
+  that edited files ends with its diff. A line where you left off, quick replies, slash
+  commands, @ file mentions, and photos or other files attached from the phone.
 - **Agents and commands.** When Claude hands work to subagents, each is a card with what it
   was asked, its kind and model, and its progress, read from the agent's own transcript.
   Slash commands show what they did: the effort level on a meter, the model by name, and
