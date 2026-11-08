@@ -501,22 +501,22 @@ class TerminalEmulator(cols: Int, rows: Int) {
          * rectangle inside the app.
          */
         val ANSI_16 = intArrayOf(
-            0xFF15201F.toInt(), // black
-            0xFFF2685E.toInt(), // red      (matches `bad`)
-            0xFF5FCF80.toInt(), // green    (matches `ok`)
-            0xFFE8B54A.toInt(), // yellow   (matches `warn`)
+            0xFF1E1E20.toInt(), // black
+            0xFFF5726C.toInt(), // red      (matches `bad`)
+            0xFF5ED68F.toInt(), // green    (matches `ok`)
+            0xFFE8B84F.toInt(), // yellow   (matches `warn`)
             0xFF5B9BD5.toInt(), // blue
             0xFFB07CD8.toInt(), // magenta
             0xFF3FD4C0.toInt(), // cyan     (matches `accent`)
-            0xFFC7D3D1.toInt(), // white
-            0xFF44514F.toInt(), // bright black
+            0xFFCFCFD4.toInt(), // white
+            0xFF4C4C52.toInt(), // bright black
             0xFFFF8A80.toInt(),
             0xFF87E8A2.toInt(),
             0xFFFFD37A.toInt(),
             0xFF82BEF0.toInt(),
             0xFFCEA1F0.toInt(),
             0xFF7FE9DC.toInt(),
-            0xFFF2F7F6.toInt(),
+            0xFFF4F4F6.toInt(),
         )
     }
 }

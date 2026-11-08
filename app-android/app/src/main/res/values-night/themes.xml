@@ -3,7 +3,7 @@
     <!-- The splash in the dark: the Porthole ground and the light wordmark. Chosen by the
          app's night mode (see values/themes.xml), which follows the selected theme. -->
     <style name="Theme.Porthole.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#07100F</item>
+        <item name="windowSplashScreenBackground">#0B0B0C</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_animated</item>
         <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand</item>
         <item name="windowSplashScreenAnimationDuration">900</item>

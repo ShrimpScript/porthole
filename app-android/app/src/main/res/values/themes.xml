@@ -3,9 +3,9 @@
     <!-- Dark by design: the ground colour never changes, so no window may
          flash white before Compose draws. -->
     <style name="Theme.Porthole" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#07100F</item>
-        <item name="android:statusBarColor">#07100F</item>
-        <item name="android:navigationBarColor">#07100F</item>
+        <item name="android:windowBackground">#0B0B0C</item>
+        <item name="android:statusBarColor">#0B0B0C</item>
+        <item name="android:navigationBarColor">#0B0B0C</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
@@ -50,7 +50,7 @@
         <item name="postSplashScreenTheme">@style/Theme.Porthole.Light</item>
     </style>
     <style name="Theme.Porthole.Starting.PortholeDark" parent="Theme.Porthole.Starting">
-        <item name="windowSplashScreenBackground">#07100F</item>
+        <item name="windowSplashScreenBackground">#0B0B0C</item>
         <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">@drawable/ic_splash_brand</item>
         <item name="postSplashScreenTheme">@style/Theme.Porthole</item>
     </style>

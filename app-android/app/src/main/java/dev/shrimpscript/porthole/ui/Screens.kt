@@ -458,7 +458,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                             else -> "idle"
                         },
                         style = PortholeType.secondary,
-                        color = when { s.needsYou -> c.accent; s.working && !s.machineDown -> c.text; else -> c.muted },
+                        color = when { s.needsYou -> c.warn; s.working && !s.machineDown -> c.text; else -> c.muted },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

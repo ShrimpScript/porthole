@@ -85,11 +85,12 @@ fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 48.dp)
             .pressScale(interaction)
-            .border(1.dp, c.edge, PortholeShape.control)
+            // A filled tile, raised by value: an outline-only button is the hairline box of DESIGN §0.
+            .background(c.raised, PortholeShape.control)
             .clickable(interactionSource = interaction, indication = null) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = PortholeType.body, color = c.muted, modifier = Modifier.padding(12.dp))
+        Text(text, style = PortholeType.body, color = c.text, modifier = Modifier.padding(12.dp))
     }
 }
 

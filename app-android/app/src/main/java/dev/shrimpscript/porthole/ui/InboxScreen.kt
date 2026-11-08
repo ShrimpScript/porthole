@@ -230,7 +230,7 @@ private fun InboxCard(
                         style = PortholeType.meta, color = c.faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    TextAction(if (item.options.isEmpty()) "Answer" else "Other", c.accent) { replying = true }
+                    TextAction(if (item.options.isEmpty()) "Answer" else "Other", c.text) { replying = true }
                     TextAction("Put aside", c.muted, onDismiss)
                 }
             }

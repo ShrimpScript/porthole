@@ -40,21 +40,21 @@ import dev.shrimpscript.porthole.R
  */
 @Immutable
 data class PortholeColors(
-    val ground: Color = Color(0xFF07100F),
-    val surface: Color = Color(0xFF0E1A19),
-    val raised: Color = Color(0xFF162523),
-    val edge: Color = Color(0xFF22322F),
-    val text: Color = Color(0xFFE8F0EE),
-    val muted: Color = Color(0xFF8FA3A0),
-    val faint: Color = Color(0xFF7B908C),   // lifted from #5F726F to clear AA on `raised`
+    val ground: Color = Color(0xFF0B0B0C),
+    val surface: Color = Color(0xFF141415),
+    val raised: Color = Color(0xFF1E1E20),
+    val edge: Color = Color(0xFF2B2B2E),
+    val text: Color = Color(0xFFECECEE),
+    val muted: Color = Color(0xFFA3A3A9),
+    val faint: Color = Color(0xFF878791),   // 4.6 on `raised`, AA
     val accent: Color = Color(0xFF3FD4C0),
-    val warn: Color = Color(0xFFE8B54A),
-    val bad: Color = Color(0xFFF2685E),
-    val ok: Color = Color(0xFF5FCF80),
+    val warn: Color = Color(0xFFE8B84F),
+    val bad: Color = Color(0xFFF5726C),
+    val ok: Color = Color(0xFF5ED68F),
     /** Text on a filled accent/warn/bad surface. Porthole: `ground` - white on bad is 2.62. */
-    val onAccent: Color = Color(0xFF07100F),
+    val onAccent: Color = Color(0xFF04211D),
     /** The deepest ground: the terminal pane and full-screen media viewers. */
-    val deep: Color = Color(0xFF050B0A),
+    val deep: Color = Color(0xFF070708),
     /** True when the ground is light, so system bar icons and the terminal default go dark. */
     val isLight: Boolean = false,
 ) {
@@ -289,10 +289,10 @@ object PortholeType {
     val mono = TextStyle(fontFamily = PortholeMono, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp)
 }
 
-/** Radius: 14 cards, 10 controls, 8 key caps. Zero is reserved for the terminal pane. */
+/** Radius: 16 cards, 12 controls, 8 key caps (28 sheets, Material's own). Zero is reserved for the terminal pane. */
 object PortholeShape {
-    val card = RoundedCornerShape(14.dp)
-    val control = RoundedCornerShape(10.dp)
+    val card = RoundedCornerShape(16.dp)
+    val control = RoundedCornerShape(12.dp)
     val key = RoundedCornerShape(8.dp)
     val pill = RoundedCornerShape(999.dp)
 }

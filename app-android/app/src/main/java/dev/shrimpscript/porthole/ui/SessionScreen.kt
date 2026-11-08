@@ -1484,17 +1484,18 @@ private fun LiveQuestionCard(q: ScreenQuestion, onAnswer: (Answer) -> Unit, onTy
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .background(c.raised, PortholeShape.card)
-            .border(1.dp, c.accent, PortholeShape.card)
+            .border(1.dp, c.warn, PortholeShape.card)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Warn, like the approval card: the session needs the person (DESIGN §3, §8.4).
         Text(
             when {
                 q.review -> "Claude is asking you · review"
                 q.total > 1 -> "Claude is asking you · ${q.index} of ${q.total}"
                 else -> "Claude is asking you"
             },
-            style = PortholeType.meta, color = c.accent,
+            style = PortholeType.meta, color = c.warn,
         )
         if (q.header.isNotBlank() && !q.review) Text(q.header, style = PortholeType.rowTitle, color = c.text)
         Text(q.text, style = PortholeType.body, color = c.text)
