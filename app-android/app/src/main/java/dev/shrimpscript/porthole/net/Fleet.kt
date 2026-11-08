@@ -213,6 +213,23 @@ class Fleet(scope: CoroutineScope, private val store: MachineStore) {
         }
     }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
+    /** Every computer's inbox as one; null until one has answered. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val inbox: StateFlow<Inbox?> = machines.flatMapLatest { list ->
+        if (list.size <= 1) {
+            primary.inbox.map { Inbox.merge(listOf(Triple(list.firstOrNull()?.id ?: "", "", it))) }
+        } else {
+            combine(list.map { m -> client(m.id).inbox.map { Triple(m.id, m.shown, it) } }) { Inbox.merge(it.toList()) }
+        }
+    }.stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** Ask every live computer for its inbox again. */
+    @Synchronized
+    fun refreshInbox() {
+        primary.refreshInbox()
+        clients.values.forEach { if (it.isLive() && it !== primary) it.refreshInbox() }
+    }
+
     /** A permission request waiting on any machine, with the machine to answer it on. */
     @OptIn(ExperimentalCoroutinesApi::class)
     val approval: StateFlow<FleetApproval?> = machines.flatMapLatest { list ->

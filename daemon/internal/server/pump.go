@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -108,6 +109,8 @@ type clientFrame struct {
 	Uploads []string `json:"uploads"`
 	Code    string   `json:"code"` // account.code: what the sign-in page showed
 	IDs     []string `json:"ids"`  // sessions.restart: the sessions to restart
+	Item    string   `json:"item"` // inbox.answer, inbox.dismiss: the question's id
+	Dir     string   `json:"dir"`  // inbox.answer, inbox.dismiss: its project
 }
 
 type promptImage struct {
@@ -173,6 +176,10 @@ func (a *attachment) stop() {
 type writer struct {
 	mu sync.Mutex
 	c  *websocket.Conn
+	// The inbox scans asked for on this socket, in order, and the newest one sent.
+	inboxGen  atomic.Int64
+	inboxMu   sync.Mutex
+	inboxSent int64
 }
 
 func (w *writer) send(ctx context.Context, v any) error {
@@ -344,6 +351,12 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 			go s.signOut(ctx, w, deviceName)
 		case proto.TypeSessionsRestart:
 			s.restartSessions(w, f.IDs, deviceName)
+		case proto.TypeInboxGet:
+			go s.inboxSend(ctx, w)
+		case proto.TypeInboxAnswer:
+			go s.inboxAnswer(ctx, w, f.Dir, f.Item, f.Text, deviceName)
+		case proto.TypeInboxDismiss:
+			go s.inboxDismiss(ctx, w, f.Dir, f.Item, deviceName)
 		case proto.TypeRestartCancel:
 			s.restartCancel(f.IDs)
 		}

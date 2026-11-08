@@ -30,6 +30,9 @@ type Store struct {
 	devices map[string]*Device
 }
 
+// Dir is where the daemon keeps its state and settings.
+func Dir() string { return defaultDir() }
+
 func defaultDir() string {
 	if d := os.Getenv("PORTHOLE_STATE_DIR"); d != "" {
 		return d

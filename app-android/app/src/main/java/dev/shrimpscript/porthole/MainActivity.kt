@@ -28,6 +28,10 @@ import kotlinx.coroutines.flow.drop
 import androidx.compose.runtime.key
 import androidx.compose.runtime.SideEffect
 import dev.shrimpscript.porthole.ui.AccountSheet
+import dev.shrimpscript.porthole.ui.InboxScreen
+import dev.shrimpscript.porthole.ui.PendingAnswer
+import dev.shrimpscript.porthole.ui.inboxKey
+import dev.shrimpscript.porthole.ui.find
 import dev.shrimpscript.porthole.ui.LocalSharedTransition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.SharedTransitionLayout
@@ -108,7 +112,7 @@ private var limitDemo: String? = null
  */
 private enum class Route {
     Welcome, Needs, Tailscale, Setup, Connect, Consent, Pair, Tour,
-    Sessions, Session, Settings, SettingsSetup, SettingsTour, SettingsLicences, Failure, Failsafe,
+    Sessions, Inbox, Session, Settings, SettingsSetup, SettingsTour, SettingsLicences, Failure, Failsafe,
 }
 
 private fun routeFromName(name: String?): Route? = when (name) {
@@ -123,6 +127,7 @@ private fun routeFromName(name: String?): Route? = when (name) {
     "sessions", "sessions-empty" -> Route.Sessions
     "session" -> Route.Session
     "settings" -> Route.Settings
+    "inbox" -> Route.Inbox
     "licences" -> Route.SettingsLicences
     "failure" -> Route.Failure
     else -> null
@@ -455,6 +460,27 @@ private fun PortholeApp(
     var accountClient by remember { mutableStateOf<dev.shrimpscript.porthole.net.PortholeClient?>(null) }
     val failsafeKeyError by client.failsafeKeyError.collectAsState()
     val sessions by vm.fleet.sessions.collectAsState()
+    val inbox by vm.fleet.inbox.collectAsState()
+    // How the last answer went, from whichever computer took it.
+    var inboxAnswerFrom by remember { mutableStateOf<PortholeClient?>(null) }
+    val inboxAnswered by key(inboxAnswerFrom) { (inboxAnswerFrom ?: client).inboxAnswered.collectAsState() }
+    var inboxPending by remember { mutableStateOf<PendingAnswer?>(null) }
+    // Answers handed over and not yet confirmed (by inboxKey), and one that could not be.
+    var inboxSending by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var inboxFailed by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(inbox) {
+        val open = inbox?.projects?.flatMap { p -> p.items.map { inboxKey(p.machineId, p.dir, it.id) } }?.toSet() ?: return@LaunchedEffect
+        inboxSending = inboxSending.filterKeys { it in open }
+    }
+    LaunchedEffect(inboxAnswered) {
+        val a = inboxAnswered ?: return@LaunchedEffect
+        // Refused: the card comes back, so it can be answered again.
+        if (a.error.isNotBlank()) inboxSending = inboxSending.filterKeys { !it.endsWith("\u0000${a.dir}\u0000${a.item}") }
+    }
+    LaunchedEffect(inboxSending) {
+        // A computer that never answers does not hold cards in "Sending" for good.
+        if (inboxSending.isNotEmpty()) { kotlinx.coroutines.delay(30_000); inboxSending = emptyMap() }
+    }
     val machines by vm.fleet.machines.collectAsState()
     val fleetConns by vm.fleet.connections.collectAsState()
     var openSession by remember { mutableStateOf<SessionInfo?>(null) }
@@ -605,6 +631,24 @@ private fun PortholeApp(
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     // The first computer's client answers to a blank machine id, as its rows carry one.
     fun clientOf(machineId: String) = if (machineId.isBlank()) client else vm.fleet.client(machineId)
+
+    fun answerInbox(p: dev.shrimpscript.porthole.net.InboxProject, item: dev.shrimpscript.porthole.net.InboxItem, text: String) {
+        val to = clientOf(p.machineId)
+        inboxAnswerFrom = to
+        if (to.answerInbox(p.dir, item.id, text)) {
+            inboxFailed = null
+            inboxSending = inboxSending + (inboxKey(p.machineId, p.dir, item.id) to text)
+        } else {
+            inboxFailed = "Not sent: ${p.machine.ifBlank { "the computer" }} is not connected. Your answer \u201c$text\u201d was not recorded."
+        }
+    }
+
+    /** Leaving the inbox inside an answer's Undo window sends it: the tap was the decision. */
+    fun sendPendingAnswer() {
+        val pa = inboxPending ?: return
+        inboxPending = null
+        inbox?.find(pa)?.let { (p, item) -> answerInbox(p, item, pa.text) }
+    }
 
     fun openSession(s: SessionInfo) {
         openSession = s
@@ -1043,6 +1087,10 @@ private fun PortholeApp(
     }
     fun startUpdate() { offeredBuild?.let { installBuild(it) } }
 
+    // However the inbox is left (back, a notification, a dropped connection), a tapped
+    // answer still inside its Undo window goes: the tap was the decision.
+    LaunchedEffect(route) { if (route != Route.Inbox) { sendPendingAnswer(); inboxFailed = null } }
+
     // Hardware back walks the same graph the arrows do.
     BackHandler(enabled = route != Route.Welcome && route != Route.Sessions && route != Route.Failure) {
         route = when (route) {
@@ -1055,6 +1103,7 @@ private fun PortholeApp(
             Route.Tour -> if (paired) Route.Sessions else Route.Welcome
             Route.Session -> { closeSession(); Route.Sessions }
             Route.Settings -> Route.Sessions
+            Route.Inbox -> { sendPendingAnswer(); Route.Sessions }
             Route.SettingsSetup, Route.SettingsTour, Route.SettingsLicences -> Route.Settings
             Route.Failsafe -> { vm.ssh.close(); failsafeFrom }
             else -> route
@@ -1241,8 +1290,23 @@ private fun PortholeApp(
                     onUpdate = { startUpdate() },
                     onDismissUpdate = { offeredBuild?.let { dismissBuild(it) } },
                     onNewSession = if ("start" in (daemon?.caps ?: emptyList())) ({ newNote = null; showNewSession = true }) else null,
+                    onInbox = if (inbox != null) ({ vm.fleet.refreshInbox(); route = Route.Inbox }) else null,
+                    inboxCount = inbox?.count ?: 0,
                 )
                 }
+
+                Route.Inbox -> InboxScreen(
+                    inbox = inbox,
+                    onBack = { sendPendingAnswer(); route = Route.Sessions },
+                    onRefresh = { vm.fleet.refreshInbox() },
+                    onAnswer = { p, item, text -> answerInbox(p, item, text) },
+                    onDismiss = { p, item -> clientOf(p.machineId).dismissInbox(p.dir, item.id) },
+                    answered = inboxAnswered,
+                    pending = inboxPending,
+                    onPending = { inboxPending = it },
+                    sending = inboxSending,
+                    failed = inboxFailed,
+                )
 
                 Route.Session -> {
                     val s = openSession

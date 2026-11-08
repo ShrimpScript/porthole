@@ -18,6 +18,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Text
@@ -215,6 +218,10 @@ fun SessionsScreen(
     onDismissUpdate: () -> Unit = {},
     /** Start a fresh Claude Code in a folder; null when no computer can start one. */
     onNewSession: (() -> Unit)? = null,
+    /** Open the inbox; null when no computer has one. */
+    onInbox: (() -> Unit)? = null,
+    /** Questions waiting in the inbox, for the count on its button. */
+    inboxCount: Int = 0,
 ) = Screen {
     val c = Porthole.colors
     Column(Modifier.fillMaxSize()) {
@@ -233,6 +240,7 @@ fun SessionsScreen(
                     style = PortholeType.meta, color = c.faint,
                 )
             }
+            if (onInbox != null) InboxButton(inboxCount, onInbox)
             if (onNewSession != null) IconTarget(Icons.Outlined.Add, "New session", onNewSession)
             IconTarget(Icons.Outlined.Refresh, "Refresh sessions", onRefresh)
             IconTarget(Icons.Outlined.Settings, "Settings", onSettings)
@@ -345,6 +353,33 @@ internal fun UpdateBanner(update: BuildInfo, progress: Float?, note: String?, on
                 Ring(state = if (progress > 0f) RingState.Live else RingState.Connecting, size = 18.dp, reveal = progress)
                 Text("${(progress * 100).toInt()}% of the download", style = PortholeType.meta, color = c.faint)
             }
+        }
+    }
+}
+
+/** The inbox, with how many questions wait in it. */
+@Composable
+private fun InboxButton(count: Int, onClick: () -> Unit) {
+    val c = Porthole.colors
+    Box(contentAlignment = Alignment.Center) {
+        IconTarget(
+            Icons.Outlined.Inbox,
+            if (count > 0) "Inbox, $count waiting on you" else "Inbox",
+            onClick,
+            tint = if (count > 0) c.text else c.muted,
+        )
+        if (count > 0) {
+            Text(
+                if (count > 99) "99+" else "$count",
+                style = PortholeType.meta, color = c.onAccent,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 4.dp)
+                    .clip(PortholeShape.pill)
+                    .background(c.accent)
+                    .padding(horizontal = 5.dp)
+                    .clearAndSetSemantics {},
+            )
         }
     }
 }

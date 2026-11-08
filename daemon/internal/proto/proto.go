@@ -72,6 +72,11 @@ const (
 	TypeSessionsRestart  = "sessions.restart"        // phone: restart these sessions, each when it is free
 	TypeSessionRestarted = "session.restarted"       // daemon: one session's restart, waiting, done, failed or cancelled
 	TypeRestartCancel    = "sessions.restart_cancel" // phone: call off restarts still waiting
+	TypeInboxGet         = "inbox.get"               // phone: the questions waiting across the project folders
+	TypeInbox            = "inbox"                   // daemon: those questions, grouped by project
+	TypeInboxAnswer      = "inbox.answer"            // phone: the answer to one (item, text)
+	TypeInboxAnswered    = "inbox.answered"          // daemon: where it was recorded, and which session was told
+	TypeInboxDismiss     = "inbox.dismiss"           // phone: put one aside without answering
 )
 
 // Capabilities advertised in Hello. The app shows an optional feature only when the
@@ -98,6 +103,9 @@ const (
 	// CapAccount: which Claude account Claude Code is signed in to, signing in to another
 	// from the phone, signing out, and restarting sessions so they use it.
 	CapAccount = "account"
+	// CapInbox: the questions agents left waiting on the person in each project's notes,
+	// answered from the phone into the project's decisions file.
+	CapInbox = "inbox"
 )
 
 type Frame struct {

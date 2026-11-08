@@ -158,6 +158,7 @@ of remote approval.
 | `portholed publish APK VERSION APP` | offer a build of your Android project to the phone |
 | `portholed install-hooks` / `uninstall-hooks` | add or remove the approval hook |
 | `portholed sessions` | the sessions the phone would see |
+| `portholed inbox` | the questions your projects' notes leave waiting on you; `add DIR`, `name NAME`, `answer ID TEXT` |
 
 ## Updates
 

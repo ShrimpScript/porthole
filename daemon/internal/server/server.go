@@ -382,6 +382,7 @@ func detectCaps() []string {
 		caps = append(caps, proto.CapChanges)
 	}
 	caps = append(caps, proto.CapFiles) // git's list in a repository, a walk outside one
+	caps = append(caps, proto.CapInbox) // plain file reads; set up or not, the phone says how
 	if _, err := exec.LookPath("tmux"); err == nil {
 		caps = append(caps, proto.CapStart) // starting Claude needs a tmux to put it in
 	}

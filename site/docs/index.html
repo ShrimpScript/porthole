@@ -72,6 +72,7 @@
               <li><a href="#feed">The feed</a></li>
               <li><a href="#since">Since you left</a></li>
               <li><a href="#questions">Questions</a></li>
+              <li><a href="#inbox">Inbox</a></li>
               <li><a href="#approvals">Approvals</a></li>
               <li><a href="#terminal">The terminal</a></li>
               <li><a href="#changes">Changes</a></li>
@@ -132,6 +133,7 @@
         <li><a href="#feed">The feed</a></li>
         <li><a href="#since">Since you left</a></li>
         <li><a href="#questions">Questions</a></li>
+        <li><a href="#inbox">Inbox</a></li>
         <li><a href="#approvals">Approvals</a></li>
         <li><a href="#terminal">The terminal</a></li>
         <li><a href="#changes">Changes</a></li>
@@ -510,6 +512,23 @@ portholed revoke &lt;ID&gt;      <span class="c"># remove it and drop any live c
     <p>Multi-select questions show ticks that move as you toggle, then Next. Several questions in one call walk through in order and end on the CLI's review screen, where &ldquo;Submit answers&rdquo; is one more tap. A tap after you answered at the desk is refused, not typed into the prompt.</p>
     <p>If the picker cannot be read from the screen, the phone still shows the question, with <b>Answer in the terminal</b>, which opens the Terminal view where the picker is. The daemon also keeps a session's window large enough to read while nobody is attached to it at the desk.</p>
     <p>The session sorts under <strong>Needs you</strong> the moment a picker is up, and a notification says what is being asked. The feed keeps the question and your answer as history: &ldquo;Claude asked &hellip;&rdquo;, then &ldquo;Answered: Always light&rdquo;.</p>
+  </div>
+</section>
+
+<!-- ============================================================== inbox -->
+<section class="d-sec" id="inbox">
+  <h2><a href="#inbox">Inbox</a></h2>
+  <div class="prose">
+    <p>Agents leave questions in their notes when you are not there to answer. The inbox collects them from every project on the computer, newest first, grouped by project: the button beside <b>+</b> on the session list shows how many are waiting.</p>
+    <p>Tell the computer which folders hold your projects. Each folder is read, and so is every folder directly inside it:</p>
+    <div class="cmd" data-copy><code>portholed inbox add ~/code</code></div>
+    <p>The inbox reads <code>.claude/progress.md</code>, <code>HANDOVER.md</code>, <code>BACKLOG.md</code> and <code>ROADMAP.md</code> (also under <code>.agent/</code>, <code>.claude/</code> and <code>docs/</code>) for a section like this:</p>
+    <pre><code>## Waiting on you
+- Which region for the database: Frankfurt | Virginia [Frankfurt]
+- Approve the rate limits in docs/LIMITS.md</code></pre>
+    <p>Choices written as <code>A | B</code> become buttons, and a suggestion in [brackets] is marked. Notes that call you by name (&ldquo;Waiting on Sam&rdquo;, &ldquo;Open for Sam:&rdquo;, &ldquo;Sam's call&rdquo;) are read too, once the computer knows the name: <code>portholed inbox name Sam</code>.</p>
+    <p>Tap a choice, and you have four seconds to undo it before it is sent. Anything else takes a typed answer. The answer is added to the end of the project's <code>DECISIONS.md</code> (or the <code>docs/decisions.md</code> it already has), with the date and the question. If Claude Code is running in that folder, the answer is typed to it as well. Nothing else in a project is changed. <b>Put aside</b> hides a question on this computer only.</p>
+    <p>At the desk, <code>portholed inbox</code> prints the same list, and <code>portholed inbox answer ID TEXT</code> answers one.</p>
   </div>
 </section>
 

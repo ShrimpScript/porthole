@@ -74,6 +74,8 @@ func main() {
 		err = cmdSessions()
 	case "replay":
 		err = cmdReplay(os.Args[2:])
+	case "inbox":
+		err = cmdInbox(os.Args[2:])
 	case "hook":
 		err = cmdHook()
 	case "install-hooks":
@@ -119,6 +121,8 @@ func usage() {
   portholed doctor       check everything a phone needs on this computer, one line each
   portholed sessions     list Claude Code sessions on this machine
   portholed replay FILE  map a transcript to feed rows (-json, -feed)
+  portholed inbox        the questions your projects' notes leave waiting on you
+                         (add DIR, name NAME, answer ID TEXT, dismiss ID; see inbox -h)
   portholed publish APK VERSION APP  offer a build of an app you are working on to paired phones
   portholed service install|restart|status|uninstall
                          run the daemon in the background: a launchd agent on a Mac,

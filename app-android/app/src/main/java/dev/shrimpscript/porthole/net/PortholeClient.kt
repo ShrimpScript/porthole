@@ -1218,6 +1218,31 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
 
     fun requestAccount() = send("""{"type":"account.get"}""")
 
+    private val _inbox = MutableStateFlow<Inbox?>(null)
+    /** The questions waiting on the person in this computer's projects; null before it has said. */
+    val inbox: StateFlow<Inbox?> = _inbox
+    private val _inboxAnswered = MutableStateFlow<InboxAnswered?>(null)
+    /** How the last answer went. */
+    val inboxAnswered: StateFlow<InboxAnswered?> = _inboxAnswered
+
+    private fun hasCap(cap: String) = (_connection.value as? Connection.Live)?.daemon?.caps?.contains(cap) == true
+
+    /** Ask for the inbox again; the computer re-reads every project's notes. */
+    fun refreshInbox() { if (hasCap("inbox")) send("""{"type":"inbox.get"}""") }
+
+    /**
+     * Record an answer in the project's decisions file; the fresh inbox follows. False when
+     * it could not be handed to the computer: the caller says so, the tap is not lost quietly.
+     */
+    fun answerInbox(dir: String, item: String, text: String): Boolean {
+        if (text.isBlank() || _connection.value !is Connection.Live) return false
+        _inboxAnswered.value = null
+        return socket?.send(JSONObject().put("type", "inbox.answer").put("dir", dir).put("item", item).put("text", text.trim()).toString()) == true
+    }
+
+    /** Put a question aside, on the computer only; nothing is written to the project. */
+    fun dismissInbox(dir: String, item: String) = send(JSONObject().put("type", "inbox.dismiss").put("dir", dir).put("item", item).toString())
+
     /** Starts Claude Code's sign-in on the computer; its page arrives in [signIn]. */
     fun startSignIn() {
         _signIn.value = SignIn.Starting
@@ -1523,6 +1548,8 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                             },
                         )
                     )
+                    // The inbox count shows on the list's header, so it is read at every hello.
+                    refreshInbox()
                 }
                 "session.list" -> {
                     val arr = obj.optJSONArray("sessions") ?: return
@@ -1705,6 +1732,8 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                     plan = obj.optString("plan"), method = obj.optString("method"),
                     error = obj.optString("error").ifBlank { null },
                 )
+                "inbox" -> _inbox.value = Inbox.parse(obj)
+                "inbox.answered" -> _inboxAnswered.value = InboxAnswered.parse(obj)
                 "account.link" -> _signIn.value = SignIn.Waiting(obj.optString("url"))
                 "account.done" -> _signIn.value = _signIn.value.after(
                     ok = obj.optBoolean("ok"), retry = obj.optBoolean("retry"),
