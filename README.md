@@ -40,6 +40,11 @@ between your phone and your computer.
   usage-limit card.
 - **A real terminal.** The tmux pane at the desk's width, with a key row built for
   Claude Code.
+- **An inbox for your projects' questions.** Agents leave questions in their notes when you
+  are not there to answer. `portholed inbox add DIR` points the daemon at your projects; the
+  phone lists every question still waiting on you, by project, answers with one tap (choices
+  written as `A | B` become buttons), records the answer in the project's `DECISIONS.md`, and
+  tells a session running in that folder.
 - **Start, resume, or start another.** The + on the session list starts a fresh Claude Code in
   any project folder, in a tmux session of its own, like `porthole` at the desk.
 - **Notifications** while a turn runs, when it finishes (with Reply from the shade), when a
