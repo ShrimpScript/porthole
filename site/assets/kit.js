@@ -120,7 +120,7 @@ const pill = (t, on, k = '') => `<span class="pill${on ? ' on' : ''}"${k ? ` dat
 const dots = (on, n = 7) => `<div class="dots">${Array.from({ length: n }, (_, i) => `<i${i + 1 === on ? ' class="on"' : ''}></i>`).join('')}</div>`;
 const ap = (d, html, x = '') => `<div class="ap" style="--d:${d}ms;${x}">${html}</div>`;
 const md = s => s.split('\n\n').map(p => `<p>${esc(p).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')}</p>`).join('');
-const wordmark = () => `<div class="row ty-d">P<span style="padding:0 1px">${ring('mark', 18.48, 2.38)}</span>rthole</div>`;
+const wordmark = () => `<div class="row ty-d wm">P<span style="padding:0 1px">${ring('mark', 18.48, 2.38)}</span>rthole</div>`;
 
 /* OnboardingFrame: back arrow and dots, a scrolling body, an optional bottom bar. */
 const frame = (step, body, bot = '', scroll = 0) =>
@@ -248,8 +248,13 @@ const banner = b => `<div class="ban" data-k="ban"><div class="row" style="gap:1
   `<p class="ty-m k-fa">${b.pct != null ? `Downloading · ${b.pct}%` : b.own ? `You have ${b.have}. Downloads from GitHub, then Android asks to update.` : 'Downloads from your computer, then Android asks to install or update it.'}</p></div></div>` +
   (b.pct != null ? `${sp(10)}<div class="row" style="gap:10px">${ring('live', 18, 2, 0, b.pct / 100)}<p class="ty-m k-fa">${b.pct}% of the download</p></div>`
     : `${sp(6)}<div class="row" style="justify-content:flex-end;gap:8px">${pill('Not now', 0, 'later')}${pill(b.own ? 'Update' : 'Install', 1, 'get')}</div>`) + `</div>`;
+// A session row as the app draws it: title; a state chip with its detail (needs you,
+// working, shell only); then the details. Live and idle rows have no state line - the
+// ring says it. w = { k, t, r, u, a, chip: { x, c, spin }, x: detail, d: details }.
+const schip = ch => `<span class="schip k-${ch.c || 'mu'}${ch.c === 'tx' ? ' n' : ''}">${ch.spin ? spinner() : ''}${ch.x}</span>`;
 const srow = w => `<div class="srow" data-k="${w.k}"><div class="srow-in">${ring(w.r, 18)}<div class="f1"><div class="row" style="gap:8px"><p class="ty-r el">${esc(w.t)}</p>${w.u ? '<i class="unseen"></i>' : ''}</div>` +
-  `<div class="row">${w.s ? `<span style="margin-right:2px">${spinner()}</span>` : ''}<p class="ty-s el k-${w.c || 'mu'}">${w.m}</p></div></div><p class="ty-m k-fa">${w.a || ''}</p></div><div class="hr"></div></div>`;
+  (w.chip ? `<div class="row schips">${schip(w.chip)}${w.x ? `<p class="ty-s el k-${w.r === 'needs' ? 'tx' : 'mu'}">${w.x}</p>` : ''}</div>` : '') +
+  (w.d ? `<p class="ty-m el k-fa">${w.d}</p>` : '') + `</div><p class="ty-m k-fa">${w.a || ''}</p></div><div class="hr"></div></div>`;
 S.sessions = (p = {}) => {
   const g = p.groups || SESS;
   const n = g.reduce((a, x) => a + x[1].length, 0);
@@ -270,7 +275,7 @@ S.session = (p = {}) => {
     `<div class="seg${p.term ? ' t' : ''}"><span${p.term ? '' : ' class="on"'}>Feed</span><span${p.term ? ' class="on"' : ''}>Terminal</span></div>` +
     `<div class="feed"><div class="feed-in">${(p.rows || []).map(feedRow).join('')}</div></div>` +
     (st ? `<div class="strip" data-k="strip">${spinner()}<div class="f1"><p class="ty-s">${st.x}</p>${st.s != null || st.tok ? `<p class="ty-m k-fa">${[st.s != null ? tick(st.s) : '', st.tok].filter(Boolean).join(' · ')}</p>` : ''}</div>${gh('Interrupt')}</div>` : '') +
-    (p.q ? `<div class="lq" data-k="lq"><p class="ty-m k-ac">Claude is asking you</p>${p.q.h ? `<p class="ty-r">${p.q.h}</p>` : ''}<p class="ty-b">${p.q.x}</p>` +
+    (p.q ? `<div class="lq" data-k="lq"><p class="ty-m k-wa">Claude is asking you</p>${p.q.h ? `<p class="ty-r">${p.q.h}</p>` : ''}<p class="ty-b">${p.q.x}</p>` +
       p.q.o.map(([l, d], i) => `<div class="opt" data-k="o${i + 1}"><p class="ty-b">${i + 1}. ${l}</p>${d ? `<p class="ty-s k-mu">${d}</p>` : ''}</div>`).join('') +
       `<div class="row">${pill('Type something')}</div></div>` : '') +
     (p.quick ? `<div class="qr-row" data-k="quick">${['Continue', 'Yes', 'No', 'Looks good'].map(x => pill(x)).join('')}${icot('edit', 'k-fa')}</div>` : '') +
@@ -285,11 +290,11 @@ S.approval = (p = {}) => `<div class="appr" data-k="appr"><div class="row" style
 /* ------------------------------------------------------- sample data --- */
 
 const ROW = {
-  dark: { k: 'dark', t: 'Add dark mode to settings', r: 'needs', c: 'ac', a: '1m', m: 'asking you: Which theme should new users get? · main · live · tmux work · Opus 5' },
-  flaky: (s, doing = 'Bash: npm test -- login') => ({ k: 'flaky', t: 'Fix flaky login test', r: 'connecting', c: 'tx', s: 1, a: 'now', m: `${tick(s, 'ms')} · ${doing} · fix/login-race · live · tmux work · Opus 5` }),
-  flakyDone: { k: 'flaky', t: 'Fix flaky login test', r: 'live', u: 1, a: 'now', m: 'fix/login-race · live · tmux work · Opus 5' },
-  pg: { k: 'pg', t: 'Migrate to Postgres 16', r: 'live', a: '22m', m: 'db-16 · live · tmux work · Sonnet 5' },
-  inv: { k: 'inv', t: 'Refactor invoice export', r: 'idle', a: '2d', m: 'main · idle · Opus 5' },
+  dark: { k: 'dark', t: 'Add dark mode to settings', r: 'needs', a: '1m', chip: { x: 'Asking you', c: 'wa' }, x: 'Which theme should new users get?', d: 'main · tmux work · Opus 5' },
+  flaky: (s, doing = 'Bash: npm test -- login') => ({ k: 'flaky', t: 'Fix flaky login test', r: 'connecting', a: 'now', chip: { x: tick(s, 'ms'), c: 'tx', spin: 1 }, x: doing, d: 'fix/login-race · tmux work · Opus 5' }),
+  flakyDone: { k: 'flaky', t: 'Fix flaky login test', r: 'live', u: 1, a: 'now', d: 'fix/login-race · tmux work · Opus 5' },
+  pg: { k: 'pg', t: 'Migrate to Postgres 16', r: 'live', a: '22m', d: 'db-16 · tmux work · Sonnet 5' },
+  inv: { k: 'inv', t: 'Refactor invoice export', r: 'idle', a: '2d', d: 'main · Opus 5' },
 };
 const SESS = [['Needs you', [ROW.dark]], ['Live', [ROW.flaky(42), ROW.pg]], ['Recent', [ROW.inv]]];
 

@@ -10,7 +10,8 @@ All under the SIL Open Font License 1.1.
 
 | Face | Use | Copyright | Licence text |
 |---|---|---|---|
-| Schibsted Grotesk | UI | Copyright 2023 The Schibsted-Grotesk Project Authors | `OFL-SchibstedGrotesk.txt` |
+| Hanken Grotesk | UI (Regular, Medium and SemiBold instanced, Latin subset) | Copyright 2021 The Hanken Grotesk Project Authors | `OFL-HankenGrotesk.txt` |
+| Schibsted Grotesk | the wordmark (SemiBold only) | Copyright 2023 The Schibsted-Grotesk Project Authors | `OFL-SchibstedGrotesk.txt` |
 | Iosevka Term | terminal (subset to the ranges a terminal needs) | Copyright 2015-2025, Renzhi Li (Belleve Invis) | `OFL-Iosevka.txt` |
 | Porthole Serif | the Claude theme's prose and display lines | © 2014 - 2021 Adobe Systems Incorporated, with Reserved Font Name 'Source' | `OFL-SourceSerif4.txt` |
 | Google Sans Flex | the Gemini theme's prose and display lines (Regular and SemiBold instanced at opsz 16, Latin subset) | Copyright 2015 The Google Sans Flex Authors | `OFL-GoogleSansFlex.txt` |

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.shrimpscript.porthole.terminal.KeyRow
@@ -96,7 +99,7 @@ fun TerminalBody(
         ) {
             Text(
                 if (open) "${emulator.cols}×${emulator.rows} · tap to type" else if (live) "attaching" else "no live terminal",
-                style = PortholeType.meta, color = c.faint,
+                style = PortholeType.meta, color = c.muted,
             )
             Spacer(Modifier.weight(1f))
             StripButton(if (fit) "fit" else "${fontSp.toInt()}sp", accent = fit) { onFit(!fit) }
@@ -167,13 +170,17 @@ private fun StripButton(label: String, accent: Boolean = false, onClick: () -> U
     val c = Porthole.colors
     Box(
         Modifier
-            .height(36.dp)
-            .background(if (accent) c.accent else c.raised, PortholeShape.key)
+            .height(40.dp)
+            .defaultMinSize(minWidth = 40.dp)
+            .background(c.raised, PortholeShape.key)
             .clickable { onClick() }
+            .semantics { if (accent) selected = true }
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = PortholeType.meta, color = if (accent) c.onAccent else c.muted)
+        // Labels in full text on the raised tile; "fit" when on is the accent's word, not
+        // a filled block, so the strip never outshouts the terminal under it.
+        Text(label, style = PortholeType.secondary, color = if (accent) c.accent else c.text)
     }
 }
 

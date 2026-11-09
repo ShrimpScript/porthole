@@ -23,6 +23,9 @@ import dev.shrimpscript.porthole.R
 import dev.shrimpscript.porthole.ui.theme.Porthole
 import dev.shrimpscript.porthole.ui.theme.PortholeShape
 import dev.shrimpscript.porthole.ui.theme.PortholeType
+import dev.shrimpscript.porthole.ui.theme.LocalPortholeFonts
+import dev.shrimpscript.porthole.ui.theme.PortholeFonts
+import dev.shrimpscript.porthole.ui.theme.PortholeLogoFace
 
 /*
  * The brand, as components.
@@ -38,7 +41,7 @@ import dev.shrimpscript.porthole.ui.theme.PortholeType
 @Composable
 fun Wordmark(
     modifier: Modifier = Modifier,
-    style: TextStyle = Porthole.type.display,
+    style: TextStyle = wordmarkStyle(),
     ring: RingState = RingState.Live,
     color: Color = Porthole.colors.text,
 ) {
@@ -51,6 +54,12 @@ fun Wordmark(
         Text("rthole", style = style, color = color)
     }
 }
+
+/** The display style, in the logo face where the theme is Porthole's own; other themes set it in their voice. */
+@Composable
+private fun wordmarkStyle(): TextStyle =
+    if (LocalPortholeFonts.current == PortholeFonts.Porthole) Porthole.type.display.copy(fontFamily = PortholeLogoFace)
+    else Porthole.type.display
 
 /** A tool's own mark in a raised tile. */
 @Composable

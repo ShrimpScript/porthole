@@ -18,7 +18,7 @@ export const MONO = '"Iosevka Term", ui-monospace, monospace';
  * The group's userData.letters holds the planes in reading order, each with
  * userData.home (its resting position), for animation.
  */
-export async function word(text, { height = 0.05, weight = 650, fill = '#F2F7F6', tracking = -0.04, face = SANS, lit = false } = {}) {
+export async function word(text, { height = 0.05, weight = 650, fill = '#F4F4F5', tracking = -0.04, face = SANS, lit = false } = {}) {
   // A face that is not ready would draw in the fallback, and stay that way on the texture.
   await document.fonts.load(`${weight} 200px ${face}`, text);
   const px = 220;                         // drawing size: sharp at the sizes the film uses

@@ -51,6 +51,7 @@ internal data class Notice(
 
 /** Every font and library in the APK. THIRD_PARTY.md carries the same list. */
 internal val Notices = listOf(
+    Notice("Hanken Grotesk", "Copyright 2021 The Hanken Grotesk Project Authors", "SIL Open Font License 1.1", "OFL-HankenGrotesk.txt"),
     Notice("Schibsted Grotesk", "Copyright 2023 The Schibsted-Grotesk Project Authors", "SIL Open Font License 1.1", "OFL-SchibstedGrotesk.txt"),
     Notice("Iosevka Term", "Copyright 2015-2025, Renzhi Li (Belleve Invis)", "SIL Open Font License 1.1", "OFL-Iosevka.txt"),
     Notice(

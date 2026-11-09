@@ -48,7 +48,7 @@ async function start() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
 
-  const INK = new THREE.Color('#030807');
+  const INK = new THREE.Color('#040405');
   const TEAL = new THREE.Color('#3FD4C0');
   const scene = new THREE.Scene();
   scene.background = INK.clone();
@@ -63,7 +63,7 @@ async function start() {
   // ------------------------------------------------------------------ stage ---
   const floorY = -0.112;
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 6),
-    new THREE.MeshStandardMaterial({ color: '#030606', roughness: 0.96, metalness: 0 }));
+    new THREE.MeshStandardMaterial({ color: '#050505', roughness: 0.96, metalness: 0 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = floorY;
   floor.receiveShadow = true;
@@ -93,7 +93,7 @@ async function start() {
   // The beam itself: an open cone, brightest near the lamp and at its heart.
   const beam = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.05, 64, 1, true), new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 }, uColor: { value: new THREE.Color('#e8f6f2') } },
+    uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 }, uColor: { value: new THREE.Color('#ececee') } },
     vertexShader: `varying vec3 vN; varying vec3 vV; varying float vH;
       void main(){ vec4 w = modelMatrix * vec4(position,1.0); vH = uv.y;
         vN = normalize(normalMatrix * normal); vV = normalize(-(viewMatrix * w).xyz);
@@ -145,7 +145,7 @@ async function start() {
         vA = 0.35 + 0.65 * abs(sin(uTime * (0.4 + seed) + seed * 12.0)); }`,
     fragmentShader: `uniform float uOpacity; varying float vA;
       void main(){ float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard;
-        gl_FragColor = vec4(vec3(0.92, 0.98, 0.96), (1.0 - d * 2.0) * vA * uOpacity * 0.7); }`,
+        gl_FragColor = vec4(vec3(0.95, 0.95, 0.96), (1.0 - d * 2.0) * vA * uOpacity * 0.7); }`,
   }));
   scene.add(dust);
 
@@ -159,13 +159,13 @@ async function start() {
   const base = '/assets/intro/';
   // One word for each beat of the film, drawn while the model loads: in the site's own
   // faces, the terminal's in its monospace, and lit by the stage like everything else on it.
-  const ink = { height: 0.05, weight: 650, fill: '#A7B7B3', lit: true };
+  const ink = { height: 0.05, weight: 650, fill: '#ADADB3', lit: true };
   const wordsReady = Promise.all([
     word('Sessions', ink), word('Questions', ink), word('Approvals', ink),
     word('Terminal', { ...ink, weight: 700, face: MONO, tracking: 0 }),
   ]);
   // And the name, as the title sets it, in two parts either side of its ring.
-  const name = { height: 0.07, weight: 600, fill: '#DDE6E3', tracking: -0.045, lit: true };
+  const name = { height: 0.07, weight: 600, fill: '#E4E4E7', tracking: -0.045, lit: true };
   const nameReady = Promise.all([word('P', name), word('rthole', name)]);
   const [gltf, manifest, ...maps] = await Promise.all([
     new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(base + 'phone.glb'),

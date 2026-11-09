@@ -196,7 +196,7 @@ private fun InboxCard(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
             .background(c.raised, PortholeShape.card)
-            .border(1.dp, if (pending != null) c.accent else c.edge, PortholeShape.card)
+            .then(if (pending != null) Modifier.border(1.dp, c.accent, PortholeShape.card) else Modifier)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -218,11 +218,15 @@ private fun InboxCard(
                 onCancel = { replying = false },
             )
             else -> {
-                if (item.options.isNotEmpty() || item.suggested.isNotBlank()) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item.options.forEach { o -> Choice(o, suggested = o == item.suggested) { onPick(o) } }
-                        if (item.options.isEmpty()) Choice("Use the suggestion", suggested = true) { onPick(item.suggested) }
-                    }
+                // Every way to answer sits together; writing one is the last choice, not a
+                // link in the footer. The footer keeps one action: putting the question aside.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item.options.forEach { o -> Choice(o, suggested = o == item.suggested) { onPick(o) } }
+                    if (item.options.isEmpty() && item.suggested.isNotBlank()) Choice("Use the suggestion", suggested = true) { onPick(item.suggested) }
+                    Choice(
+                        if (item.options.isEmpty() && item.suggested.isBlank()) "Write an answer" else "Something else",
+                        suggested = false, write = true,
+                    ) { replying = true }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -230,7 +234,6 @@ private fun InboxCard(
                         style = PortholeType.meta, color = c.faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    TextAction(if (item.options.isEmpty()) "Answer" else "Other", c.text) { replying = true }
                     TextAction("Put aside", c.muted, onDismiss)
                 }
             }
@@ -238,21 +241,31 @@ private fun InboxCard(
     }
 }
 
-/** One choice from the note: a single tap answers (with a moment to undo). */
+/**
+ * One choice from the note: a single tap answers (with a moment to undo). [write] is the
+ * last chip, which opens a box for an answer in your own words instead.
+ */
 @Composable
-private fun Choice(text: String, suggested: Boolean, onClick: () -> Unit) {
+private fun Choice(text: String, suggested: Boolean, write: Boolean = false, onClick: () -> Unit) {
     val c = Porthole.colors
     Text(
         text,
-        style = PortholeType.body, color = c.text,
+        style = PortholeType.body, color = if (write) c.muted else c.text,
         modifier = Modifier
             .clip(PortholeShape.control)
             .background(c.surface)
-            .border(1.dp, if (suggested) c.accent.copy(alpha = 0.6f) else c.edge, PortholeShape.control)
+            // Light palettes put surface and raised a shade apart, so plain chips keep an edge there.
+            .then(
+                when {
+                    suggested -> Modifier.border(1.dp, c.accent.copy(alpha = 0.6f), PortholeShape.control)
+                    c.isLight -> Modifier.border(1.dp, c.edge, PortholeShape.control)
+                    else -> Modifier
+                }
+            )
             .clickable(role = Role.Button, onClick = onClick)
             .defaultMinSize(minHeight = 44.dp)
             .padding(horizontal = 14.dp, vertical = 11.dp)
-            .semantics { contentDescription = "Answer: $text" + if (suggested) ", suggested" else "" },
+            .semantics { contentDescription = if (write) text else "Answer: $text" + if (suggested) ", suggested" else "" },
     )
 }
 

@@ -40,20 +40,20 @@
 
 :root {
   color-scheme: light;
-  --ground: #F3F7F6;
+  --ground: #F4F4F5;
   --surface: #FFFFFF;
-  --raised: #E7EEEC;
-  --edge: #D2DDDA;
-  --text: #0E1D1B;
-  --muted: #45605C;
-  --faint: #556B67;
+  --raised: #ECECEE;
+  --edge: #DCDCE0;
+  --text: #141416;
+  --muted: #55555C;
+  --faint: #66666E;
   --accent: #097368;
   --accent-fill: #3FD4C0;
-  --on-accent: #07100F;
+  --on-accent: #0B0B0C;
   --warn: #8A5A00;
   --bad: #B3362C;
   --ok: #23703F;
-  --deep: #E7EEEC;
+  --deep: #ECECEE;
   --focus: #097368;
   --shadow: 0 1px 2px rgb(14 29 27 / .06), 0 8px 24px rgb(14 29 27 / .08);
 
@@ -88,40 +88,40 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --ground: #07100F;
-    --surface: #0E1A19;
-    --raised: #162523;
-    --edge: #22322F;
-    --text: #E8F0EE;
-    --muted: #8FA3A0;
-    --faint: #7B908C;
+    --ground: #0B0B0C;
+    --surface: #141415;
+    --raised: #1e1e20;
+    --edge: #2B2B2E;
+    --text: #ECECEE;
+    --muted: #A3A3A9;
+    --faint: #878791;
     --accent: #3FD4C0;
     --accent-fill: #3FD4C0;
-    --on-accent: #07100F;
-    --warn: #E8B54A;
-    --bad: #F2685E;
-    --ok: #5FCF80;
-    --deep: #050B0A;
+    --on-accent: #0B0B0C;
+    --warn: #E8B84F;
+    --bad: #F5726C;
+    --ok: #5ED68F;
+    --deep: #070708;
     --focus: #3FD4C0;
     --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .35);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #07100F;
-  --surface: #0E1A19;
-  --raised: #162523;
-  --edge: #22322F;
-  --text: #E8F0EE;
-  --muted: #8FA3A0;
-  --faint: #7B908C;
+  --ground: #0B0B0C;
+  --surface: #141415;
+  --raised: #1e1e20;
+  --edge: #2B2B2E;
+  --text: #ECECEE;
+  --muted: #A3A3A9;
+  --faint: #878791;
   --accent: #3FD4C0;
   --accent-fill: #3FD4C0;
-  --on-accent: #07100F;
-  --warn: #E8B54A;
-  --bad: #F2685E;
-  --ok: #5FCF80;
-  --deep: #050B0A;
+  --on-accent: #0B0B0C;
+  --warn: #E8B84F;
+  --bad: #F5726C;
+  --ok: #5ED68F;
+  --deep: #070708;
   --focus: #3FD4C0;
   --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .35);
 }

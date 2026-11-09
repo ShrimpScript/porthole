@@ -166,7 +166,7 @@ class RenderInboxTest {
                 )
             }
         }
-        rule.onNodeWithText("Answer").performClick()
+        rule.onNodeWithText("Write an answer").performClick()
         rule.onNodeWithContentDescription("Your answer").performTextInput("Approved, but halve the burst limit")
         save("inbox-typing")
         rule.mainClock.autoAdvance = false

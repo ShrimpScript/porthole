@@ -175,8 +175,8 @@ PK.scene('changes', {
   const pub = d => [`{${d ? 'd' : 'g'}:●} {B:Bash}(portholed publish app/build/outputs/apk/release/app-release.apk 1.4.0`, '       shopping-list)'];
   const built = [...head, T.tool('Bash', './gradlew assembleRelease'), T.res('BUILD SUCCESSFUL in 1m 12s'), ''];
   const spin = (v, n) => [T.spin(v, `{tick:${n},s} · ↓ 1.4k tokens · esc to interrupt`), '', ...inp];
-  const list = (s, d, ban) => ['sessions', { ban, groups: [['Live', [{ k: 'rel', t: 'Build the 1.4.0 release', r: s ? 'connecting' : 'live', c: s ? 'tx' : 'mu', s, u: !s, a: 'now',
-    m: `${s ? tick(s, 'ms') + ' · Bash: ' + d + ' · ' : ''}main · live · tmux app · Opus 5` }, ROW.pg]], ['Recent', [ROW.inv]]] }];
+  const list = (s, d, ban) => ['sessions', { ban, groups: [['Live', [{ k: 'rel', t: 'Build the 1.4.0 release', r: s ? 'connecting' : 'live', u: !s, a: 'now',
+    ...(s ? { chip: { x: tick(s, 'ms'), c: 'tx', spin: 1 }, x: 'Bash: ' + d } : {}), d: 'main · tmux app · Opus 5' }, ROW.pg]], ['Recent', [ROW.inv]]] }];
   const dl = n => ({ phone: list(0, 0, { ...BAN_B, pct: n }) });
   PK.scene('builds', {
     label: 'Installing a build published on the computer', poster: 1,

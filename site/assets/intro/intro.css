@@ -3,11 +3,11 @@
    whatever the page's theme. Without the scene, the still and the words below stand in. */
 
 .cine {
-  --stage: #030807;
+  --stage: #040405;
   position: relative;
   height: 250vh;
   background: var(--stage);
-  color: #E8F0EE;
+  color: #ECECEE;
 }
 .cine-stage {
   position: sticky; top: 0;
@@ -45,7 +45,7 @@ html.cine-pending .cine-hero { visibility: hidden; }
   margin: 0; transform: translateY(-58%);
   display: flex; align-items: center; justify-content: center;
   font-size: clamp(4.5rem, 13vw, 12rem); font-weight: 600; letter-spacing: -.045em; line-height: 1;
-  color: #F2F7F6;
+  color: #F4F4F5;
   visibility: hidden;
 }
 /* While a first visit waits for the film, the title is already up: the page has something to
@@ -73,30 +73,30 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
 .cine-hero h1 {
   margin: 0;
   font-size: clamp(2.2rem, 4.2vw, 3.6rem); line-height: 1.04; letter-spacing: -.028em;
-  font-weight: 600; color: #F2F7F6;
+  font-weight: 600; color: #F4F4F5;
 }
 .cine-hero h1 span { display: block; }
 .cine-hero h1 span + span { color: #3FD4C0; }
-.cine-hero .lead { color: #A9BAB6; margin-top: 20px; max-width: 34rem; }
+.cine-hero .lead { color: #ADADB3; margin-top: 20px; max-width: 34rem; }
 .cine-hero .cluster { margin-top: 28px; }
-.cine-hero .needs { color: #7B908C; margin-top: 18px; max-width: 32rem; }
-.cine-hero .btn:not(.btn-primary) { color: #E8F0EE; border-color: rgb(232 240 238 / .28); background: rgb(255 255 255 / .03); }
+.cine-hero .needs { color: #878791; margin-top: 18px; max-width: 32rem; }
+.cine-hero .btn:not(.btn-primary) { color: #ECECEE; border-color: rgb(236 236 238 / .28); background: rgb(255 255 255 / .03); }
 .cine-hero .btn:not(.btn-primary):hover { background: rgb(255 255 255 / .08); }
-.cine-hero .gh { color: #A9BAB6; }
+.cine-hero .gh { color: #ADADB3; }
 
 /* Lower thirds during the opening: a label and a line, one at a time. */
 .cine-cap {
   position: absolute; z-index: 2;
   left: max(24px, 7vw); bottom: 13vh;
   margin: 0; max-width: 30rem;
-  font-size: clamp(1.15rem, 1.9vw, 1.6rem); line-height: 1.25; font-weight: 500; color: #F2F7F6;
+  font-size: clamp(1.15rem, 1.9vw, 1.6rem); line-height: 1.25; font-weight: 500; color: #F4F4F5;
   visibility: hidden;
 }
 
 .cine-skip, .cine-replay {
   position: absolute; z-index: 3; right: max(20px, 3vw); bottom: max(20px, 4vh);
-  font: 500 .82rem/1 var(--sans); color: #C9D6D3;
-  background: rgb(255 255 255 / .06); border: 1px solid rgb(232 240 238 / .2); border-radius: 999px;
+  font: 500 .82rem/1 var(--sans); color: #D3D3D5;
+  background: rgb(255 255 255 / .06); border: 1px solid rgb(236 236 238 / .2); border-radius: 999px;
   padding: 10px 16px; min-height: 40px; cursor: pointer;
   visibility: hidden;
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
@@ -106,7 +106,7 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
 
 .cine-cue {
   position: absolute; z-index: 2; left: 50%; bottom: max(22px, 4vh); transform: translateX(-50%);
-  font: 500 .7rem/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: #7B908C;
+  font: 500 .7rem/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: #878791;
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   visibility: hidden;
 }
@@ -125,7 +125,7 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
 .site-h.over-stage { position: fixed; left: 0; right: 0; background: transparent; border-bottom-color: transparent;
   -webkit-backdrop-filter: none; backdrop-filter: none; transition: background .3s, border-color .3s; }
 .site-h.over-stage.on-stage .brand,
-.site-h.over-stage.on-stage .site-nav a { color: #E8F0EE; }
+.site-h.over-stage.on-stage .site-nav a { color: #ECECEE; }
 .site-h.over-stage.on-stage .site-nav a:hover { background: rgb(255 255 255 / .08); }
 .site-h.over-stage:not(.on-stage) {
   background: color-mix(in srgb, var(--ground) 88%, transparent);

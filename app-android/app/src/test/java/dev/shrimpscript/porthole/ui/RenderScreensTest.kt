@@ -101,14 +101,18 @@ class RenderScreensTest {
         }
         rule.waitForIdle()
         rule.onNodeWithText("Needs you").assertIsDisplayed()
-        // The state on its own line, the details beneath it.
-        rule.onNodeWithText("asking you: Which colour?").assertIsDisplayed()
+        // The state as a chip with its detail beside it, the details beneath.
+        rule.onNodeWithText("Asking you").assertIsDisplayed()
+        rule.onNodeWithText("Which colour?").assertIsDisplayed()
         rule.onNodeWithText("main · tmux 0 · Fable 5.1").assertIsDisplayed()
         // The one held on a permission prompt is under Needs you too, above Live, saying what it wants to run.
-        val held = rule.onNodeWithText("waiting for you: Bash: git push --force origin main").fetchSemanticsNode().boundsInRoot
+        val held = rule.onNodeWithText("Bash: git push --force origin main").fetchSemanticsNode().boundsInRoot
         rule.onNodeWithText("release/2.4 · tmux 2 · Fable 5.1").assertIsDisplayed()
         val liveLabel = rule.onNodeWithText("Live").fetchSemanticsNode().boundsInRoot
         assertTrue("the waiting session sits under Needs you, above Live", held.bottom <= liveLabel.top)
+        rule.onNodeWithText("Waiting for you").assertIsDisplayed()
+        // A live or idle row has no state line: the ring says it.
+        rule.onAllNodesWithText("live").assertCountEquals(0)
         rule.onNodeWithText("Recent").assertIsDisplayed()
         save("sessions")
     }
@@ -470,7 +474,9 @@ class RenderScreensTest {
     fun agentsSheetListsEveryAgent() {
         rule.setContent {
             PortholeTheme {
-                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(top = 24.dp)) {
+                // The sheet's own surface fills the frame, as the real sheet does; a box that only
+                // wrapped the list left the window's white below it in the render.
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(dev.shrimpscript.porthole.ui.theme.Porthole.colors.surface).padding(top = 24.dp)) {
                     AgentsList(agentsFixture, System.currentTimeMillis())
                 }
             }
@@ -656,7 +662,7 @@ class RenderScreensTest {
         rule.onNodeWithText("Reconnecting to workstation…").assertIsDisplayed()
         rule.onNodeWithText("Live").assertIsDisplayed()
         rule.onNodeWithText("Recent").assertIsDisplayed()
-        rule.onAllNodesWithText("as last seen").assertCountEquals(2)
+        rule.onAllNodesWithText("As last seen").assertCountEquals(2)
         rule.onNodeWithText("main · tmux 0 · Fable 5.1").assertIsDisplayed()
         save("offline-list")
     }
@@ -984,7 +990,7 @@ index 4cb29ea..8b1d0e1 100644
         rule.waitForIdle()
         rule.onNodeWithText("laptop · reconnecting").assertIsDisplayed()
         rule.onNodeWithText("2 sessions · 1 of 2 connected").assertIsDisplayed()
-        rule.onNodeWithText("as last seen").assertIsDisplayed()
+        rule.onNodeWithText("As last seen").assertIsDisplayed()
         rule.onNodeWithText("laptop · main · Sonnet 5").assertIsDisplayed()
         save("sessions-unreachable")
     }

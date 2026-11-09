@@ -213,11 +213,22 @@ data class PortholeSpacing(
 val LocalPortholeColors = staticCompositionLocalOf { PortholeColors() }
 val LocalPortholeSpacing = staticCompositionLocalOf { PortholeSpacing() }
 
-private val Schibsted = FontFamily(
-    Font(R.font.schibsted_grotesk_regular, FontWeight.Normal),
-    Font(R.font.schibsted_grotesk_medium, FontWeight.Medium),
-    Font(R.font.schibsted_grotesk_semibold, FontWeight.SemiBold),
+/**
+ * Hanken Grotesk is the UI face: open and calm, with metrics close enough to Schibsted's
+ * (the face before it) that no layout moved. Static Regular,
+ * Medium and SemiBold instances of the variable font, subset to the same Latin set.
+ */
+private val Hanken = FontFamily(
+    Font(R.font.hanken_grotesk_regular, FontWeight.Normal),
+    Font(R.font.hanken_grotesk_medium, FontWeight.Medium),
+    Font(R.font.hanken_grotesk_semibold, FontWeight.SemiBold),
 )
+
+/**
+ * Schibsted Grotesk SemiBold stays as the logo face only: the wordmark on the splash, the
+ * site and the ads is drawn from its outlines, so the app's wordmark keeps it too.
+ */
+val PortholeLogoFace = FontFamily(Font(R.font.schibsted_grotesk_semibold, FontWeight.SemiBold))
 
 /**
  * Iosevka Term is the terminal's face (bundled in res/font, subset to the ranges a
@@ -242,7 +253,7 @@ private val SourceSerif = FontFamily(
 
 /**
  * The faces a theme is allowed to change. Chrome (rows, buttons, chips, meta) stays
- * Schibsted in every theme, as the Claude app keeps its own sans for chrome; what the
+ * Hanken in every theme, as the Claude app keeps its own sans for chrome; what the
  * Claude theme swaps is the voice - Claude's replies and the big display lines.
  */
 /**
@@ -258,7 +269,7 @@ private val GoogleSans = FontFamily(
 @Immutable
 data class PortholeFonts(val prose: FontFamily, val display: FontFamily) {
     companion object {
-        val Porthole = PortholeFonts(prose = Schibsted, display = Schibsted)
+        val Porthole = PortholeFonts(prose = Hanken, display = Hanken)
         val Claude = PortholeFonts(prose = SourceSerif, display = SourceSerif)
         val Gemini = PortholeFonts(prose = GoogleSans, display = GoogleSans)
     }
@@ -272,7 +283,7 @@ class PortholeTypeSet(f: PortholeFonts) {
     val display = PortholeType.display.copy(fontFamily = f.display)
     val title = PortholeType.title.copy(fontFamily = f.display)
     /** Assistant text: 16/24 in the serif reads like the Claude app; the sans stays 15/22. */
-    val prose = if (f.prose == Schibsted) PortholeType.body
+    val prose = if (f.prose == Hanken) PortholeType.body
         else PortholeType.body.copy(fontFamily = f.prose, fontSize = 16.sp, lineHeight = 24.sp)
     val proseTitle = PortholeType.title.copy(fontFamily = f.prose)
     val proseHeading = PortholeType.rowTitle.copy(fontFamily = f.prose)
@@ -280,12 +291,12 @@ class PortholeTypeSet(f: PortholeFonts) {
 
 /** The type scale. Nothing below 12sp, anywhere. */
 object PortholeType {
-    val display = TextStyle(fontFamily = Schibsted, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 34.sp)
-    val title = TextStyle(fontFamily = Schibsted, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp)
-    val rowTitle = TextStyle(fontFamily = Schibsted, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 22.sp)
-    val body = TextStyle(fontFamily = Schibsted, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp)
-    val secondary = TextStyle(fontFamily = Schibsted, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp)
-    val meta = TextStyle(fontFamily = Schibsted, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp)
+    val display = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 34.sp)
+    val title = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp)
+    val rowTitle = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 22.sp)
+    val body = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp)
+    val secondary = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp)
+    val meta = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp)
     val mono = TextStyle(fontFamily = PortholeMono, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp)
 }
 

@@ -190,7 +190,7 @@ private fun Cap(label: String, onClick: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = PortholeType.mono, color = c.muted, maxLines = 1)
+        Text(label, style = PortholeType.mono, color = c.text, maxLines = 1)
     }
 }
 
@@ -198,7 +198,7 @@ private fun Cap(label: String, onClick: () -> Unit) {
 private fun ModCap(label: String, state: ModState, onClick: () -> Unit) {
     val c = Porthole.colors
     val bg = if (state == ModState.Off) c.raised else c.accent
-    val fg = if (state == ModState.Off) c.muted else c.onAccent
+    val fg = if (state == ModState.Off) c.text else c.onAccent
     Box(
         Modifier
             .heightIn(min = 44.dp)

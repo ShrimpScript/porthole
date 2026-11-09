@@ -437,31 +437,45 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                     // Finished since you last opened it: a mark, not a badge with a number.
                     if (unseen) Box(Modifier.size(7.dp).background(c.accent, PortholeShape.pill).semantics { contentDescription = "new since you looked" })
                 }
-                // The state on a line of its own, in colour; the details quieter beneath it.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (s.working && !s.needsYou && !s.machineDown) {
-                        Spinner(Modifier.padding(end = 6.dp))
+                // What the session wants, as a chip with its detail beside it. A row that is
+                // only live or idle has no state line: the ring already says so, and the row
+                // that needs you stays the tallest thing on the list.
+                val chip: String? = when {
+                    s.machineDown -> "As last seen"
+                    s.asking.isNotBlank() -> "Asking you"
+                    s.waiting -> "Waiting for you"
+                    s.working -> if (s.workingSince > 0 && now > 0) elapsedLabel(now - s.workingSince) else "Working"
+                    s.tmux && !s.live -> "Shell only"
+                    else -> null
+                }
+                if (chip != null) {
+                    val detail = when {
+                        s.machineDown -> ""
+                        s.asking.isNotBlank() -> s.asking
+                        s.waiting -> s.waitingWhat
+                        // Time is in the chip: it is the number that decides whether to wait,
+                        // and a long command must never push it off the row.
+                        s.working -> s.doing
+                        else -> "Claude not running"
                     }
-                    Text(
-                        when {
-                            s.machineDown -> "as last seen"
-                            s.asking.isNotBlank() -> "asking you: ${s.asking}"
-                            s.waiting -> if (s.waitingWhat.isNotBlank()) "waiting for you: ${s.waitingWhat}" else "waiting for you"
-                            // Time first: it is the number that decides whether to wait, and a
-                            // long command must never push it off the row.
-                            s.working -> listOfNotNull(
-                                if (s.workingSince > 0 && now > 0) elapsedLabel(now - s.workingSince) else null,
-                                s.doing.ifBlank { "working" },
-                            ).joinToString(" · ")
-                            s.live -> "live"
-                            s.tmux -> "shell only, Claude not running"
-                            else -> "idle"
-                        },
-                        style = PortholeType.secondary,
-                        color = when { s.needsYou -> c.warn; s.working && !s.machineDown -> c.text; else -> c.muted },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(
+                        Modifier.padding(top = 4.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        StateChip(
+                            chip,
+                            tone = when { s.needsYou && !s.machineDown -> c.warn; s.working && !s.machineDown -> c.text; else -> c.muted },
+                            spinning = s.working && !s.needsYou && !s.machineDown,
+                        )
+                        if (detail.isNotBlank()) Text(
+                            detail,
+                            style = PortholeType.secondary,
+                            color = if (s.needsYou) c.text else c.muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 // The tmux session is the handle the person has for "which terminal": with two
                 // sessions in one directory it is the only thing on the row that tells them apart.
@@ -483,6 +497,28 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                 .height(1.dp)
                 .background(c.edge)
         )
+    }
+}
+
+/**
+ * A session's state on its row: a tinted pill, with the turning screw while it works. On a
+ * light ground the tint carries the colour and the words stay in `text`: amber words on a
+ * pale amber tint fall under AA at 12sp.
+ */
+@Composable
+private fun StateChip(text: String, tone: androidx.compose.ui.graphics.Color, spinning: Boolean) {
+    val c = Porthole.colors
+    Row(
+        Modifier
+            .semantics(mergeDescendants = true) { contentDescription = if (spinning) "Working, $text" else text }
+            .clip(PortholeShape.pill)
+            .background(if (tone == c.text) c.raised else tone.copy(alpha = if (c.isLight) 0.22f else 0.14f))
+            .padding(start = if (spinning) 6.dp else 9.dp, end = 9.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        if (spinning) Spinner(background = c.raised, size = 14.dp)
+        Text(text, style = PortholeType.meta, color = if (c.isLight) c.text else tone, maxLines = 1)
     }
 }
 
