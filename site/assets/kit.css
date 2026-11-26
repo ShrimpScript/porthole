@@ -158,17 +158,15 @@
 .run .pk-draw { animation: pk-draw 720ms var(--pk-settle) both; }
 @keyframes pk-draw { from { stroke-dashoffset: var(--c); } }
 
-/* The working icon, the screw: twelve frames over a third of a turn at 0.85 turns a second. */
-.spin.screw g { animation: pk-f12 392ms step-end infinite; }
-.spin.screw g:nth-child(1) { opacity: 1; animation-delay: 0ms; }
-.spin.screw g:nth-child(2) { animation-delay: -359.3ms; } .spin.screw g:nth-child(3) { animation-delay: -326.7ms; }
-.spin.screw g:nth-child(4) { animation-delay: -294ms; } .spin.screw g:nth-child(5) { animation-delay: -261.3ms; }
-.spin.screw g:nth-child(6) { animation-delay: -228.7ms; } .spin.screw g:nth-child(7) { animation-delay: -196ms; }
-.spin.screw g:nth-child(8) { animation-delay: -163.3ms; } .spin.screw g:nth-child(9) { animation-delay: -130.7ms; }
-.spin.screw g:nth-child(10) { animation-delay: -98ms; } .spin.screw g:nth-child(11) { animation-delay: -65.3ms; }
-.spin.screw g:nth-child(12) { animation-delay: -32.7ms; }
-@keyframes pk-f12 { 0% { opacity: 1; } 8.334% { opacity: 0; } 100% { opacity: 0; } }
-.screw-still { display: block; flex: none; }
+/* The working sign, the bolts: a light runs round them with a soft tail, a lap a second. */
+.spin.bolts circle { opacity: .22; animation: pk-bolt 960ms linear infinite; }
+.spin.bolts circle:nth-child(1) { animation-delay: 0ms; } .spin.bolts circle:nth-child(2) { animation-delay: 120ms; }
+.spin.bolts circle:nth-child(3) { animation-delay: 240ms; } .spin.bolts circle:nth-child(4) { animation-delay: 360ms; }
+.spin.bolts circle:nth-child(5) { animation-delay: 480ms; } .spin.bolts circle:nth-child(6) { animation-delay: 600ms; }
+.spin.bolts circle:nth-child(7) { animation-delay: 720ms; } .spin.bolts circle:nth-child(8) { animation-delay: 840ms; }
+@keyframes pk-bolt { 0% { opacity: 1; } 45% { opacity: .22; } 100% { opacity: .22; } }
+@media (prefers-reduced-motion: reduce) { .spin.bolts circle { animation: none; } .spin.bolts circle:first-child { opacity: 1; } }
+.bolts-still { display: block; flex: none; opacity: .55; }
 .strip { --sb: var(--su); }
 /* The CLI's spinner, drawn: six frames of 140 ms. */
 .spin { display: block; flex: none; }
@@ -379,7 +377,8 @@
 
 /* Held still: for screenshots (?still, ?scene=&step=, data-step) and reduced motion. */
 .pk-still *, .pk-still *::before, .pk-still *::after { animation: none !important; transition: none !important; }
-.pk-still .spin g:nth-child(1), .pk-still .tsp > b:nth-child(1) { opacity: 1; }
+.pk-still .spin.bolts circle:nth-child(1), .pk-still .tsp > b:nth-child(1) { opacity: 1; }
+.pk-still .spin.bolts circle:nth-child(8) { opacity: .74; } .pk-still .spin.bolts circle:nth-child(7) { opacity: .48; }
 .pk-paused *, .pk-paused *::before, .pk-paused *::after { animation-play-state: paused !important; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -549,7 +548,7 @@
 .schips { gap: 8px; margin: 4px 0 2px; }
 .schip { display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 2px 9px; border-radius: 999px; font-weight: 600; font-size: 12px; line-height: 16px; background: color-mix(in srgb, currentColor 14%, transparent); }
 .schip.n { background: rgb(255 255 255 / .1); padding-left: 6px; }
-.schip .screw { width: 14px; height: 14px; }
+.schip .bolts { width: 14px; height: 14px; }
 .unseen { width: 7px; height: 7px; border-radius: 4px; background: var(--ac); flex: none; }
 .pt { position: relative; display: block; flex: none; width: var(--z); height: var(--z); }
 .pt .ring { position: absolute; left: 0; top: 0; }

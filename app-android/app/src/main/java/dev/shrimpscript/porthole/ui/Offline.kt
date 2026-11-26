@@ -50,7 +50,7 @@ fun ReconnectBar(text: String, savedAt: Long = 0L, onOptions: (() -> Unit)? = nu
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Spinner(color = c.warn, background = c.surface)
+        Spinner(color = c.warn)
         Column(Modifier.weight(1f)) {
             Text(text, style = PortholeType.secondary, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (savedAt > 0L) {

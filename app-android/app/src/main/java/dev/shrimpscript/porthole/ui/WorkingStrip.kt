@@ -78,11 +78,17 @@ fun WorkingStrip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Spinner(background = c.surface)
+            // A tool running is Orbit; Claude thinking, or waiting on the person, is Tide.
+            val tool = status?.question == null && !state?.pendingTool.isNullOrBlank()
+            Spinner(size = 20.dp, mode = if (tool) BoltsMode.Running else BoltsMode.Thinking)
             Column(Modifier.weight(1f)) {
-                Text(text, style = PortholeType.secondary, color = c.text)
-                val meta = listOfNotNull(elapsed, status?.tokens?.ifBlank { null }).joinToString(" · ")
-                if (meta.isNotEmpty()) Text(meta, style = PortholeType.meta, color = c.faint)
+                ShimmerText(text, style = PortholeType.secondary)
+                val tokens = status?.tokens?.ifBlank { null }
+                if (elapsed != null || tokens != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (elapsed != null) RollingText(elapsed, style = PortholeType.meta, color = c.faint)
+                    if (elapsed != null && tokens != null) Text(" · ", style = PortholeType.meta, color = c.faint)
+                    if (tokens != null) Text(tokens, style = PortholeType.meta, color = c.faint, maxLines = 1)
+                }
             }
             if (agentsRunning > 0) AgentsChip(agentsRunning, onAgents)
             if (canInterrupt) {

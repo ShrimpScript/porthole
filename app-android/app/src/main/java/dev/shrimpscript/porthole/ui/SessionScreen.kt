@@ -399,7 +399,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                     .padding(16.dp),
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    if (starting) Spinner(color = c.accent, background = c.surface)
+                                    if (starting) Spinner(color = c.accent)
                                     else Icon(Icons.Outlined.Info, contentDescription = null, tint = c.muted, modifier = Modifier.size(18.dp))
                                     Text(
                                         when {
@@ -1025,8 +1025,8 @@ private fun GhostRows() {
 private fun ComposingChip(verb: String) {
     val c = Porthole.colors
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 2.dp)) {
-        Spinner(color = c.accent)
-        Text(verb.ifBlank { "Working" }.trimEnd('…', '.') + "…", style = PortholeType.secondary, color = c.muted)
+        Spinner(mode = BoltsMode.Thinking)
+        ShimmerText(verb.ifBlank { "Working" }.trimEnd('…', '.') + "…", style = PortholeType.secondary, color = c.muted)
     }
 }
 
@@ -1486,7 +1486,7 @@ private fun Composer(
                     .clickable(enabled = ready, role = Role.Button) { onSend() },
                 contentAlignment = Alignment.Center,
             ) {
-                if (sending) Spinner(color = c.accent, background = c.raised)
+                if (sending) Spinner(color = c.accent)
                 else Icon(
                     androidx.compose.material.icons.Icons.Outlined.ArrowUpward, contentDescription = "Send",
                     tint = if (ready) c.onAccent else c.faint, modifier = Modifier.size(20.dp),

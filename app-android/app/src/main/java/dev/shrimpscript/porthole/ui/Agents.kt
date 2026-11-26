@@ -89,11 +89,11 @@ private fun agentLine(a: AgentInfo, now: Long): String {
 private fun AgentStateMark(state: String?, background: androidx.compose.ui.graphics.Color) {
     val c = Porthole.colors
     when (state) {
-        "running" -> Spinner(background = background)
+        "running" -> Spinner()
         "done" -> Icon(Icons.Outlined.Check, contentDescription = "done", tint = c.ok, modifier = Modifier.size(16.dp))
         "stopped" -> Icon(Icons.Outlined.PauseCircle, contentDescription = "stopped", tint = c.faint, modifier = Modifier.size(16.dp))
         "failed" -> Icon(Icons.Outlined.ErrorOutline, contentDescription = "failed", tint = c.bad, modifier = Modifier.size(16.dp))
-        else -> Spinner(background = background) // called, not yet started
+        else -> Spinner() // called, not yet started
     }
 }
 
@@ -187,7 +187,7 @@ fun AgentsStrip(running: List<AgentInfo>, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Spinner(background = c.surface)
+        Spinner()
         Column(Modifier.weight(1f)) {
             Text(
                 if (running.size == 1) running[0].description.ifBlank { "An agent is working" }

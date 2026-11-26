@@ -455,6 +455,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                             chip,
                             tone = when { s.needsYou && !s.machineDown -> c.warn; s.working && !s.machineDown -> c.text; else -> c.muted },
                             spinning = s.working && !s.needsYou && !s.machineDown,
+                            thinking = s.doing.isBlank(),
                         )
                         if (detail.isNotBlank()) Text(
                             detail,
@@ -487,7 +488,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
  * pale amber tint fall under AA at 12sp.
  */
 @Composable
-private fun StateChip(text: String, tone: androidx.compose.ui.graphics.Color, spinning: Boolean) {
+private fun StateChip(text: String, tone: androidx.compose.ui.graphics.Color, spinning: Boolean, thinking: Boolean = false) {
     val c = Porthole.colors
     Row(
         Modifier
@@ -498,8 +499,10 @@ private fun StateChip(text: String, tone: androidx.compose.ui.graphics.Color, sp
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        if (spinning) Spinner(background = c.raised, size = 14.dp)
-        Text(text, style = PortholeType.meta, color = if (c.isLight) c.text else tone, maxLines = 1)
+        if (spinning) Spinner(size = 14.dp, mode = if (thinking) BoltsMode.Thinking else BoltsMode.Running)
+        // A working row's chip is its clock: the seconds roll up in place.
+        if (spinning) RollingText(text, style = PortholeType.meta, color = if (c.isLight) c.text else tone)
+        else Text(text, style = PortholeType.meta, color = if (c.isLight) c.text else tone, maxLines = 1)
     }
 }
 

@@ -124,12 +124,11 @@ fun WorkLine(work: FeedItem.Work, working: Boolean, onOpen: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Spinner(color = c.accent)
-                Text(running.call.text, style = PortholeType.secondary, color = c.text, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Spinner(mode = BoltsMode.Running)
+                ShimmerText(running.call.text, style = PortholeType.secondary, modifier = Modifier.weight(1f))
                 val s = ((now - since) / 1000).coerceAtLeast(0)
-                Text(if (s < 3600) "%d:%02d".format(s / 60, s % 60) else "%dh %02dm".format(s / 3600, s % 3600 / 60),
-                    style = PortholeType.mono, color = c.faint)
+                RollingText(if (s < 3600) "%d:%02d".format(s / 60, s % 60) else "%dh %02dm".format(s / 3600, s % 3600 / 60),
+                    style = PortholeType.secondary, color = c.faint)
             }
         }
     }
@@ -184,7 +183,7 @@ fun WorkSteps(work: FeedItem.Work, working: Boolean, took: (String) -> String, o
                     when {
                         step.failed -> Text("failed", style = PortholeType.meta, color = c.bad)
                         d != null && d.add + d.del > 0 -> DiffBadge(d.add, d.del)
-                        step.result == null && working -> Spinner(color = c.accent)
+                        step.result == null && working -> Spinner(mode = BoltsMode.Running)
                         else -> Text(took(step.call.toolId), style = PortholeType.mono, color = c.faint)
                     }
                 }
