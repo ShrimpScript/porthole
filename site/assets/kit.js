@@ -279,7 +279,8 @@ S.approval = (p = {}) => {
     `<div class="cmdx"><p class="ty-mo">${esc(p.cmd || 'npm publish --access public')}</p>${sp(8)}<p class="ty-m k-fa">in ${p.cwd || '~/code/shop-sdk'}</p></div>` +
     `<div class="row" style="justify-content:space-between"><p class="ty-s k-mu">Waiting for you</p><p class="ty-s">${tick(left, 'd')}s left</p></div>` +
     `<div class="drain"><i style="--f:${(left / 90).toFixed(3)};animation-duration:${left}s"></i></div>` +
-    `<div class="btns">${gh('Deny', 'deny')}${pri('Allow', 'allow')}</div></div>`;
+    // Two equal answers, as in the app: neither louder than the command (DESIGN §8.4).
+    `<div class="btns">${gh('Deny', 'deny')}${gh('Allow', 'allow')}</div></div>`;
 };
 
 /* ------------------------------------------------------- sample data --- */
