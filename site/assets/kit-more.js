@@ -13,7 +13,7 @@ const nums = (a, r) => `<span class="nums ty-mo"><b class="k-ok">+${a}</b><b cla
 const bar = (w, x = '') => `<div class="bar${x}"><i style="width:${w}%"></i></div>`;
 const sheet = b => `<i class="shx" data-k="shx"></i><div class="sheet" data-k="sheet"><i class="hdl"></i><div class="shc">${b}</div></div>`;
 const scroller = (y, b, c) => `<div class="col ${c}" data-scroll style="transform:translateY(${-(y || 0)}px)">${b}</div>`;
-const keys = () => `<div class="krow">${'Esc Tab ⇧Tab Ctrl Alt ^C / @ ! ←'.split(' ').map((k, i) => `<span data-k="k${i}">${k}</span>`).join('')}</div>`;
+const keys = () => `<div class="krow gl">${'Esc Tab ⇧Tab Ctrl Alt ^C / @ ! ←'.split(' ').map((k, i) => `<span data-k="k${i}">${k}</span>`).join('')}</div>`;
 // The desk's cells at 14.4 px, scaled: fit (all 88 columns) or a text size; a zoomed grid grows in from fit.
 const grid = (L, k, w = 88) => `<div class="ptm" data-k="tb"><div class="ptm-g${k > .6 && w > 60 ? ' zi' : ''}" style="--k:${k};width:${w}ch"><div class="pl">${L.map(l => `<div class="tl">${line(l)}</div>`).join('')}</div></div></div>`;
 
@@ -84,9 +84,10 @@ const tHead = [...T.banner('Opus 5 with high effort', '~/code/shop-api'), '', T.
 const ACC = '{v:⏵⏵ accept edits on} {d:(shift+tab to cycle)}';
 const tDone = m => [...tHead, T.tool('Bash', 'npm test -- login'), T.res('Tests:       26 passed, 26 total'), '', T.say('Done. A sixth try inside a minute now gets a 429 with Retry-After.'), '',
   T.done('Worked for 1m 52s · done 10:34 AM'), '', ...T.input(88, m)];
+const sHead = p => { const h = S.session(p); return h.slice(h.indexOf('<div class="ss-h">'), h.indexOf('<div class="sdock">')); };
 PK.screen('terminal', (p = {}) => p.feed ? S.session({ ...TS, ...p.s }) :
-  S.session({ ...TS, term: 1 }).split('<div class="feed">')[0].replace('seg t"', `seg t${p.go ? ' go' : ''}"`) +
-  `<div class="tstrip">${M('88×26 · tap to type', ' style="flex:1"')}<span class="sbt${p.z ? '' : ' on'}">${p.z ? p.z + 'sp' : 'fit'}</span><span class="sbt">−</span><span class="sbt" data-k="zoom">+</span></div>` +
+  `<div class="tm-top">` + sHead({ ...TS }).replace('tbtn', `tbtn on${p.go ? ' go' : ''}`) +
+  `<div class="tstrip">${M('88×26 · tap to type', ' style="flex:1"')}<span class="sbt gl${p.z ? '' : ' on'}">${p.z ? p.z + 'sp' : 'fit'}</span><span class="sbt gl">−</span><span class="sbt gl" data-k="zoom">+</span></div></div>` +
   grid(p.lines || tDone(ACC), p.z ? p.z / 14.4 : 360 / 633.6) + keys());
 
 const SH = '{g:dev@workstation}:{b:~}$ ';
@@ -161,7 +162,7 @@ PK.scene('changes', {
     label: 'The Terminal tab and its key row', poster: 2,
     steps: [
       { title: 'Terminal', tmux: ['[api] 0:claude*', '"workstation" 10:33'], cap: 'Claude Code at work in tmux, and the Feed on the phone.', ms: 2800, term: work, phone: ['terminal', { feed: 1, s }] },
-      { cap: 'Switch to Terminal.', ms: 1200, tap: '.seg span:last-child' },
+      { cap: 'Switch to Terminal.', ms: 1200, tap: '.ss-h .tbtn' },
       { cap: 'The Terminal tab is the tmux window itself, at the desk’s width.', ms: 4800, phone: ph(work, { go: 1 }), seq: [[2200, { term: done, phone: ph(done) }]] },
       { cap: 'The key row sends Claude Code’s keys. ⇧Tab cycles the permission mode.', ms: 3800,
         seq: [[400, { tap: tp('k2') }], [900, { term: plan, phone: ph(plan) }]] },
@@ -224,7 +225,7 @@ PK.scene('changes', {
       { cap: 'Hours later, a dot marks what changed since you last looked.', ms: 3200,
         phone: ['sessions', { groups: [['Live', [{ ...ROW.pg, u: 1, a: '12m' }, { ...ROW.flakyDone, u: 0, a: '4h' }]], ['Recent', [ROW.inv]]] }], seq: [[2400, { tap: tp('pg') }]] },
       { cap: 'It opens where you left off. Below the line is what happened since.', ms: 4600, phone: d({ sheet: 0 }) },
-      { cap: 'The chip opens Session details.', ms: 1200, tap: '.ss-h .chip' },
+      { cap: 'The menu opens Session details.', ms: 1200, tap: '.ss-h .more' },
       { cap: 'Context, tokens and activity; model, effort and permissions as switches.', ms: 5600, phone: d(), seq: [[2600, { phone: d({ scroll: 314 }) }]] },
       { cap: 'Muted: still listed, never notifying.', ms: 3800,
         seq: [[400, { tap: tp('mute') }], [700, { phone: d({ scroll: 314, muted: 1 }) }]] },

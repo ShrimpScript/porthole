@@ -120,7 +120,27 @@ const pill = (t, on, k = '') => `<span class="pill${on ? ' on' : ''}"${k ? ` dat
 const dots = (on, n = 7) => `<div class="dots">${Array.from({ length: n }, (_, i) => `<i${i + 1 === on ? ' class="on"' : ''}></i>`).join('')}</div>`;
 const ap = (d, html, x = '') => `<div class="ap" style="--d:${d}ms;${x}">${html}</div>`;
 const md = s => s.split('\n\n').map(p => `<p>${esc(p).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')}</p>`).join('');
-const wordmark = () => `<div class="row ty-d wm">P<span style="padding:0 1px">${ring('mark', 18.48, 2.38)}</span>rthole</div>`;
+/* The porthole: a bolted rim (eight bolts) round dark glass with a diagonal reflection (ui/Brand.kt). light = the
+   white-rimmed variant used as the "o" of the wordmark. */
+let LID = 0;
+const lens = (size, light) => {
+  const id = 'lz' + (LID++);
+  const bolts = Array.from({ length: 8 }, (_, i) => {
+    const t = (i * 45 + 22.5) * Math.PI / 180, x = (50 + 40 * Math.cos(t)).toFixed(2), y = (50 + 40 * Math.sin(t)).toFixed(2);
+    return light ? `<circle cx="${x}" cy="${y}" r="2.6" fill="#0B0B0C" opacity=".85"/>` : `<circle cx="${x}" cy="${(+y + .5).toFixed(2)}" r="2.5" fill="#050506" opacity=".7"/><circle cx="${x}" cy="${y}" r="2.3" fill="url(#b${id})"/>`;
+  }).join('');
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="overflow:visible;display:block" aria-hidden="true"><defs>` +
+    `<radialGradient id="v${id}" cx="50%" cy="18%" r="78%"><stop offset="0" stop-color="#3a4049"/><stop offset=".5" stop-color="#1d2127"/><stop offset="1" stop-color="#0d0f12"/></radialGradient>` +
+    `<linearGradient id="r${id}" x1="0" y1="0" x2="1" y2="1">${light ? '<stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#ececef"/><stop offset="1" stop-color="#c9c9cf"/>' : '<stop offset="0" stop-color="#6a6a72"/><stop offset=".35" stop-color="#2c2c31"/><stop offset=".75" stop-color="#18181b"/><stop offset="1" stop-color="#2a2a2f"/>'}</linearGradient>` +
+    `<linearGradient id="e${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset=".4" stop-color="#fff" stop-opacity=".08"/><stop offset=".75" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></linearGradient>` +
+    `<radialGradient id="b${id}" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#d9d9de"/><stop offset=".5" stop-color="#77777f"/><stop offset="1" stop-color="#2c2c31"/></radialGradient>` +
+    `<clipPath id="c${id}"><circle cx="50" cy="50" r="32"/></clipPath></defs>` +
+    `<circle cx="50" cy="50" r="47" fill="url(#r${id})"/><circle cx="50" cy="50" r="46.4" fill="none" stroke="url(#e${id})" stroke-width="1.2"/>${bolts}` +
+    `<circle cx="50" cy="50" r="33.6" fill="#050506"/><g clip-path="url(#c${id})"><rect width="100" height="100" fill="url(#v${id})"/>` +
+    `<g transform="rotate(-42 50 50)" fill="#fff"><rect x="16" y="22" width="68" height="9" opacity=".55"/><rect x="16" y="35" width="68" height="3.4" opacity=".385"/></g></g>` +
+    `<circle cx="50" cy="50" r="32" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.4"/></svg>`;
+};
+const wordmark = () => `<div class="row ty-d wm">P<span class="wo">${lens(25, 1)}</span>rthole</div>`;
 
 /* OnboardingFrame: back arrow and dots, a scrolling body, an optional bottom bar. */
 const frame = (step, body, bot = '', scroll = 0) =>
@@ -167,7 +187,7 @@ const pending = id => ready && document.querySelectorAll(`.pk-phone[data-screen=
 PK.screen = (id, fn) => { screens[id] = fn; pending(id); };
 PK.view = (id, v) => { views[id] = v; pending(id); };
 
-S.welcome = () => `<div class="center">${ring('mark', 96, 5, 1)}${sp(28)}${ap(300, wordmark())}${sp(28)}` +
+S.welcome = () => `<div class="center">${ap(0, lens(140))}${sp(28)}${ap(300, wordmark())}${sp(28)}` +
   ap(380, `<p class="ty-t">Run Claude Code on your computer, from your phone.</p>`, 'width:100%') + sp(12) +
   ap(440, `<p class="ty-b k-mu">Over your own Tailscale network. Nothing passes through anyone else's server.</p>`, 'width:100%') + sp(40) +
   ap(520, pri('Get started', 'go') + sp(12) + gh('How it works'), 'width:100%') + `</div>`;
@@ -248,18 +268,34 @@ const banner = b => `<div class="ban" data-k="ban"><div class="row" style="gap:1
   `<p class="ty-m k-fa">${b.pct != null ? `Downloading · ${b.pct}%` : b.own ? `You have ${b.have}. Downloads from GitHub, then Android asks to update.` : 'Downloads from your computer, then Android asks to install or update it.'}</p></div></div>` +
   (b.pct != null ? `${sp(10)}<div class="row" style="gap:10px">${ring('live', 18, 2, 0, b.pct / 100)}<p class="ty-m k-fa">${b.pct}% of the download</p></div>`
     : `${sp(6)}<div class="row" style="justify-content:flex-end;gap:8px">${pill('Not now', 0, 'later')}${pill(b.own ? 'Update' : 'Install', 1, 'get')}</div>`) + `</div>`;
-// A session row as the app draws it: title; a state chip with its detail (needs you,
-// working, shell only); then the details. Live and idle rows have no state line - the
-// ring says it. w = { k, t, r, u, a, chip: { x, c, spin }, x: detail, d: details }.
+// A session row as the app draws it: a round porthole with a miniature of the session's terminal and the
+// state ring round it; title; a state chip with its detail; then the details.
+// w = { k, t, r, u, a, chip: { x, c, spin }, x: detail, d: details }.
 const schip = ch => `<span class="schip k-${ch.c || 'mu'}${ch.c === 'tx' ? ' n' : ''}">${ch.spin ? spinner() : ''}${ch.x}</span>`;
-const srow = w => `<div class="srow" data-k="${w.k}"><div class="srow-in">${ring(w.r, 18)}<div class="f1"><div class="row" style="gap:8px"><p class="ty-r el">${esc(w.t)}</p>${w.u ? '<i class="unseen"></i>' : ''}</div>` +
+const MINI = {
+  dark: ['> Add dark mode to settings', '* Read(Settings.tsx)', '* Search(prefers-color)', 'Which theme should new', '1. Follow the system', '2. Always light'],
+  flaky: ['> Fix flaky login test', '* Ran npm test -- login', '  FAIL login.test.ts', '* Read(session.ts)', '* Edit(session.ts)', '  Running...'],
+  pg: ['* Edit(db/migrate.sql)', '* Bash(db migrate)', '  ok  2.1s', 'Done: schema is on 16', 'Worked for 3m 12s'],
+};
+const mini = k => (MINI[k] || []).map(l => `<i>${esc(l)}</i>`).join('');
+const porthole = (w, z = 56) => `<span class="pt" style="--z:${z}px"><span class="pt-g">${w.r === 'idle' ? '' : `<span class="pt-t">${mini(w.k)}</span>`}</span>${ring(w.r, z, 2.6)}</span>`;
+const srow = w => `<div class="srow" data-k="${w.k}"><div class="srow-in">${porthole(w)}<div class="f1"><div class="row" style="gap:8px"><p class="ty-r el">${esc(w.t)}</p>${w.u ? '<i class="unseen"></i>' : ''}</div>` +
   (w.chip ? `<div class="row schips">${schip(w.chip)}${w.x ? `<p class="ty-s el k-${w.r === 'needs' ? 'tx' : 'mu'}">${w.x}</p>` : ''}</div>` : '') +
   (w.d ? `<p class="ty-m el k-fa">${w.d}</p>` : '') + `</div><p class="ty-m k-fa">${w.a || ''}</p></div><div class="hr"></div></div>`;
 S.sessions = (p = {}) => {
-  const g = p.groups || SESS;
+  const g = (p.groups || SESS).map(([l, rows]) => [l, rows]);
   const n = g.reduce((a, x) => a + x[1].length, 0);
-  return `<div class="sl-h">${ring(p.ring || 'live', 20)}<div class="f1"><p class="ty-t el">${p.machine || 'workstation'}</p><p class="ty-m k-fa">${p.sub || `${n} session${n === 1 ? '' : 's'} · connected`}</p></div>${icot('refresh')}${icot('settings')}</div>` +
-    (p.ban ? banner(p.ban) : '') + `<div class="f1" style="overflow:hidden">${g.map(([l, rows]) => `<p class="ty-s k-mu sec">${l}</p>${rows.map(srow).join('')}`).join('')}</div>`;
+  // The first session that needs you leads, full width: its terminal behind glass, the question on a glass panel.
+  const gi = g.findIndex(([, rows]) => rows.some(r => r.r === 'needs'));
+  const hero = gi < 0 ? null : g[gi][1].find(r => r.r === 'needs');
+  const rest = g.map(([l, rows]) => [l, rows.filter(r => r !== hero)]).filter(([, rows]) => rows.length);
+  const needs = g.reduce((a, [, rows]) => a + rows.filter(r => r.r === 'needs').length, 0);
+  const head = `<div class="sl-h"><div class="f1"><p class="ty-d el">${p.machine || 'workstation'}</p><div class="row" style="gap:8px;padding-top:2px">${ring(p.ring || 'live', 16, 2)}<p class="ty-s k-mu">${p.sub || `${n} session${n === 1 ? '' : 's'} · connected`}</p></div></div><span class="icot gl">${ic('refresh', 22)}</span><span class="icot gl">${ic('settings', 22)}</span></div>`;
+  const hp = hero ? `<div class="hero-bg"><div class="hero-t">${mini(hero.k)}</div><i></i></div>` : '';
+  const panel = hero ? `<div class="hero-p gl" data-k="${hero.k}"><p class="ty-m needs-l">${ring('needs', 16, 2)}<span>Asking you · ${hero.a}</span></p><p class="ty-t">${esc(hero.t)}</p>${hero.x ? `<p class="ty-b k-mu">${hero.x}</p>` : ''}<div class="row hero-a"><span class="cap on">Follow the system</span><span class="cap gl">Always light</span></div></div>` : '';
+  return `<div class="sl-top${hero ? ' has-hero' : ''}">${hp}${head}${p.ban ? banner(p.ban) : ''}${panel}</div>` +
+    `<div class="f1 sl-list" style="overflow:hidden">${rest.map(([l, rows]) => `<p class="ty-s k-mu sec">${hero && l === 'Needs you' ? 'Also needs you' : l}</p><div class="grp">${rows.map(srow).join('')}</div>`).join('')}</div>` +
+    `<div class="dock"><span class="cap on" data-k="new">${ic('add', 22)}New session</span><span class="cap gl">${ic('inbox', 22)}${needs ? `<b class="badge">${needs}</b>` : ''}</span></div>`;
 };
 
 /*
@@ -270,22 +306,29 @@ S.sessions = (p = {}) => {
 S.session = (p = {}) => {
   const t = p.t || 'Fix flaky login test';
   const st = p.strip;
-  return `<div class="ss-h">${icot('back')}${ring(p.r || 'live', 18)}<div class="f1"><p class="ty-r el">${esc(t)}</p><p class="ty-m k-fa el">${p.b || 'main · tmux work'}</p></div>` +
-    `${p.globe ? icot('language') : ''}<span class="chip">${p.chip || 'Opus 5 · 4%'}</span></div>` +
-    `<div class="seg${p.term ? ' t' : ''}"><span${p.term ? '' : ' class="on"'}>Feed</span><span${p.term ? ' class="on"' : ''}>Terminal</span></div>` +
-    `<div class="feed"><div class="feed-in">${(p.rows || []).map(feedRow).join('')}</div></div>` +
-    (st ? `<div class="strip" data-k="strip">${spinner()}<div class="f1"><p class="ty-s">${st.x}</p>${st.s != null || st.tok ? `<p class="ty-m k-fa">${[st.s != null ? tick(st.s) : '', st.tok].filter(Boolean).join(' · ')}</p>` : ''}</div>${gh('Interrupt')}</div>` : '') +
-    (p.q ? `<div class="lq" data-k="lq"><p class="ty-m k-wa">Claude is asking you</p>${p.q.h ? `<p class="ty-r">${p.q.h}</p>` : ''}<p class="ty-b">${p.q.x}</p>` +
-      p.q.o.map(([l, d], i) => `<div class="opt" data-k="o${i + 1}"><p class="ty-b">${i + 1}. ${l}</p>${d ? `<p class="ty-s k-mu">${d}</p>` : ''}</div>`).join('') +
+  // The feed runs under the floating header and composer; what sits above the composer is in the dock.
+  const dh = 112 + (st ? 66 : 0) + (p.q ? 60 + 56 * p.q.o.length + (p.q.h ? 24 : 0) : 0) + (p.quick ? 50 : 0);
+  return `<div class="feed" style="--dh:${dh}px"><div class="feed-in">${(p.rows || []).map(feedRow).join('')}</div></div>` +
+    `<div class="ss-h"><span class="gl circ">${ic('back', 22)}</span><div class="gl tcap">${ring(p.r || 'live', 22, 2.4)}<div class="f1"><p class="ty-r el">${esc(t)}</p><p class="ty-m k-mu el">${p.b || 'main · tmux work'}</p></div></div>` +
+    `${p.globe ? `<span class="gl circ">${ic('language', 22)}</span>` : ''}<span class="gl circ tbtn">${ic('terminal', 22)}</span><span class="gl circ more">${ic('more', 22)}</span></div>` +
+    `<div class="sdock">` +
+    (st ? `<div class="strip gl" data-k="strip">${spinner()}<div class="f1"><p class="ty-s">${st.x}</p>${st.s != null || st.tok ? `<p class="ty-m k-mu">${[st.s != null ? tick(st.s) : '', st.tok].filter(Boolean).join(' · ')}</p>` : ''}</div>${gh('Interrupt')}</div>` : '') +
+    (p.q ? `<div class="lq gl" data-k="lq"><p class="ty-m needs-l">${ring('needs', 16, 2)}<span>Claude is asking you</span></p>${p.q.h ? `<p class="ty-m k-mu">${p.q.h}</p>` : ''}<p class="ty-t">${p.q.x}</p>` +
+      p.q.o.map(([l, d], i) => `<div class="opt${p.q.pick === i + 1 ? ' chk' : ''}" data-k="o${i + 1}"><span class="n">${i + 1}</span><div class="f1"><p class="ty-r">${l}</p>${d ? `<p class="ty-s k-mu">${d}</p>` : ''}</div></div>`).join('') +
       `<div class="row">${pill('Type something')}</div></div>` : '') +
-    (p.quick ? `<div class="qr-row" data-k="quick">${['Continue', 'Yes', 'No', 'Looks good'].map(x => pill(x)).join('')}${icot('edit', 'k-fa')}</div>` : '') +
-    `<div class="comp"><div class="rb"><span class="slash">/</span></div><div class="in"><p class="ty-b k-fa el">Message ${esc(t)}</p></div><div class="rb k-fa">${ic('send', 20)}</div></div>`;
+    (p.quick ? `<div class="qr-row" data-k="quick">${['Continue', 'Yes', 'No', 'Looks good'].map(x => `<span class="cap gl q">${x}</span>`).join('')}</div>` : '') +
+    `<div class="comp gl"><p class="ty-b k-mu el">Message, or / for commands</p><div class="row" style="gap:8px"><span class="mchip">${p.chip || 'Opus 5'}</span><span class="f1"></span><span class="rb go">${ic('up', 22)}</span></div></div></div>`;
 };
 
 /* The approval card, as an overlay: p = { title, cmd, cwd, left }. */
-S.approval = (p = {}) => `<div class="appr" data-k="appr"><div class="row" style="gap:10px">${ic('warning', 20, 'k-wa')}<p class="ty-r">${p.title || 'Claude wants to run a command'}</p></div>` +
-  `<div class="cmdx"><p class="ty-mo">${esc(p.cmd || 'npm publish --access public')}</p>${sp(8)}<p class="ty-m k-fa">in ${p.cwd || '~/code/shop-sdk'}</p></div>` +
-  `<p class="ty-s k-mu">Waiting · ${tick(p.left == null ? 90 : p.left, 'd')}s left</p><div class="btns">${gh('Deny', 'deny')}${pri('Allow', 'allow')}</div></div>`;
+S.approval = (p = {}) => {
+  const left = p.left == null ? 90 : p.left;
+  return `<div class="appr gl" data-k="appr"><div class="row" style="gap:10px">${ic('warning', 22, 'k-wa')}<p class="ty-t">${p.title || 'Claude wants to run a command'}</p></div>` +
+    `<div class="cmdx"><p class="ty-mo">${esc(p.cmd || 'npm publish --access public')}</p>${sp(8)}<p class="ty-m k-fa">in ${p.cwd || '~/code/shop-sdk'}</p></div>` +
+    `<div class="row" style="justify-content:space-between"><p class="ty-s k-mu">Waiting for you</p><p class="ty-s">${tick(left, 'd')}s left</p></div>` +
+    `<div class="drain"><i style="--f:${(left / 90).toFixed(3)};animation-duration:${left}s"></i></div>` +
+    `<div class="btns">${gh('Deny', 'deny')}${pri('Allow', 'allow')}</div></div>`;
+};
 
 /* ------------------------------------------------------- sample data --- */
 

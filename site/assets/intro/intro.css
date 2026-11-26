@@ -53,7 +53,7 @@ html.cine-pending .cine-hero { visibility: hidden; }
 html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.4s cubic-bezier(.16, 1, .3, 1) .15s both; }
 @keyframes cine-title-in { from { transform: translateY(-58%) scale(1.06); filter: blur(12px); } }
 .cine-title svg { width: .66em; height: .66em; margin-inline: .015em; overflow: visible; }
-.cine-title circle { fill: none; stroke: #3FD4C0; stroke-width: 2.1; }
+.cine-title circle { fill: none; stroke: #F2F2F4; stroke-width: 2.1; }
 .cine-title span { display: inline-block; }
 /* The title's ring, redrawn over the whole stage so it can open out to the edges: the
    film is seen through it until then. */
@@ -61,7 +61,7 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
   position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%;
   overflow: visible; pointer-events: none; visibility: hidden;
 }
-.cine-iris circle { fill: none; stroke: #3FD4C0; }
+.cine-iris circle { fill: none; stroke: #F2F2F4; }
 
 /* The words, once the phone has stepped aside. */
 .cine-hero {
@@ -76,12 +76,12 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
   font-weight: 600; color: #F4F4F5;
 }
 .cine-hero h1 span { display: block; }
-.cine-hero h1 span + span { color: #3FD4C0; }
+.cine-hero h1 span + span { color: #F2F2F4; }
 .cine-hero .lead { color: #ADADB3; margin-top: 20px; max-width: 34rem; }
 .cine-hero .cluster { margin-top: 28px; }
 .cine-hero .needs { color: #878791; margin-top: 18px; max-width: 32rem; }
-.cine-hero .btn:not(.btn-primary) { color: #ECECEE; border-color: rgb(236 236 238 / .28); background: rgb(255 255 255 / .03); }
-.cine-hero .btn:not(.btn-primary):hover { background: rgb(255 255 255 / .08); }
+.cine-hero .btn:not(.btn-primary) { color: #F2F2F4; background: rgb(255 255 255 / .1); }
+.cine-hero .btn:not(.btn-primary):hover { background: rgb(255 255 255 / .16); }
 .cine-hero .gh { color: #ADADB3; }
 
 /* Lower thirds during the opening: a label and a line, one at a time. */
@@ -102,7 +102,7 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
 .cine-skip:hover, .cine-replay:hover { background: rgb(255 255 255 / .12); color: #fff; }
-.cine-skip:focus-visible, .cine-replay:focus-visible { outline: 2px solid #3FD4C0; outline-offset: 3px; }
+.cine-skip:focus-visible, .cine-replay:focus-visible { outline: 2px solid #F2F2F4; outline-offset: 3px; }
 
 .cine-cue {
   position: absolute; z-index: 2; left: 50%; bottom: max(22px, 4vh); transform: translateX(-50%);
@@ -112,7 +112,7 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
 }
 .cine-cue::after {
   content: ""; width: 1px; height: 34px;
-  background: linear-gradient(#3FD4C0, transparent);
+  background: linear-gradient(#F2F2F4, transparent);
   animation: cine-cue 1.8s cubic-bezier(.65, 0, .35, 1) infinite;
   transform-origin: top;
 }
@@ -125,7 +125,8 @@ html.cine-pending .cine-title { visibility: visible; animation: cine-title-in 1.
 .site-h.over-stage { position: fixed; left: 0; right: 0; background: transparent; border-bottom-color: transparent;
   -webkit-backdrop-filter: none; backdrop-filter: none; transition: background .3s, border-color .3s; }
 .site-h.over-stage.on-stage .brand,
-.site-h.over-stage.on-stage .site-nav a { color: #ECECEE; }
+.site-h.over-stage.on-stage .site-nav a { color: #F2F2F4; }
+.site-h.over-stage.on-stage .brand { --rim-1: #FFFFFF; --rim-2: #ECECEF; --rim-3: #C9C9CF; --bolt: #0B0B0C; }
 .site-h.over-stage.on-stage .site-nav a:hover { background: rgb(255 255 255 / .08); }
 .site-h.over-stage:not(.on-stage) {
   background: color-mix(in srgb, var(--ground) 88%, transparent);

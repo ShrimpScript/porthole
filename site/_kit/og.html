@@ -15,7 +15,7 @@
 <head>
 <meta charset="utf-8">
 <title>Porthole og image</title>
-<link rel="preload" href="/assets/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/hanken-grotesk-bold-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/site.css">
 <link rel="stylesheet" href="../assets/kit.css">
 <script src="../assets/kit.js" defer></script>
@@ -24,9 +24,8 @@
   html, body { width: 1200px; height: 630px; overflow: hidden; }
   body { position: relative; background: var(--ground); }
   .t { position: absolute; left: 72px; top: 0; bottom: 0; width: 420px; display: flex; flex-direction: column; justify-content: center; gap: 26px; }
-  .wm { display: flex; align-items: center; font: 600 76px/1 var(--sans); letter-spacing: -.02em; color: var(--text); }
-  .wm svg { width: 50px; height: 50px; margin: 6px 3px 0; flex: none; }
-  .wm circle { fill: none; stroke: var(--accent); stroke-width: 2.1; }
+  .wm { display: flex; align-items: baseline; font: 700 88px/1 var(--sans); letter-spacing: -.035em; color: var(--text); }
+  .wm.brand { padding: 0; --rim-1: #FFFFFF; --rim-2: #ECECEF; --rim-3: #C9C9CF; --bolt: #0B0B0C; }
   .say { font: 600 38px/1.14 var(--sans); letter-spacing: -.02em; color: var(--text); text-wrap: balance; margin: 0; }
   .sub { font: 400 22px/1.4 var(--sans); color: var(--muted); margin: 0; max-width: 20em; }
   .comp { position: absolute; left: 520px; top: 58px; width: 560px; }
@@ -36,7 +35,7 @@
 </head>
 <body>
   <div class="t">
-    <div class="wm">P<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.95"/></svg>rthole</div>
+    <div class="wm brand">P<span class="brand-o"><svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="rpwog" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--rim-1)"/><stop offset=".5" style="stop-color:var(--rim-2)"/><stop offset="1" style="stop-color:var(--rim-3)"/></linearGradient><radialGradient id="vpwog" cx="50%" cy="18%" r="78%"><stop offset="0" stop-color="#3a4049"/><stop offset=".5" stop-color="#1d2127"/><stop offset="1" stop-color="#0d0f12"/></radialGradient><clipPath id="cpwog"><circle cx="50" cy="50" r="32"/></clipPath></defs><circle cx="50" cy="50" r="47" fill="url(#rpwog)"/><circle class="bt" cx="86.96" cy="65.31" r="2.6"/><circle class="bt" cx="65.31" cy="86.96" r="2.6"/><circle class="bt" cx="34.69" cy="86.96" r="2.6"/><circle class="bt" cx="13.04" cy="65.31" r="2.6"/><circle class="bt" cx="13.04" cy="34.69" r="2.6"/><circle class="bt" cx="34.69" cy="13.04" r="2.6"/><circle class="bt" cx="65.31" cy="13.04" r="2.6"/><circle class="bt" cx="86.96" cy="34.69" r="2.6"/><circle cx="50" cy="50" r="33.6" fill="#050506"/><g clip-path="url(#cpwog)"><rect width="100" height="100" fill="url(#vpwog)"/><g transform="rotate(-42 50 50)" fill="#fff"><rect x="16" y="22" width="68" height="9" opacity=".55"/><rect x="16" y="35" width="68" height="3.4" opacity=".385"/></g></g><circle cx="50" cy="50" r="32" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.4"/></svg></span>rthole</div>
     <p class="say">Run Claude Code on your computer, from your phone.</p>
     <p class="sub">An Android app and a small daemon for your Mac or Linux computer, over your own Tailscale network.</p>
   </div>

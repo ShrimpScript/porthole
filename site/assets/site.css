@@ -8,20 +8,18 @@
  * ground and checked for AA contrast on it.
  */
 
-/* Schibsted Grotesk (SIL Open Font License, see fonts/OFL-SchibstedGrotesk.txt), a variable font, served from
-   here rather than Google Fonts: a stylesheet from another server held up every page's first
-   paint. Split like Google splits it, so most pages load only the Latin file. */
+/* Hanken Grotesk (SIL Open Font License, see fonts/OFL-HankenGrotesk.txt), served from here rather than
+   Google Fonts: a stylesheet from another server held up every page's first paint. The variable file
+   covers 400-600; Bold 700 is the app's own instance (wordmark and display lines), Latin subset. */
 @font-face {
-  font-family: "Schibsted Grotesk";
-  src: url("fonts/schibsted-grotesk-latin.woff2") format("woff2");
-  font-weight: 400 900; font-style: normal; font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  font-family: "Hanken Grotesk";
+  src: url("fonts/hanken-grotesk-latin.woff2") format("woff2");
+  font-weight: 400 600; font-style: normal; font-display: swap;
 }
 @font-face {
-  font-family: "Schibsted Grotesk";
-  src: url("fonts/schibsted-grotesk-latin-ext.woff2") format("woff2");
-  font-weight: 400 900; font-style: normal; font-display: swap;
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  font-family: "Hanken Grotesk";
+  src: url("fonts/hanken-grotesk-bold-latin.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: "Iosevka Term";
@@ -47,23 +45,25 @@
   --text: #141416;
   --muted: #55555C;
   --faint: #66666E;
-  --accent: #097368;
-  --accent-fill: #3FD4C0;
-  --on-accent: #0B0B0C;
+  --accent: #141416;
+  --accent-fill: #141416;
+  --on-accent: #FFFFFF;
   --warn: #8A5A00;
   --bad: #B3362C;
   --ok: #23703F;
   --deep: #ECECEE;
-  --focus: #097368;
+  --focus: #141416;
   --shadow: 0 1px 2px rgb(14 29 27 / .06), 0 8px 24px rgb(14 29 27 / .08);
 
-  --sans: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sans: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Iosevka Term", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Radius (PortholeShape): cards, controls, key caps. */
-  --r-card: 14px;
-  --r-control: 10px;
-  --r-key: 8px;
+  --r-card: 24px;
+  --r-control: 18px;
+  --r-key: 999px;
+  --cap-top: #FBFBFD;
+  --cap-bot: #D9D9DE;
 
   /* Motion (PortholeMotion): every entrance is an ease-out with no overshoot. */
   --t-fast: 120ms;
@@ -92,17 +92,17 @@
     --surface: #141415;
     --raised: #1e1e20;
     --edge: #2B2B2E;
-    --text: #ECECEE;
+    --text: #F2F2F4;
     --muted: #A3A3A9;
     --faint: #878791;
-    --accent: #3FD4C0;
-    --accent-fill: #3FD4C0;
+    --accent: #F2F2F4;
+    --accent-fill: #F2F2F4;
     --on-accent: #0B0B0C;
-    --warn: #E8B84F;
-    --bad: #F5726C;
-    --ok: #5ED68F;
+    --warn: #FFB340;
+    --bad: #FF6159;
+    --ok: #3DD68C;
     --deep: #070708;
-    --focus: #3FD4C0;
+    --focus: #F2F2F4;
     --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .35);
   }
 }
@@ -112,17 +112,17 @@
   --surface: #141415;
   --raised: #1e1e20;
   --edge: #2B2B2E;
-  --text: #ECECEE;
+  --text: #F2F2F4;
   --muted: #A3A3A9;
   --faint: #878791;
-  --accent: #3FD4C0;
-  --accent-fill: #3FD4C0;
+  --accent: #F2F2F4;
+  --accent-fill: #F2F2F4;
   --on-accent: #0B0B0C;
-  --warn: #E8B84F;
-  --bad: #F5726C;
-  --ok: #5ED68F;
+  --warn: #FFB340;
+  --bad: #FF6159;
+  --ok: #3DD68C;
   --deep: #070708;
-  --focus: #3FD4C0;
+  --focus: #F2F2F4;
   --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .35);
 }
 
@@ -215,16 +215,22 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .site-h-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: var(--header-h); }
 
-/* The wordmark: the ring stands in for the "o", as it does in the app. */
+/* The wordmark: Hanken Bold, tight tracking, and a white-rimmed porthole for the "o" (inline SVG,
+   see the markup in every header). Rim and bolts follow the page theme. */
 .brand {
-  display: inline-flex; align-items: center; gap: 0;
+  display: inline-flex; align-items: baseline; gap: 0;
   color: var(--text); text-decoration: none;
-  font: 600 1.375rem/1 var(--sans); letter-spacing: -.01em;
-  padding: 6px 2px; border-radius: 6px;
+  font: 700 1.5rem/1 var(--sans); letter-spacing: -.035em;
+  padding: 6px 2px; border-radius: 999px;
+  --rim-1: #FFFFFF; --rim-2: #ECECEF; --rim-3: #C9C9CF; --bolt: #0B0B0C;
 }
+:root:not([data-theme="dark"]) .brand { --rim-1: #8E8E96; --rim-2: #4A4A50; --rim-3: #1C1C1F; --bolt: #E4E4E8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand { --rim-1: #FFFFFF; --rim-2: #ECECEF; --rim-3: #C9C9CF; --bolt: #0B0B0C; } }
 .brand:hover { text-decoration: none; }
-.brand-ring { width: .66em; height: .66em; margin-inline: 1px; flex: none; overflow: visible; }
-.brand-ring circle { fill: none; stroke: var(--accent); stroke-width: 2.1; }
+.brand-o { display: inline-block; width: .572em; height: .55em; position: relative; align-self: baseline; vertical-align: baseline; }
+.brand-o svg { position: absolute; left: 50%; top: 0; width: .55em; height: .55em; transform: translateX(-50%); overflow: visible; display: block; }
+.brand .rg { fill: url(#rimg); }
+.brand .bt { fill: var(--bolt); opacity: .85; }
 
 .site-nav { display: flex; align-items: center; gap: 4px; }
 .site-nav a {
@@ -234,7 +240,7 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .site-nav a:hover { color: var(--text); background: var(--raised); }
 .site-nav a[aria-current="page"] { color: var(--text); }
-@media (max-width: 420px) { .site-nav a { padding: 0 9px; font-size: .94rem; } .brand { font-size: 1.25rem; } }
+@media (max-width: 420px) { .site-nav a { padding: 0 9px; font-size: .94rem; } .brand { font-size: 1.3rem; } }
 
 .site-f { border-top: 1px solid var(--edge); padding-block: 40px 48px; color: var(--muted); font-size: .94rem; line-height: 1.55; }
 .site-f-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
@@ -248,16 +254,21 @@ a:hover { text-decoration-thickness: 2px; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  min-height: 48px; padding: 12px 20px;
-  font: 500 1rem/1.2 var(--sans); color: var(--text); text-decoration: none;
-  background: transparent; border: 1px solid var(--edge); border-radius: var(--r-control);
+  min-height: 48px; padding: 12px 24px;
+  font: 600 1rem/1.2 var(--sans); color: var(--text); text-decoration: none;
+  background: color-mix(in srgb, var(--text) 10%, transparent); border: 0; border-radius: 999px;
   cursor: pointer;
-  transition: transform var(--t-fast) var(--ease-standard), background-color var(--t-fast) var(--ease-standard), border-color var(--t-fast) var(--ease-standard);
+  transition: transform var(--t-fast) var(--ease-standard), background-color var(--t-fast) var(--ease-standard);
 }
-.btn:hover { background: var(--raised); text-decoration: none; }
+.btn:hover { background: color-mix(in srgb, var(--text) 16%, transparent); text-decoration: none; }
 .btn:active { transform: scale(.97); }
-.btn-primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
-.btn-primary:hover { background: color-mix(in srgb, var(--accent-fill) 88%, var(--text)); border-color: transparent; }
+.btn-primary {
+  background: var(--accent-fill); color: var(--on-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .18), 0 10px 26px -10px rgb(0 0 0 / .5);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-primary { background: linear-gradient(180deg, var(--cap-top), var(--cap-bot)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .75), inset 0 -1px 0 rgb(0 0 0 / .1), 0 10px 26px -10px rgb(0 0 0 / .6); } }
+:root[data-theme="dark"] .btn-primary { background: linear-gradient(180deg, var(--cap-top), var(--cap-bot)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .75), inset 0 -1px 0 rgb(0 0 0 / .1), 0 10px 26px -10px rgb(0 0 0 / .6); }
+.btn-primary:hover { filter: brightness(.94); }
 .btn svg { width: 20px; height: 20px; flex: none; fill: currentColor; }
 .btn small { font-weight: 400; opacity: .75; font-size: .82rem; }
 
@@ -319,7 +330,7 @@ th { font-weight: 600; color: var(--text); }
    [data-os-only] blocks across the page. Without JavaScript both show, each labelled. */
 .os-pick { display: none; }
 html.os-js .os-pick {
-  display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--r-control);
+  display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px;
   background: var(--raised); border: 1px solid var(--edge);
 }
 .os-pick button {

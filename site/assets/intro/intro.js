@@ -49,7 +49,7 @@ async function start() {
   renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const INK = new THREE.Color('#040405');
-  const TEAL = new THREE.Color('#3FD4C0');
+  const LIGHT = new THREE.Color('#F2F2F4');  
   const scene = new THREE.Scene();
   scene.background = INK.clone();
   scene.fog = new THREE.Fog(INK, 0.9, 2.2);
@@ -78,7 +78,7 @@ async function start() {
   spot.shadow.radius = 6;
   scene.add(spot, spot.target);
 
-  const rim = new THREE.DirectionalLight(TEAL, 0);
+  const rim = new THREE.DirectionalLight(LIGHT, 0);
   rim.position.set(-0.6, 0.25, -0.5);
   const rim2 = new THREE.DirectionalLight('#cfe9ff', 0);
   rim2.position.set(0.7, 0.35, -0.4);
@@ -226,10 +226,10 @@ async function start() {
   const onScreen = (r, lift = 0.0006) => new THREE.Vector3(
     (r.x + r.w / 2 - manifest.screen.w / 2) * PX, (manifest.screen.h / 2 - r.y - r.h / 2) * PX, FACE + lift);
 
-  // A soft teal glow behind a lifted card: the motion-graphic halo.
+  // A soft white glow behind a lifted card: the motion-graphic halo.
   const glowTex = (() => {
     const c = document.createElement('canvas'); c.width = 256; c.height = 256;
-    const g = c.getContext('2d'); g.filter = 'blur(26px)'; g.fillStyle = 'rgba(63,212,192,0.9)';
+    const g = c.getContext('2d'); g.filter = 'blur(26px)'; g.fillStyle = 'rgba(242,242,244,0.9)';
     g.beginPath(); g.roundRect(58, 58, 140, 140, 28); g.fill();
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
   })();
@@ -255,11 +255,11 @@ async function start() {
 
   // A tap: a ring that opens where a finger would land.
   const tap = new THREE.Mesh(new THREE.RingGeometry(0.0024, 0.003, 48),
-    new THREE.MeshBasicMaterial({ color: TEAL, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: LIGHT, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
   tap.renderOrder = 8;
   // The Porthole ring, opening off the screen as it wakes.
   const halo = new THREE.Mesh(new THREE.RingGeometry(0.0118, 0.0124, 96),
-    new THREE.MeshBasicMaterial({ color: TEAL, transparent: true, opacity: 0, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+    new THREE.MeshBasicMaterial({ color: LIGHT, transparent: true, opacity: 0, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
   // Centred on the ring the welcome screen draws (its logo, 228 px from the top).
   halo.position.set(0, (manifest.screen.h / 2 - 228) * PX, FACE + 0.002);
   halo.renderOrder = 7;
@@ -275,7 +275,7 @@ async function start() {
   // The terminal's cursor: a block, one letter wide, that the word is typed behind.
   const adv = wTerminal.userData.width / wTerminal.userData.letters.length;
   const cursor = new THREE.Mesh(new THREE.PlaneGeometry(adv * 0.62, wTerminal.userData.height * 1.1),
-    new THREE.MeshStandardMaterial({ color: '#2E9C8D', emissive: TEAL, emissiveIntensity: 0.08, roughness: 0.8, transparent: true, opacity: 0, depthWrite: false }));
+    new THREE.MeshStandardMaterial({ color: '#B9B9BF', emissive: LIGHT, emissiveIntensity: 0.08, roughness: 0.8, transparent: true, opacity: 0, depthWrite: false }));
   cursor.renderOrder = -1;
   wTerminal.add(cursor);
   // The name, for the hand-off: the phone glides into the middle of it and stands in for its
@@ -319,7 +319,7 @@ async function start() {
   // ------------------------------------------------------------ composition ---
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.6, 0.82);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.6, 0.97);   // threshold above the white capsule, or it burns out
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
   const useBloom = () => !small();
@@ -548,7 +548,7 @@ async function start() {
     .fromTo(breath, { v: 0 }, { v: 1, duration: 1.5 }, 1.8);
   shot(1.55, 2.25, { cam: [-0.035, 0.03, 0.66], aim: [0, 0.01, 0] }, 'power2.inOut');
   // It turns to face you - quick through the middle, slow at each end - leaning into the turn.
-  // Onwards rather than back, so the back glass turns away from the teal light as it goes;
+  // Onwards rather than back, so the back glass turns away from the white light as it goes;
   // a whole turn on, it is the same angle as 0.16.
   intro.to(spin.rotation, { y: Math.PI * 2 + 0.16, duration: 1.25, ease: 'expo.inOut' }, 3.85)
     .set(spin.rotation, { y: 0.16 }, 5.1)

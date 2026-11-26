@@ -3,7 +3,7 @@
 // passes in front of it or behind it by real depth - not an overlay on top of the film.
 import * as THREE from 'three';
 
-export const SANS = '"Schibsted Grotesk", system-ui, sans-serif';
+export const SANS = '"Hanken Grotesk", system-ui, sans-serif';
 export const MONO = '"Iosevka Term", ui-monospace, monospace';
 
 /**

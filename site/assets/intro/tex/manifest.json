@@ -6,24 +6,24 @@
  "cards": {
   "question": {
    "screen": "session-question",
-   "x": 12,
-   "y": 400,
-   "w": 336,
-   "h": 302
+   "x": 8,
+   "y": 344,
+   "w": 344,
+   "h": 322
   },
   "approval": {
    "screen": "approval",
-   "x": 16,
-   "y": 534,
-   "w": 328,
-   "h": 226
+   "x": 8,
+   "y": 472,
+   "w": 344,
+   "h": 296
   },
   "strip": {
    "screen": "session-working",
-   "x": 12,
-   "y": 644,
-   "w": 336,
-   "h": 64
+   "x": 8,
+   "y": 608,
+   "w": 344,
+   "h": 58
   },
   "notify": {
    "screen": "shade",
@@ -35,9 +35,9 @@
   "terminal": {
    "screen": "terminal",
    "x": 0,
-   "y": 180,
+   "y": 142,
    "w": 360,
-   "h": 534
+   "h": 568
   }
  }
 }
