@@ -201,8 +201,8 @@ class OfflineTest {
         waitUntil("the prompt") { daemon.received.any { it.optString("type") == "prompt.send" } }
         val ref = daemon.received.first { it.optString("type") == "prompt.send" }.getString("ref")
         daemon.say(JSONObject().put("v", 1).put("type", "error").put("code", "not_live").put("message", "Claude Code isn't running in that session.").put("ref", ref))
-        waitUntil("the refusal") { client.sending.value.isEmpty() }
-        assertTrue(client.notice.value.orEmpty(), client.notice.value.orEmpty().contains("in the box to send again"))
+        // The list empties, then the notice says why: wait for both, not the first alone.
+        waitUntil("the refusal") { client.sending.value.isEmpty() && client.notice.value.orEmpty().contains("in the box to send again") }
         assertNull("nothing to give back: it never left the box", client.failedSend.value)
         Thread.sleep(300)
         assertEquals(1, daemon.received.count { it.optString("type") == "prompt.send" })

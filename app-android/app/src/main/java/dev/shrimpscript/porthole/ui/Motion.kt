@@ -176,14 +176,11 @@ fun <T> RouteTransition(
     modifier: Modifier = Modifier,
     /** True when [to] opens out of a porthole on [from] (the list into a session). */
     opensThrough: (from: T, to: T) -> Boolean = { _, _ -> false },
-    /** The move to this screen is over: nothing of the last one is drawn any more. */
-    onSettled: (T) -> Unit = {},
     content: @Composable (T) -> Unit,
 ) {
     val on = motionEnabled()
     val aperture = LocalAperture.current
     val tr = updateTransition(target, label = "route")
-    LaunchedEffect(tr.currentState, tr.targetState) { if (tr.currentState == tr.targetState) onSettled(tr.currentState) }
     // Whether the move under way goes through the porthole: decided once, when it starts.
     var through by remember { mutableStateOf(false) }
     tr.AnimatedContent(

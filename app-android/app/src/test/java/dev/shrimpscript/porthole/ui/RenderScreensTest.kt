@@ -844,7 +844,7 @@ class RenderScreensTest {
         assertEquals(SessionView.Terminal, view)
     }
 
-    /** While a step runs: the stretch so far on one line, the running step beneath it with the screw and its time. */
+    /** While a step runs: the stretch so far on one line, the running step beneath it with the bolts and its time. */
     @Test
     fun aRunningStepIsItsOwnLine() {
         rule.setContent { PortholeTheme { BusySession(busyTurn.take(7), working = true) } }
@@ -872,7 +872,7 @@ class RenderScreensTest {
         save("redesign-sheet")
     }
 
-    /** The working icon, the screw: sizes, a turn in eighths, on the ground and on a card, and at rest. */
+    /** The working sign, the bolts: every size, both moods, with the shimmer and the rolling clock beside it, and at rest. */
     @Test
     fun boltsAtEverySizeAndInBothMoods() {
         rule.setContent {

@@ -77,7 +77,7 @@ fun DiffBadge(add: Int, del: Int) {
 /**
  * A stretch of work as one line: what it came to ("Ran 2 commands, edited a file"), its
  * edits' lines, how many steps failed. While a step runs, it is the line below, with the
- * screw and its time; when it finishes it folds into the line above. Tap for every step.
+ * bolts and its time; when it finishes it folds into the line above. Tap for every step.
  */
 @Composable
 fun WorkLine(work: FeedItem.Work, working: Boolean, onOpen: () -> Unit) {

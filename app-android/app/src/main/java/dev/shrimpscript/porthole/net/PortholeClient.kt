@@ -1420,15 +1420,14 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
      * holds it already, and to the open box through [returned] - and the notice says why.
      */
     private fun notTyped(ref: String, why: String) {
-        // The draft and the notice first, then off the sending list: whoever sees the list
-        // empty also sees why, rather than an older notice for a moment.
-        val p = _sending.value[ref] ?: return
+        // Claimed first: a confirmation racing this one on another thread wins or loses
+        // whole, so a message that was typed is never put back in the box.
+        val p = takePending(ref) ?: return
         store?.let { st ->
             val d = st.draft(p.sessionId)
             if (d.trim() != p.text.trim()) st.setDraft(p.sessionId, if (d.isBlank()) p.text else d.trimEnd() + "\n" + p.text)
         }
         _notice.value = why.trimEnd('.') + ". The message is in the box to send again."
-        if (takePending(ref) == null) return
         _returned.tryEmit(p)
     }
 

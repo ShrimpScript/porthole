@@ -477,7 +477,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
 }
 
 /**
- * A session's state on its row: a tinted pill, with the turning screw while it works. On a
+ * A session's state on its row: a tinted pill, with the bolts moving while it works. On a
  * light ground the tint carries the colour and the words stay in `text`: amber words on a
  * pale amber tint fall under AA at 12sp.
  */

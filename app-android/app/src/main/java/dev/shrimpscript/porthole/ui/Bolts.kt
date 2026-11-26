@@ -120,14 +120,17 @@ private object Choreo {
     }
 }
 
-/** The bolts, at work. [label] is what a screen reader hears. */
+/**
+ * The bolts, at work. [label] is what a screen reader hears; none by default, as the words
+ * beside the bolts (or the control holding them) already say what is under way.
+ */
 @Composable
 fun Bolts(
     mode: BoltsMode = BoltsMode.Running,
     modifier: Modifier = Modifier,
     size: Dp = 16.dp,
     color: Color = Porthole.colors.text,
-    label: String = if (mode == BoltsMode.Thinking) "Thinking" else "Working",
+    label: String? = null,
 ) {
     val on = motionEnabled()
     val pace = if (mode == BoltsMode.Thinking) Choreo.THINK_PACE else 1f
@@ -141,7 +144,8 @@ fun Bolts(
         ).value
     } else 0f
     val moves = if (mode == BoltsMode.Thinking) Choreo.tide else Choreo.orbit
-    Canvas(modifier.size(size).semantics { contentDescription = label }) { drawBolts(Choreo.at(t, moves, pace), color) }
+    val described = if (label != null) Modifier.semantics { contentDescription = label } else Modifier
+    Canvas(modifier.size(size).then(described)) { drawBolts(Choreo.at(t, moves, pace), color) }
 }
 
 /** The bolts at rest, for a finished turn ("Worked for 41s"): the ring, quiet. */

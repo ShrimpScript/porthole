@@ -793,7 +793,7 @@ private fun PortholeApp(
         route = Route.Sessions
     }
 
-    /** The list is back and the session has shrunk away: let it go now. */
+    /** The session's screen has left: if it was closing, let it go now. */
     fun closed() {
         val s = closing ?: return
         closing = null
@@ -1164,7 +1164,6 @@ private fun PortholeApp(
         RouteTransition(
             target = route, forward = forward,
             opensThrough = { from, to -> from == Route.Sessions && to == Route.Session },
-            onSettled = { r -> if (r != Route.Session) closed() },
         ) { r ->
             when (r) {
                 Route.Welcome -> WelcomeScreen(
@@ -1367,6 +1366,9 @@ private fun PortholeApp(
                 )
 
                 Route.Session -> {
+                    // The session's screen has gone (shrunk back into its porthole, however the
+                    // move ended): a session that was closing lets go now.
+                    DisposableEffect(Unit) { onDispose { closed() } }
                     val s = openSession
                     if (s == null) {
                         // Nothing to shrink back into a porthole: the list just comes back.
