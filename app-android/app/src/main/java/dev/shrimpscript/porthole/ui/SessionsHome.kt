@@ -20,11 +20,6 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -196,8 +191,8 @@ fun SessionsHeader(
                 Text(subtitle, style = PortholeType.secondary, color = if (overContent) c.text.copy(alpha = 0.78f) else c.muted, maxLines = 1)
             }
         }
-        IconTarget(Icons.Outlined.Refresh, "Refresh sessions", onRefresh, glass = overContent)
-        IconTarget(Icons.Outlined.Settings, "Settings", onSettings, glass = overContent)
+        IconTarget(Symbols.Refresh, "Refresh sessions", onRefresh, glass = overContent)
+        IconTarget(Symbols.Settings, "Settings", onSettings, glass = overContent)
     }
 }
 
@@ -351,7 +346,7 @@ fun SessionsDock(onNewSession: (() -> Unit)?, onInbox: (() -> Unit)?, inboxCount
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(22.dp))
+                Icon(Symbols.Add, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("New session", style = PortholeType.rowTitle, color = c.onAccent)
             }
@@ -364,7 +359,7 @@ fun SessionsDock(onNewSession: (() -> Unit)?, onInbox: (() -> Unit)?, inboxCount
                 label = if (inboxCount > 0) "Inbox, $inboxCount waiting on you" else "Inbox",
                 modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = if (inboxCount > 0) "Inbox, $inboxCount waiting on you" else "Inbox" },
             ) {
-                Icon(Icons.Outlined.Inbox, contentDescription = null, tint = c.text, modifier = Modifier.size(22.dp))
+                Icon(Symbols.Inbox, contentDescription = null, tint = c.text, modifier = Modifier.size(22.dp))
                 if (inboxCount > 0) {
                     Text(
                         if (inboxCount > 99) "99+" else "$inboxCount",

@@ -21,9 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.material.icons.outlined.FullscreenExit
-import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.Icons
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,7 +104,7 @@ fun TerminalBody(
             StripButton("−") { onFit(false); onFontSp((fontSp - 1f).coerceAtLeast(TERMINAL_FONT_MIN)) }
             StripButton("+") { onFit(false); onFontSp((fontSp + 1f).coerceAtMost(TERMINAL_FONT_MAX)) }
             IconTarget(
-                if (fullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
+                if (fullscreen) Symbols.FullscreenExit else Symbols.Fullscreen,
                 if (fullscreen) "Leave full screen" else "Full screen",
                 { onFullscreen(!fullscreen) },
                 Modifier.size(40.dp),

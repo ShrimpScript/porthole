@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -136,7 +134,7 @@ private fun OutputBody(cmd: CommandInfo) {
     val c = Porthole.colors
     if (cmd.skill) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(Icons.Outlined.Extension, contentDescription = null, tint = c.muted, modifier = Modifier.size(15.dp))
+            Icon(Symbols.Extension, contentDescription = null, tint = c.muted, modifier = Modifier.size(15.dp))
             Text("Skill loaded", style = PortholeType.meta, color = c.muted)
         }
     }
@@ -157,7 +155,7 @@ private fun AutoSkill(cmd: CommandInfo) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(Icons.Outlined.Extension, contentDescription = null, tint = c.faint, modifier = Modifier.size(15.dp))
+        Icon(Symbols.Extension, contentDescription = null, tint = c.faint, modifier = Modifier.size(15.dp))
         Text("Claude Code loaded the ${cmd.name} skill", style = PortholeType.meta, color = c.faint)
     }
 }

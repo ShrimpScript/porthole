@@ -24,7 +24,8 @@ tables. The resource files keep their `source_serif4_*.ttf` names.
 
 | Library | Licence | Licence text |
 |---|---|---|
-| AndroidX and Jetpack Compose, including Glance, Browser, Core SplashScreen and the Material icons | Apache 2.0 | `Apache-2.0.txt` |
+| AndroidX and Jetpack Compose, including Glance, Browser and Core SplashScreen | Apache 2.0 | `Apache-2.0.txt` |
+| Material Symbols (Google): the icons, Rounded at weight 400, in `ui/Symbols.kt` (made by `tools/glyphs.py`) | Apache 2.0 | `Apache-2.0.txt` |
 | Kotlin standard library and kotlinx.coroutines | Apache 2.0 | `Apache-2.0.txt` |
 | OkHttp and Okio (Square) | Apache 2.0 | `Apache-2.0.txt` |
 | Haze (Chris Banes): the frosted glass under the floating controls | Apache 2.0 | `Apache-2.0.txt` |

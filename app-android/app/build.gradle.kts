@@ -123,7 +123,6 @@ dependencies {
     // fill-only fallback below. Apache-2.0. 1.6.x is the line built against Compose 1.8.
     implementation("dev.chrisbanes.haze:haze:1.6.10")
     // Vector icons for feed rows and controls. R8 keeps only the ones referenced.
-    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

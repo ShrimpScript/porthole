@@ -3,7 +3,6 @@ package dev.shrimpscript.porthole.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.border
-import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -131,7 +130,7 @@ fun LimitCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 androidx.compose.material3.Icon(
-                    androidx.compose.material.icons.Icons.Outlined.Warning, contentDescription = null,
+                    Symbols.Warning, contentDescription = null,
                     tint = c.warn, modifier = Modifier.size(20.dp),
                 )
                 Text(

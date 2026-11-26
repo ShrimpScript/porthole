@@ -4,8 +4,6 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.material.icons.outlined.AttachFile
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,22 +29,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.material.icons.outlined.AttachFile
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Difference
 import dev.shrimpscript.porthole.net.ChangesState
 import dev.shrimpscript.porthole.net.FilesState
 import androidx.compose.foundation.border
@@ -79,16 +66,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.material.icons.outlined.ArrowUpward
-import androidx.compose.material.icons.outlined.Terminal
-import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
@@ -104,12 +86,6 @@ import dev.shrimpscript.porthole.net.PreviewState
 import dev.shrimpscript.porthole.net.SessionState
 import dev.shrimpscript.porthole.net.TuiStatus
 import dev.shrimpscript.porthole.terminal.TerminalEmulator
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.foundation.layout.Spacer as LayoutSpacer
 import dev.shrimpscript.porthole.ui.theme.Porthole
 import dev.shrimpscript.porthole.ui.theme.PortholeShape
@@ -400,7 +376,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     if (starting) Spinner(color = c.accent)
-                                    else Icon(Icons.Outlined.Info, contentDescription = null, tint = c.muted, modifier = Modifier.size(18.dp))
+                                    else Icon(Symbols.Info, contentDescription = null, tint = c.muted, modifier = Modifier.size(18.dp))
                                     Text(
                                         when {
                                             starting -> "Starting Claude Code on the computer\u2026"
@@ -632,9 +608,9 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = c.warn, modifier = Modifier.size(18.dp))
+                            Icon(Symbols.Warning, contentDescription = null, tint = c.warn, modifier = Modifier.size(18.dp))
                             Text(text, style = PortholeType.secondary, color = c.text, modifier = Modifier.weight(1f))
-                            IconTarget(Icons.Outlined.Close, "Dismiss", onDismissNotice, Modifier.size(36.dp))
+                            IconTarget(Symbols.Close, "Dismiss", onDismissNotice, Modifier.size(36.dp))
                         }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -689,7 +665,7 @@ private fun SessionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back to sessions", onBack, glass = glass, tint = c.text)
+        IconTarget(Symbols.ArrowBack, "Back to sessions", onBack, glass = glass, tint = c.text)
         // The session itself, as one capsule: its ring, its name, where it is, and how full
         // its context is. A tap opens the whole picture.
         val interaction = remember { MutableInteractionSource() }
@@ -720,14 +696,14 @@ private fun SessionHeader(
             }
         }
         if (canTerminal || view == SessionView.Terminal) {
-            if (view == SessionView.Feed) IconTarget(Icons.Outlined.Terminal, "Open the terminal", { onViewChange(SessionView.Terminal) }, glass = glass, tint = c.text)
-            else GlassCircle(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.Chat, "Back to the feed", { onViewChange(SessionView.Feed) }, selected = true)
+            if (view == SessionView.Feed) IconTarget(Symbols.Terminal, "Open the terminal", { onViewChange(SessionView.Terminal) }, glass = glass, tint = c.text)
+            else GlassCircle(Symbols.Chat, "Back to the feed", { onViewChange(SessionView.Feed) }, selected = true)
         }
         // The occasional things - a look at the desktop, a dev server, what changed - in one
         // menu, so the header is back, the session and the terminal.
         if (canPreview || canCapture || canChanges) {
             Box {
-                IconTarget(androidx.compose.material.icons.Icons.Outlined.MoreHoriz, "More", { captureMenu = true }, glass = glass, tint = c.text)
+                IconTarget(Symbols.MoreHoriz, "More", { captureMenu = true }, glass = glass, tint = c.text)
                 androidx.compose.material3.DropdownMenu(
                     expanded = captureMenu, onDismissRequest = { captureMenu = false },
                     containerColor = c.raised,
@@ -740,13 +716,13 @@ private fun SessionHeader(
                             leadingIcon = { Icon(icon, contentDescription = null, tint = c.muted) },
                             onClick = { captureMenu = false; onClick() },
                         )
-                    if (canCapture) item("Screenshot", androidx.compose.material.icons.Icons.Outlined.PhotoCamera) { onCapture(0) }
+                    if (canCapture) item("Screenshot", Symbols.PhotoCamera) { onCapture(0) }
                     if (canCapture && canRecord) {
-                        item("Record 5 seconds", androidx.compose.material.icons.Icons.Outlined.Videocam) { onCapture(5) }
-                        item("Record 10 seconds", androidx.compose.material.icons.Icons.Outlined.Videocam) { onCapture(10) }
+                        item("Record 5 seconds", Symbols.Videocam) { onCapture(5) }
+                        item("Record 10 seconds", Symbols.Videocam) { onCapture(10) }
                     }
-                    if (canPreview) item("Open a dev server", androidx.compose.material.icons.Icons.Outlined.Language) { onPreview() }
-                    if (canChanges) item("What changed", Icons.Outlined.Difference) { onChanges() }
+                    if (canPreview) item("Open a dev server", Symbols.Language) { onPreview() }
+                    if (canChanges) item("What changed", Symbols.Difference) { onChanges() }
                 }
             }
         }
@@ -1199,7 +1175,7 @@ fun FeedRowView(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    if (r.glyph == "✗") Icons.Outlined.Close else Icons.Outlined.Check,
+                    if (r.glyph == "✗") Symbols.Close else Symbols.Check,
                     contentDescription = if (r.glyph == "✗") "failed" else "done",
                     tint = if (r.glyph == "✗") c.bad else c.ok,
                     modifier = Modifier.size(18.dp),
@@ -1291,13 +1267,13 @@ private fun DetailSheet(r: FeedRow, onClose: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconTarget(Icons.Outlined.Close, "Close", onClose)
+                IconTarget(Symbols.Close, "Close", onClose)
                 Text(r.text, style = PortholeType.rowTitle, color = c.text,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
                 val context = androidx.compose.ui.platform.LocalContext.current
-                IconTarget(Icons.Outlined.ContentCopy, "Copy", { clipboard.setText(androidx.compose.ui.text.AnnotatedString(r.detail)) }, tint = c.faint)
-                IconTarget(Icons.Outlined.Share, "Share", {
+                IconTarget(Symbols.ContentCopy, "Copy", { clipboard.setText(androidx.compose.ui.text.AnnotatedString(r.detail)) }, tint = c.faint)
+                IconTarget(Symbols.Share, "Share", {
                     val send = android.content.Intent(android.content.Intent.ACTION_SEND)
                         .setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, r.detail)
                     runCatching { context.startActivity(android.content.Intent.createChooser(send, r.text)) }
@@ -1445,7 +1421,7 @@ private fun Composer(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            androidx.compose.material.icons.Icons.Outlined.Add,
+                            Symbols.Add,
                             contentDescription = if (canAttachFiles) "Attach a photo or a file" else "Attach a photo",
                             tint = if (enabled) c.muted else c.faint, modifier = Modifier.size(20.dp),
                         )
@@ -1456,12 +1432,12 @@ private fun Composer(
                     ) {
                         androidx.compose.material3.DropdownMenuItem(
                             text = { Text("Photo", style = PortholeType.body, color = c.text) },
-                            leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Image, contentDescription = null, tint = c.muted) },
+                            leadingIcon = { Icon(Symbols.Image, contentDescription = null, tint = c.muted) },
                             onClick = { attachMenu = false; photo() },
                         )
                         androidx.compose.material3.DropdownMenuItem(
                             text = { Text("File", style = PortholeType.body, color = c.text) },
-                            leadingIcon = { Icon(androidx.compose.material.icons.Icons.Outlined.Description, contentDescription = null, tint = c.muted) },
+                            leadingIcon = { Icon(Symbols.Description, contentDescription = null, tint = c.muted) },
                             onClick = { attachMenu = false; filePicker.launch(arrayOf("*/*")) },
                         )
                     }
@@ -1488,7 +1464,7 @@ private fun Composer(
             ) {
                 if (sending) Spinner(color = c.accent)
                 else Icon(
-                    androidx.compose.material.icons.Icons.Outlined.ArrowUpward, contentDescription = "Send",
+                    Symbols.ArrowUpward, contentDescription = "Send",
                     tint = if (ready) c.onAccent else c.faint, modifier = Modifier.size(20.dp),
                 )
             }
@@ -1617,7 +1593,7 @@ private fun QuickReplies(replies: List<String>, onSend: (String) -> Unit, onEdit
         verticalAlignment = Alignment.CenterVertically,
     ) {
         replies.filter { it.isNotBlank() }.forEach { text -> GlassChip(text, onClick = { onSend(text) }) }
-        IconTarget(Icons.Outlined.Edit, "Edit the quick replies", onEdit, glass = true)
+        IconTarget(Symbols.Edit, "Edit the quick replies", onEdit, glass = true)
     }
 }
 

@@ -25,10 +25,6 @@ import dev.shrimpscript.porthole.terminal.rememberTerminalInputController
 import androidx.compose.foundation.layout.size
 import dev.shrimpscript.porthole.ui.theme.Porthole
 import dev.shrimpscript.porthole.ui.theme.PortholeType
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.FullscreenExit
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -94,7 +90,7 @@ fun FailsafeScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+                IconTarget(Symbols.ArrowBack, "Back", onBack)
                 Ring(state = if (daemonDown) RingState.Retrying else RingState.Live, size = 18.dp)
                 Column(Modifier.weight(1f)) {
                     Text("$machine · SSH", style = PortholeType.rowTitle, color = c.text)
@@ -107,7 +103,7 @@ fun FailsafeScreen(
                         style = PortholeType.meta, color = if (daemonDown || closed) c.warn else c.faint,
                     )
                 }
-                IconTarget(Icons.Outlined.Fullscreen, "Full screen", { full = true })
+                IconTarget(Symbols.Fullscreen, "Full screen", { full = true })
             }
 
             Box(
@@ -134,7 +130,7 @@ fun FailsafeScreen(
                 }
                 if (full) {
                     Box(Modifier.align(Alignment.TopEnd).padding(6.dp).background(c.surface.copy(alpha = 0.85f), PortholeShape.pill)) {
-                        IconTarget(Icons.Outlined.FullscreenExit, "Leave full screen", { full = false })
+                        IconTarget(Symbols.FullscreenExit, "Leave full screen", { full = false })
                     }
                 }
             }

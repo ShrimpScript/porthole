@@ -29,7 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.ui.unit.dp
 import dev.shrimpscript.porthole.net.SessionState
 import dev.shrimpscript.porthole.net.TuiStatus
@@ -282,7 +281,7 @@ fun RenameTitle(title: String, canRename: Boolean, onRename: (String) -> Unit) {
             Text(title, style = PortholeType.title, color = c.text, modifier = Modifier.weight(1f))
             if (canRename) {
                 IconTarget(
-                    androidx.compose.material.icons.Icons.Outlined.Edit, "Rename this session",
+                    Symbols.Edit, "Rename this session",
                     onClick = { editing = true }, tint = c.muted,
                 )
             }

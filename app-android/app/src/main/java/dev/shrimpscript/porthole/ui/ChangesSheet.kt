@@ -19,8 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -101,7 +99,7 @@ fun ChangesContent(
                     Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back to the file list", { onOpen(null) })
+                    IconTarget(Symbols.ArrowBack, "Back to the file list", { onOpen(null) })
                     Text(file.path, style = PortholeType.mono, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     Counts(file.added, file.removed)
                 }

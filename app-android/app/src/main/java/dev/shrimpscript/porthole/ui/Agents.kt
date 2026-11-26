@@ -15,11 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountTree
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -90,9 +85,9 @@ private fun AgentStateMark(state: String?, background: androidx.compose.ui.graph
     val c = Porthole.colors
     when (state) {
         "running" -> Spinner()
-        "done" -> Icon(Icons.Outlined.Check, contentDescription = "done", tint = c.ok, modifier = Modifier.size(16.dp))
-        "stopped" -> Icon(Icons.Outlined.PauseCircle, contentDescription = "stopped", tint = c.faint, modifier = Modifier.size(16.dp))
-        "failed" -> Icon(Icons.Outlined.ErrorOutline, contentDescription = "failed", tint = c.bad, modifier = Modifier.size(16.dp))
+        "done" -> Icon(Symbols.Check, contentDescription = "done", tint = c.ok, modifier = Modifier.size(16.dp))
+        "stopped" -> Icon(Symbols.PauseCircle, contentDescription = "stopped", tint = c.faint, modifier = Modifier.size(16.dp))
+        "failed" -> Icon(Symbols.ErrorOutline, contentDescription = "failed", tint = c.bad, modifier = Modifier.size(16.dp))
         else -> Spinner() // called, not yet started
     }
 }
@@ -124,7 +119,7 @@ fun AgentCard(call: AgentCall, text: String, agent: AgentInfo?, pending: Boolean
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Outlined.AccountTree, contentDescription = null, tint = c.accent, modifier = Modifier.size(17.dp))
+            Icon(Symbols.AccountTree, contentDescription = null, tint = c.accent, modifier = Modifier.size(17.dp))
             Text(
                 call.description.ifBlank { text.removePrefix("Delegated ") }.ifBlank { "An agent" },
                 style = PortholeType.secondary, fontWeight = FontWeight.SemiBold, color = c.text,
@@ -164,7 +159,7 @@ fun AgentsChip(running: Int, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(Icons.Outlined.AccountTree, contentDescription = null, tint = c.accent, modifier = Modifier.size(14.dp))
+        Icon(Symbols.AccountTree, contentDescription = null, tint = c.accent, modifier = Modifier.size(14.dp))
         Text("$running agent${if (running == 1) "" else "s"}", style = PortholeType.meta, color = c.text)
     }
 }

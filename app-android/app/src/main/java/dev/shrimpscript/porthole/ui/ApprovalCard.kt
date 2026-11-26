@@ -22,7 +22,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -101,7 +100,7 @@ fun ApprovalCardBody(
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Icon(
-                androidx.compose.material.icons.Icons.Outlined.Warning, contentDescription = null,
+                Symbols.Warning, contentDescription = null,
                 tint = c.warn, modifier = Modifier.height(20.dp),
             )
             Text(

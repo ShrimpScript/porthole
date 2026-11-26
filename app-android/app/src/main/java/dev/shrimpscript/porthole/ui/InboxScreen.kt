@@ -23,9 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,7 +110,7 @@ fun InboxScreen(
                 .padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+            IconTarget(Symbols.ArrowBack, "Back", onBack)
             Column(Modifier.weight(1f)) {
                 Text("Inbox", style = PortholeType.title, color = c.text)
                 if (inbox != null && inbox.count > 0) {
@@ -123,7 +120,7 @@ fun InboxScreen(
                     )
                 }
             }
-            IconTarget(Icons.Outlined.Refresh, "Read the notes again", onRefresh)
+            IconTarget(Symbols.Refresh, "Read the notes again", onRefresh)
         }
         if (failed != null) {
             Text(failed, style = PortholeType.secondary, color = c.bad, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))

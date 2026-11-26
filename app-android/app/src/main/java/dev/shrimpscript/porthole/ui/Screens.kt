@@ -16,13 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,7 +28,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.outlined.Download
 import dev.shrimpscript.porthole.BuildConfig
 import dev.shrimpscript.porthole.net.BuildInfo
 import androidx.compose.runtime.remember
@@ -342,7 +336,7 @@ internal fun UpdateBanner(update: BuildInfo, progress: Float?, note: String?, on
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Outlined.Download, null, tint = c.muted, modifier = Modifier.size(22.dp))
+            Icon(Symbols.Download, null, tint = c.muted, modifier = Modifier.size(22.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     if (own) "Porthole ${update.version} is out" else "${update.name} ${update.version} is on the computer",

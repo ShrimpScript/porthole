@@ -5,7 +5,6 @@ import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.Image
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,10 +20,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,7 +82,7 @@ fun ImageRow(label: String, bytes: ByteArray?, onNeed: () -> Unit, onOpen: () ->
         } else {
             Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Outlined.Image, contentDescription = null, tint = c.faint, modifier = Modifier.size(18.dp))
+                    Icon(Symbols.Image, contentDescription = null, tint = c.faint, modifier = Modifier.size(18.dp))
                     Text(if (bytes == null) "Loading image…" else "Could not decode this image", style = PortholeType.meta, color = c.faint)
                 }
             }
@@ -109,7 +104,7 @@ fun VideoRow(label: String, file: File?, onOpen: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(Modifier.size(40.dp).background(c.raised, PortholeShape.control), contentAlignment = Alignment.Center) {
-            Icon(Icons.Outlined.PlayArrow, contentDescription = null, tint = c.accent)
+            Icon(Symbols.PlayArrow, contentDescription = null, tint = c.accent)
         }
         Column(Modifier.weight(1f)) {
             Text(label, style = PortholeType.secondary, color = c.text)
@@ -156,7 +151,7 @@ fun ImageViewer(bytes: ByteArray, label: String, onClose: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, style = PortholeType.secondary, color = c.muted, modifier = Modifier.weight(1f))
-            IconTarget(Icons.Outlined.Close, "Close", onClose, tint = c.text)
+            IconTarget(Symbols.Close, "Close", onClose, tint = c.text)
         }
     }
 }
@@ -183,7 +178,7 @@ fun VideoViewer(file: File, label: String, onClose: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, style = PortholeType.secondary, color = c.muted, modifier = Modifier.weight(1f))
-            IconTarget(Icons.Outlined.Close, "Close", onClose, tint = c.text)
+            IconTarget(Symbols.Close, "Close", onClose, tint = c.text)
         }
     }
 }
@@ -220,7 +215,7 @@ fun SentFiles(paths: List<String>, image: (String) -> ByteArray?, onNeed: (Strin
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
-                    Icon(Icons.AutoMirrored.Outlined.InsertDriveFile, contentDescription = null, tint = c.accent, modifier = Modifier.size(16.dp))
+                    Icon(Symbols.InsertDriveFile, contentDescription = null, tint = c.accent, modifier = Modifier.size(16.dp))
                     Text(name, style = PortholeType.meta, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp))
                 }
             }
@@ -245,6 +240,6 @@ fun SentThumb(bytes: ByteArray?, label: String, onNeed: () -> Unit, gone: Boolea
     ) {
         if (bitmap != null) Image(bitmap.asImageBitmap(), contentDescription = label, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else if (gone) Text("No longer\non the computer", style = PortholeType.meta, color = c.faint, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(6.dp))
-        else Icon(Icons.Outlined.Image, contentDescription = label, tint = c.faint, modifier = Modifier.size(20.dp))
+        else Icon(Symbols.Image, contentDescription = label, tint = c.faint, modifier = Modifier.size(20.dp))
     }
 }

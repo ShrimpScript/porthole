@@ -25,9 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -82,7 +79,7 @@ fun OnboardingFrame(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (onBack != null) {
-                IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+                IconTarget(Symbols.ArrowBack, "Back", onBack)
             } else {
                 Spacer(Modifier.size(44.dp))
             }
@@ -306,7 +303,7 @@ fun TailscaleScreen(
         ToolMark(Brand.tailscale, size = 56.dp, tint = c.text)
         if (installed) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Outlined.Check, contentDescription = null, tint = c.ok, modifier = Modifier.size(18.dp))
+                Icon(Symbols.Check, contentDescription = null, tint = c.ok, modifier = Modifier.size(18.dp))
                 Text("Installed on this phone", style = PortholeType.secondary, color = c.ok)
             }
         }

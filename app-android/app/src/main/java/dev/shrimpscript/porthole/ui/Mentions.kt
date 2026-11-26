@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -94,7 +92,7 @@ fun FileSuggestions(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(Icons.Outlined.Description, contentDescription = null, tint = c.faint, modifier = Modifier.size(18.dp))
+                Icon(Symbols.Description, contentDescription = null, tint = c.faint, modifier = Modifier.size(18.dp))
                 Column(Modifier.weight(1f)) {
                     Text(name, style = PortholeType.mono, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (folder.isNotEmpty()) {

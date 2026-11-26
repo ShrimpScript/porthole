@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -116,7 +114,7 @@ fun PreviewSheet(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Icon(
-                                Icons.Outlined.Language, null,
+                                Symbols.Language, null,
                                 tint = if (share != null) c.accent else c.muted,
                                 modifier = Modifier.size(22.dp),
                             )

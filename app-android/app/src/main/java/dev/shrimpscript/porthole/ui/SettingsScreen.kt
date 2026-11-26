@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -143,7 +140,7 @@ fun SettingsScreen(
                 .padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+            IconTarget(Symbols.ArrowBack, "Back", onBack)
             Text("Settings", style = PortholeType.title, color = c.text)
         }
         Column(
@@ -644,7 +641,7 @@ private fun LinkRow(title: String, detail: String, onClick: () -> Unit) {
             Text(detail, style = PortholeType.meta, color = c.faint)
         }
         androidx.compose.material3.Icon(
-            androidx.compose.material.icons.Icons.Outlined.KeyboardArrowRight, contentDescription = null,
+            Symbols.KeyboardArrowRight, contentDescription = null,
             tint = c.muted,
         )
     }

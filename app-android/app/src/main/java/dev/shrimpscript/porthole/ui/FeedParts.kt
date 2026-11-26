@@ -23,19 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Stop
-import androidx.compose.material.icons.outlined.Terminal
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -135,13 +122,13 @@ fun WorkLine(work: FeedItem.Work, working: Boolean, onOpen: () -> Unit) {
 }
 
 private fun stepIcon(kind: String): ImageVector = when (kind) {
-    "command" -> Icons.Outlined.Terminal
-    "edit", "write" -> Icons.Outlined.Edit
-    "read" -> Icons.Outlined.Visibility
-    "search" -> Icons.Outlined.Search
-    "web", "fetch" -> Icons.Outlined.Language
-    "skill", "plan" -> Icons.AutoMirrored.Outlined.InsertDriveFile
-    else -> Icons.Outlined.Build
+    "command" -> Symbols.Terminal
+    "edit", "write" -> Symbols.Edit
+    "read" -> Symbols.Visibility
+    "search" -> Symbols.Search
+    "web", "fetch" -> Symbols.Language
+    "skill", "plan" -> Symbols.InsertDriveFile
+    else -> Symbols.Build
 }
 
 /** Every step of a stretch, in order, joined by a line: what each did, its lines or its time. */
@@ -291,11 +278,11 @@ fun AnswerActions(id: String, text: String) {
     LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1500); copied = false } }
     val speaking by Narrator.speaking.collectAsState()
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 2.dp)) {
-        IconTarget(if (copied) Icons.Outlined.Check else Icons.Outlined.ContentCopy, if (copied) "Copied" else "Copy the answer",
+        IconTarget(if (copied) Symbols.Check else Symbols.ContentCopy, if (copied) "Copied" else "Copy the answer",
             { clipboard.setText(AnnotatedString(text)); copied = true }, tint = if (copied) c.ok else c.faint)
-        IconTarget(if (speaking == id) Icons.Outlined.Stop else Icons.Outlined.PlayArrow, if (speaking == id) "Stop reading" else "Read the answer aloud",
+        IconTarget(if (speaking == id) Symbols.Stop else Symbols.PlayArrow, if (speaking == id) "Stop reading" else "Read the answer aloud",
             { Narrator.toggle(context, id, text) }, tint = if (speaking == id) c.accent else c.faint)
-        IconTarget(Icons.Outlined.Share, "Share the answer", {
+        IconTarget(Symbols.Share, "Share the answer", {
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }, tint = c.faint)

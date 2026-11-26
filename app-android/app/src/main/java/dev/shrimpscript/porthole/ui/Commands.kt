@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -115,7 +113,7 @@ fun CommandSuggestions(
                 }
                 if (cmd.terminal && !cmd.sheet) {
                     Icon(
-                        Icons.Outlined.Terminal, contentDescription = "Shows in the terminal",
+                        Symbols.Terminal, contentDescription = "Shows in the terminal",
                         tint = c.faint, modifier = Modifier.padding(start = 4.dp),
                     )
                 }

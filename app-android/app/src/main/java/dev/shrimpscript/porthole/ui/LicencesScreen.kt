@@ -17,10 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,8 +57,9 @@ internal val Notices = listOf(
     Notice("Google Sans Flex", "Copyright 2015 The Google Sans Flex Authors", "SIL Open Font License 1.1", "OFL-GoogleSansFlex.txt"),
     Notice(
         "AndroidX and Jetpack Compose", "The Android Open Source Project", "Apache License 2.0", "Apache-2.0.txt",
-        note = "Including Glance, Browser, Core SplashScreen and the Material icons.",
+        note = "Including Glance, Browser and Core SplashScreen.",
     ),
+    Notice("Material Symbols", "Google LLC", "Apache License 2.0", "Apache-2.0.txt", note = "The icons: the Rounded style, at weight 400."),
     Notice("Kotlin and kotlinx.coroutines", "JetBrains s.r.o. and Kotlin contributors", "Apache License 2.0", "Apache-2.0.txt"),
     Notice(
         "OkHttp and Okio", "Square, Inc.", "Apache License 2.0", "Apache-2.0.txt",
@@ -103,7 +100,7 @@ fun LicencesScreen(onBack: () -> Unit) = Screen {
                 .padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+            IconTarget(Symbols.ArrowBack, "Back", onBack)
             Text("Licences", style = PortholeType.title, color = c.text)
         }
         Column(
@@ -143,7 +140,7 @@ private fun NoticeCard(n: Notice) {
             }
             if (n.file != null) {
                 Icon(
-                    if (open) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                    if (open) Symbols.KeyboardArrowUp else Symbols.KeyboardArrowDown,
                     contentDescription = if (open) "Hide the licence" else "Show the licence",
                     tint = c.muted,
                 )
