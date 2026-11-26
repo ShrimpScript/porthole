@@ -50,7 +50,7 @@ type screenSeen struct {
 	peek     []string
 }
 
-const Version = "0.45.0"
+const Version = "0.45.1"
 
 type Server struct {
 	res  tailnet.Resolver
