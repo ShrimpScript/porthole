@@ -83,38 +83,97 @@ class RenderScreensTest {
     fun sessionsListWithNeedsYouLiveAndRecent() {
         val now = System.currentTimeMillis()
         val sessions = listOf(
+            // Asked first, so it leads: the hero is the longest-waiting.
             SessionInfo("q1", "Add dark mode to settings", "/srv/app", "main", "2026-09-14T10:00:00Z", live = true, working = true,
-                model = "claude-fable-5-1", workingSince = now - 65_000, doing = "AskUserQuestion", asking = "Which colour?", tmuxName = "0", pane = "%0"),
+                model = "claude-fable-5-1", workingSince = now - 25 * 60_000, doing = "AskUserQuestion", asking = "Which colour?", tmuxName = "0", pane = "%0",
+                question = ScreenQuestion("Colour", "Which colour?", multi = false,
+                    options = listOf(ScreenOption(1, "Red", "warm", false), ScreenOption(2, "Blue", "cool", false)),
+                    typed = 3, review = false, index = 1, total = 1),
+                peek = PEEK_QUESTION),
             // Stopped on a permission prompt: no question in the transcript, only the CLI's "waiting".
             SessionInfo("p1", "Ship the release branch", "/srv/shop", "release/2.4", "2026-09-14T09:59:00Z", live = true, working = true,
-                model = "claude-fable-5-1", workingSince = now - 20 * 60_000, doing = "Bash: git push --force origin main", waiting = true, waitingFor = "permission prompt", tmuxName = "2", pane = "%2"),
+                model = "claude-fable-5-1", workingSince = now - 20 * 60_000, doing = "Bash: git push --force origin main", waiting = true, waitingFor = "permission prompt", tmuxName = "2", pane = "%2",
+                peek = PEEK_PERMISSION),
             SessionInfo("w1", "Fix flaky login test", "/srv/api", "HEAD", "2026-09-14T09:58:00Z", live = true, working = true,
-                model = "claude-fable-5-1", workingSince = now - 12_000, doing = "Bash: ./gradlew test", tmuxName = "1", pane = "%1"),
+                model = "claude-fable-5-1", workingSince = now - 12_000, doing = "Bash: ./gradlew test", tmuxName = "1", pane = "%1",
+                peek = PEEK_WORKING),
             SessionInfo("l1", "Migrate to Postgres 16", "/srv/api", "main", "2026-09-14T09:30:00Z", live = true, working = false,
-                model = "claude-fable-5-1", tmuxName = "api", pane = "%12"),
+                model = "claude-fable-5-1", tmuxName = "api", pane = "%12", peek = PEEK_DONE),
             SessionInfo("r1", "Write the release notes", "/srv/docs", "master", "2026-09-12T18:00:00Z", live = false, tmux = false, model = "claude-opus-5"),
         )
+        var answered = 0
         rule.setContent {
             PortholeTheme {
-                SessionsScreen(machine = "workstation", ring = RingState.Live, sessions = sessions, onSession = {}, onSettings = {}, onRefresh = {})
+                SessionsScreen(machine = "workstation", ring = RingState.Live, sessions = sessions, onSession = {}, onSettings = {}, onRefresh = {},
+                    onNewSession = {}, onInbox = {}, inboxCount = 3, onAnswer = { _, n -> answered = n })
             }
         }
         rule.waitForIdle()
-        rule.onNodeWithText("Needs you").assertIsDisplayed()
-        // The state as a chip with its detail beside it, the details beneath.
-        rule.onNodeWithText("Asking you").assertIsDisplayed()
+        // What needs you leads, with its question and its choices on the glass.
+        rule.onNodeWithText("Asking you · 25m").assertIsDisplayed()
         rule.onNodeWithText("Which colour?").assertIsDisplayed()
-        rule.onNodeWithText("main · tmux 0 · Fable 5.1").assertIsDisplayed()
-        // The one held on a permission prompt is under Needs you too, above Live, saying what it wants to run.
+        rule.onNodeWithText("Red").assertIsDisplayed()
+        rule.onNodeWithText("Blue").assertIsDisplayed()
+        // The one held on a permission prompt is next, above Live, saying what it wants to run.
+        rule.onNodeWithText("Also needs you").assertIsDisplayed()
         val held = rule.onNodeWithText("Bash: git push --force origin main").fetchSemanticsNode().boundsInRoot
         rule.onNodeWithText("release/2.4 · tmux 2 · Fable 5.1").assertIsDisplayed()
         val liveLabel = rule.onNodeWithText("Live").fetchSemanticsNode().boundsInRoot
-        assertTrue("the waiting session sits under Needs you, above Live", held.bottom <= liveLabel.top)
+        assertTrue("the waiting session sits under the hero, above Live", held.bottom <= liveLabel.top)
         rule.onNodeWithText("Waiting for you").assertIsDisplayed()
-        // A live or idle row has no state line: the ring says it.
-        rule.onAllNodesWithText("live").assertCountEquals(0)
         rule.onNodeWithText("Recent").assertIsDisplayed()
+        rule.onNodeWithText("New session").assertIsDisplayed()
         save("sessions")
+        // One tap answers from the list: the choice's number goes to the daemon.
+        rule.onNodeWithText("Blue").performClick()
+        rule.waitForIdle()
+        assertTrue("tapping Blue answers option 2", answered == 2)
+        save("sessions-answering")
+    }
+
+    private companion object Peeks {
+        val PEEK_QUESTION = listOf(
+            "✻ Claude Code  v2.1.290 · Fable 5.1",
+            "  ~/srv/app · main",
+            "",
+            "> Add dark mode to settings, and let me pick",
+            "  the accent colour.",
+            "",
+            "● Read(app/settings/SettingsScreen.kt)",
+            "● Edit(app/ui/theme/Theme.kt)  +12 -3",
+            "● Bash(./gradlew test)",
+            "  ⎿  42 tests passed in 38s",
+            "",
+            "☐ Colour",
+            "Which colour?",
+            "❯ 1. Red     warm",
+            "  2. Blue    cool",
+            "  3. Type something",
+        )
+        val PEEK_PERMISSION = listOf(
+            "● Bash(git push --force origin main)",
+            "",
+            "  Bash command",
+            "    git push --force origin main",
+            "  Do you want to proceed?",
+            "  ❯ 1. Yes",
+            "    2. No, and tell Claude what to do",
+        )
+        val PEEK_WORKING = listOf(
+            "> Fix the flaky login test",
+            "● Read(LoginTest.kt)",
+            "● Bash(./gradlew test --tests Login*)",
+            "  ⎿  Running…",
+            "✻ Testing… (12s · esc to interrupt)",
+        )
+        val PEEK_DONE = listOf(
+            "● Edit(db/migrate.go)  +48 -12",
+            "● Bash(go test ./...)",
+            "  ⎿  ok  2.1s",
+            "",
+            "● Done: the schema is on Postgres 16.",
+            "✻ Worked for 3m 12s",
+        )
     }
 
     private fun row(kind: String, text: String, ts: String, toolId: String = "", questions: List<Question> = emptyList()) =
@@ -158,7 +217,7 @@ class RenderScreensTest {
         rule.waitForIdle()
         rule.onNodeWithText("Claude is asking you").assertIsDisplayed()
         rule.onNodeWithText("Which colour?").assertIsDisplayed()
-        rule.onNodeWithText("1. Red").assertIsDisplayed()
+        rule.onNodeWithText("Red").assertIsDisplayed()
         rule.onNodeWithText("Type something").assertIsDisplayed()
         rule.onNodeWithText("Answered: Large").assertIsDisplayed()
         save("session-question")
@@ -193,7 +252,7 @@ class RenderScreensTest {
         }
         rule.waitForIdle()
         rule.onNodeWithText("Which name for the new table?").assertIsDisplayed()
-        rule.onNodeWithText("1. orders_archive").assertIsDisplayed()
+        rule.onNodeWithText("orders_archive").assertIsDisplayed()
         save("table-question")
     }
 
@@ -402,7 +461,7 @@ class RenderScreensTest {
         for (left in 46 downTo 45) {
             rule.mainClock.advanceTimeBy(1000)
             rule.waitForIdle()
-            rule.onNodeWithText("Waiting · ${left}s left").assertIsDisplayed()
+            rule.onNodeWithText("${left}s left").assertIsDisplayed()
             save("approval-whole-command-$left")
         }
     }
@@ -1144,12 +1203,12 @@ index 4cb29ea..8b1d0e1 100644
         rule.setContent { PortholeTheme { LicencesScreen(onBack = {}) } }
         rule.waitForIdle()
         rule.onNodeWithText("Licences").assertIsDisplayed()
-        rule.onNodeWithText("Schibsted Grotesk").assertIsDisplayed()
+        rule.onNodeWithText("Hanken Grotesk").assertIsDisplayed()
         // The list and the shipped files agree: nothing listed is missing, nothing shipped is unlisted.
         val shipped = rule.activity.assets.list("licenses")!!.toSet()
         assertEquals(shipped, Notices.mapNotNull { it.file }.toSet())
         save("licences")
-        rule.onNodeWithText("Schibsted Grotesk").performClick()
+        rule.onNodeWithText("Hanken Grotesk").performClick()
         rule.waitForIdle()
         rule.onNodeWithText("PREAMBLE\nThe goals of the Open Font License (OFL)", substring = true).assertExists()
         save("licences-open")

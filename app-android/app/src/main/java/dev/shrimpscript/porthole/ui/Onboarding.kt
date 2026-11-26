@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
@@ -98,12 +99,22 @@ fun OnboardingFrame(
                 }
             }
         }
-        Column(
-            Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-        ) { content() }
+        Box(Modifier.weight(1f)) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+            ) { content() }
+            // Text running into the buttons fades out rather than being cut mid-line.
+            if (bottom != null) Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to androidx.compose.ui.graphics.Color.Transparent, 1f to Porthole.colors.ground)),
+            )
+        }
         if (bottom != null) {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) { bottom() }
         }
@@ -130,9 +141,26 @@ fun WelcomeScreen(onStart: () -> Unit, onHowItWorks: () -> Unit) = Screen {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Ring(state = RingState.Mark, size = 96.dp, strokeWidth = 5.dp, reveal = reveal.value)
+        // The porthole settles in as the ring used to draw itself: scale and light, once. A
+        // soft light behind it, as if the room beyond were lit.
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .size(280.dp)
+                    .graphicsLayer { alpha = reveal.value }
+                    .background(androidx.compose.ui.graphics.Brush.radialGradient(0f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.08f), 1f to androidx.compose.ui.graphics.Color.Transparent)),
+            )
+            PortholeMark(
+                size = 132.dp,
+                modifier = Modifier.graphicsLayer {
+                    alpha = reveal.value
+                    val k = 0.94f + 0.06f * reveal.value
+                    scaleX = k; scaleY = k
+                },
+            )
+        }
         Spacer(Modifier.height(28.dp))
-        Appear(delayMs = 300) { Wordmark(ring = RingState.Mark) }
+        Appear(delayMs = 300) { Wordmark() }
         Spacer(Modifier.height(28.dp))
         Appear(delayMs = 380) {
             Text(

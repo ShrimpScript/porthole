@@ -181,7 +181,7 @@ fun AgentsStrip(running: List<AgentInfo>, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
-            .background(c.surface, PortholeShape.card)
+            .glass(PortholeShape.panel)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

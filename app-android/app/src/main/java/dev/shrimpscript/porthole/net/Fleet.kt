@@ -295,7 +295,7 @@ class Fleet(scope: CoroutineScope, private val store: MachineStore) {
                 val up = reachable.getOrNull(i) ?: true
                 list.forEach { s ->
                     var row = if (several && m != null) s.copy(machineId = m.id, machine = m.shown) else s
-                    if (!up) row = row.copy(machineDown = true, machineState = states.getOrNull(i) ?: "unreachable", live = false, tmux = false, working = false, asking = "", waiting = false, waitingFor = "", doing = "")
+                    if (!up) row = row.copy(machineDown = true, machineState = states.getOrNull(i) ?: "unreachable", live = false, tmux = false, working = false, asking = "", waiting = false, waitingFor = "", doing = "", question = null, peek = emptyList())
                     out += row
                 }
             }

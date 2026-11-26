@@ -37,6 +37,8 @@ enum class RingState(val label: String) {
     Dropped("disconnected"),
     NeedsYou("needs your approval"),
     Idle("idle"),
+    /** A turn in progress: one arc turning (DESIGN v3 §3). */
+    Working("working"),
     /** The logo, not a connection indicator: accent, closed, still. Only in the wordmark and on welcome. */
     Mark("Porthole"),
 }
@@ -70,7 +72,7 @@ fun Ring(
     val animate = animationsEnabled()
 
     val color = when (state) {
-        RingState.Connecting, RingState.Live, RingState.Mark -> c.accent
+        RingState.Connecting, RingState.Live, RingState.Mark, RingState.Working -> c.accent
         RingState.Retrying, RingState.NeedsYou -> c.warn
         RingState.Dropped -> c.bad
         RingState.Idle -> c.faint
@@ -81,6 +83,11 @@ fun Ring(
         initialValue = 0f, targetValue = 360f,
         animationSpec = infiniteRepeatable(tween(1100, easing = androidx.compose.animation.core.LinearEasing)),
         label = "spin",
+    )
+    val workTurn by transition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1600, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "work",
     )
     val breath by transition.animateFloat(
         initialValue = 0.35f, targetValue = 1f,
@@ -142,9 +149,16 @@ fun Ring(
             }
             RingState.Idle ->
                 drawArc(
-                    color = color, startAngle = 0f, sweepAngle = 360f,
+                    color = color.copy(alpha = 0.55f), startAngle = 0f, sweepAngle = 360f,
                     useCenter = false, topLeft = topLeft, size = arcSize, style = stroke,
                 )
+            RingState.Working -> {
+                track(0.6f)
+                drawArc(
+                    color = color, startAngle = (if (animate) workTurn else 0f) - 90f, sweepAngle = 260f,
+                    useCenter = false, topLeft = topLeft, size = arcSize, style = stroke,
+                )
+            }
         }
     }
 }

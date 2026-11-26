@@ -70,7 +70,7 @@ fun FileSuggestions(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
-            .background(c.surface, PortholeShape.card)
+            .glass(PortholeShape.panel)
             .heightIn(max = 260.dp)
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp),

@@ -7,6 +7,7 @@ package server
 import (
 	"context"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,9 +31,42 @@ type workingFrame struct {
 	Since     time.Time `json:"since,omitempty"`
 	Doing     string    `json:"doing,omitempty"`
 	Asking    string    `json:"asking,omitempty"` // a question waiting on the person
+	// Question is the picker on screen with its choices, so the list can answer it.
+	Question *ScreenQuestion `json:"question,omitempty"`
 }
 
 const turnScanEvery = 5 * time.Second
+
+// A porthole shows the bottom of a session's screen: this many lines, this many
+// columns of each. Small on purpose - it is drawn a few pixels high.
+const (
+	peekRows = 16
+	peekCols = 64
+)
+
+// peekLines is the bottom of a captured pane: trailing blank lines dropped, each line
+// trimmed on the right and cut to cols runes, at most rows of them.
+func peekLines(screen string, rows, cols int) []string {
+	lines := strings.Split(strings.TrimRight(screen, "\n"), "\n")
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) > rows {
+		lines = lines[len(lines)-rows:]
+	}
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		l = strings.TrimRight(l, " \t\r")
+		if r := []rune(l); len(r) > cols {
+			l = string(r[:cols])
+		}
+		out = append(out, l)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 // StartTurnWatcher keeps one tailer per live session while any phone is connected.
 // Sessions that stop being live are dropped; ones that appear are picked up on the next
@@ -83,15 +117,20 @@ func (s *Server) StartTurnWatcher(ctx context.Context) {
 				}
 				out, err := exec.CommandContext(ctx, "tmux", "capture-pane", "-p", "-t", si.Pane).Output()
 				if err != nil {
+					// An unreadable pane shows nothing, rather than its last question and lines
+					// staying answerable from the list.
+					s.setScreenSeen(si.ID, nil, nil)
 					continue
 				}
 				q := ""
-				if sq := parseQuestion(string(out)); sq != nil {
+				sq := parseQuestion(string(out))
+				if sq != nil {
 					q = sq.Text
 				}
+				s.setScreenSeen(si.ID, sq, peekLines(string(out), peekRows, peekCols))
 				if s.setScreenAsking(si.ID, q) {
 					s.broadcast(ctx, workingFrame{Frame: proto.Frame{V: proto.Version, Type: proto.TypeSessionWorking},
-						SessionID: si.ID, Title: si.Title, Working: si.Working || q != "", Since: si.WorkingSince, Doing: si.Doing, Asking: q})
+						SessionID: si.ID, Title: si.Title, Working: si.Working || q != "", Since: si.WorkingSince, Doing: si.Doing, Asking: q, Question: sq})
 				}
 			}
 			for path, si := range live {

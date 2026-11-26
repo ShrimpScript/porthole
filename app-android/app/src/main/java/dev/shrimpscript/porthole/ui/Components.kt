@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,44 +58,49 @@ fun PrimaryButton(
 ) {
     val c = Porthole.colors
     val interaction = remember { MutableInteractionSource() }
+    // The bright capsule (DESIGN v3 §4a): the one main action on a screen.
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 48.dp)
+            .defaultMinSize(minHeight = 52.dp)
             .pressScale(interaction)
-            .background(if (enabled) c.accent else c.raised, PortholeShape.control)
-            .clickable(enabled = enabled, interactionSource = interaction, indication = null) { onClick() },
+            .then(if (enabled) Modifier.bright() else Modifier.background(c.raised, PortholeShape.pill))
+            .clickable(enabled = enabled, interactionSource = interaction, indication = null, role = Role.Button) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            style = PortholeType.body,
-            // Text on a filled accent is always `ground`, never white.
+            style = PortholeType.body.copy(fontWeight = FontWeight.SemiBold),
+            // Text on the bright capsule is near-black, never white.
             color = if (enabled) c.onAccent else c.faint,
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+            modifier = Modifier.padding(vertical = 14.dp, horizontal = 20.dp),
         )
     }
 }
 
+/**
+ * The secondary action: a raised capsule on a plain ground, or glass where it floats over
+ * content ([glass]).
+ */
 @Composable
-fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, glass: Boolean = false) {
     val c = Porthole.colors
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 48.dp)
+            .defaultMinSize(minHeight = 52.dp)
             .pressScale(interaction)
-            // A filled tile, raised by value: an outline-only button is the hairline box of DESIGN §0.
-            .background(c.raised, PortholeShape.control)
-            .clickable(interactionSource = interaction, indication = null) { onClick() },
+            // A filled capsule, raised by value: an outline-only button is the hairline box of DESIGN §0.
+            .then(if (glass) Modifier.glass(PortholeShape.pill) else Modifier.background(c.text.copy(alpha = if (c.isLight) 0.08f else 0.10f), PortholeShape.pill))
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = PortholeType.body, color = c.text, modifier = Modifier.padding(12.dp))
+        Text(text, style = PortholeType.body.copy(fontWeight = FontWeight.SemiBold), color = c.text, modifier = Modifier.padding(14.dp))
     }
 }
 
-/** A 44dp icon target. */
+/** A 44dp icon target; [glass] sets it in a glass circle, for controls that float over content. */
 @Composable
 fun IconTarget(
     icon: ImageVector,
@@ -102,13 +108,18 @@ fun IconTarget(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: androidx.compose.ui.graphics.Color = Porthole.colors.muted,
+    glass: Boolean = false,
 ) {
+    if (glass) {
+        GlassCircle(icon, contentDescription, onClick, modifier, tint = Porthole.colors.text)
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
             .size(44.dp)
             .pressScale(interaction)
-            .clickable(interactionSource = interaction, indication = null) { onClick() },
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(22.dp))
@@ -134,8 +145,7 @@ fun Field(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 48.dp)
             .background(c.raised, PortholeShape.control)
-            .border(1.dp, c.edge, PortholeShape.control)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         contentAlignment = if (center) Alignment.Center else Alignment.CenterStart,
     ) {
         if (value.isEmpty()) {
@@ -178,19 +188,19 @@ fun CommandBlock(command: String, label: String? = null, modifier: Modifier = Mo
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(c.raised, PortholeShape.control)
-                .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                .background(c.deep, PortholeShape.control)
+                .padding(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(command, style = PortholeType.mono, color = c.accent, modifier = Modifier.weight(1f))
+            Text(command, style = PortholeType.mono, color = c.text, modifier = Modifier.weight(1f))
             Box(
                 Modifier
-                    .defaultMinSize(minHeight = 36.dp)
+                    .defaultMinSize(minHeight = 44.dp, minWidth = 44.dp)
                     .clickable { clipboard.setText(AnnotatedString(command)); copied = true }
                     .padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(if (copied) "copied" else "copy", style = PortholeType.meta, color = if (copied) c.ok else c.muted)
+                Text(if (copied) "copied" else "copy", style = PortholeType.secondary, color = if (copied) c.ok else c.muted)
             }
         }
     }
@@ -237,7 +247,7 @@ fun ScopeRow(icon: String, name: String, access: String) {
         Box(
             Modifier
                 .size(40.dp)
-                .background(c.raised, PortholeShape.control),
+                .background(c.raised, androidx.compose.foundation.shape.CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Text(icon, style = PortholeType.rowTitle, color = c.accent)
@@ -267,8 +277,7 @@ fun Pill(text: String, filled: Boolean, onClick: () -> Unit) {
             style = PortholeType.meta,
             color = if (filled) c.onAccent else c.muted,
             modifier = Modifier
-                .clip(PortholeShape.pill)
-                .background(if (filled) c.accent else c.raised)
+                .then(if (filled) Modifier.bright(glow = false) else Modifier.clip(PortholeShape.pill).background(c.raised))
                 .padding(horizontal = 16.dp, vertical = 10.dp),
         )
     }

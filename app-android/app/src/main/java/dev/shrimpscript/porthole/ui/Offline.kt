@@ -45,7 +45,7 @@ fun ReconnectBar(text: String, savedAt: Long = 0L, onOptions: (() -> Unit)? = nu
         modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .background(c.surface, PortholeShape.control)
+            .glass(PortholeShape.pill)
             .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

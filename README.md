@@ -13,10 +13,13 @@ between your phone and your computer.
 
 ## What the phone can do
 
-- **Every session at a glance.** One row per running Claude Code, grouped into Needs you,
-  Live and Recent, with what each is doing and for how long - across more than one computer.
+- **Every session at a glance.** One row per running Claude Code, each showing the bottom of
+  its terminal in a small round window, with what it is doing and for how long - across more
+  than one computer. Whatever needs you leads the list.
 - **Answer Claude's questions by tap.** When Claude Code asks a multiple-choice question,
-  the choices appear as buttons exactly as they stand on the computer's screen.
+  the choices appear as buttons exactly as they stand on the computer's screen - on the
+  session, or straight from the list. Nothing is pressed unless that question is still the
+  one on screen.
 - **Approve or deny tool calls** from anywhere, with the command in full and a countdown.
   There is no "always allow".
 - **The feed.** The conversation as rendered markdown. Each stretch of work folds into one

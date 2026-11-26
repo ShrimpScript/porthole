@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -358,7 +359,7 @@ fun Chip(text: String, accent: Boolean = false, onClick: (() -> Unit)? = null) {
     val c = Porthole.colors
     Box(
         Modifier
-            .background(if (accent) c.accent else c.raised, PortholeShape.pill)
+            .then(if (accent) Modifier.bright(glow = false) else Modifier.clip(PortholeShape.pill).background(c.raised))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {

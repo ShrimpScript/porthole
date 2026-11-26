@@ -37,6 +37,15 @@ The share reaches only what is listed: loopback listeners owned by the daemon's 
 with the ephemeral range and known tooling hidden. A share whose server has exited is
 closed on the next listing. Shares die with the daemon; nothing is written into tailscaled.
 
+**The bottom of each screen in the list** (0.44.0). The session list carries, for each live
+session, the last 16 lines of its tmux pane (cut to 64 characters) and the question picker on
+it, so the phone can draw the session small and answer a single-choice question from the list.
+This is the same trust domain as the feed and the terminal, which a paired phone can already
+open; it is said here because it is new on the list screen: whatever a session's screen shows
+at its bottom - including anything secret printed there - reaches every paired phone with the
+list. An answer from the list carries the question it was drawn from, and the daemon presses
+nothing unless its screen still asks exactly that.
+
 **Pictures by path** (0.38.0). The feed shows pictures the phone sent and ones Claude sent
 by their path on the computer. The daemon serves such a path only if it is an image (png,
 jpeg, webp, gif) of at most 8 MB under the user's home, after the path is cleaned and links

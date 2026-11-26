@@ -32,7 +32,22 @@ import (
 // sessionListFrame keeps proto free of a dependency on the session package.
 type sessionListFrame struct {
 	proto.Frame
-	Sessions []session.Info `json:"sessions"`
+	Sessions []listEntry `json:"sessions"`
+}
+
+// listEntry is a session as the list shows it: what discovery knows, plus what the last
+// scan of its pane saw - the question on screen with its choices, so it can be answered
+// from the list, and the pane's last lines, drawn small in the session's porthole.
+type listEntry struct {
+	session.Info
+	Question *ScreenQuestion `json:"question,omitempty"`
+	Peek     []string        `json:"peek,omitempty"`
+}
+
+// screenSeen is what the last scan of a session's pane found.
+type screenSeen struct {
+	question *ScreenQuestion
+	peek     []string
 }
 
 const Version = "0.43.0"
@@ -70,6 +85,7 @@ type Server struct {
 	// scan of its pane (the transcript only records a question once answered).
 	askMu       sync.Mutex
 	asking      map[string]string                                     // session id -> question text ("" when none; absent when unscanned)
+	panes       map[string]screenSeen                                 // session id -> the question and last lines on its pane
 	changesBusy map[string]bool                                       // session id -> a changes.get is running
 	filesMu     sync.Mutex                                            // one directory listing at a time, for files.get
 	filesCache  map[string]*fileList                                  // directory -> its files, for a few seconds
@@ -100,6 +116,68 @@ func (s *Server) forgetScreenAsking(id string) {
 	s.askMu.Lock()
 	defer s.askMu.Unlock()
 	delete(s.asking, id)
+	delete(s.panes, id)
+}
+
+// setScreenSeen keeps the question and the last lines a scan found on a session's pane.
+func (s *Server) setScreenSeen(id string, q *ScreenQuestion, peek []string) {
+	s.askMu.Lock()
+	defer s.askMu.Unlock()
+	if s.panes == nil {
+		s.panes = map[string]screenSeen{}
+	}
+	s.panes[id] = screenSeen{question: q, peek: peek}
+}
+
+func (s *Server) screenSeenFor(id string) (screenSeen, bool) {
+	s.askMu.Lock()
+	defer s.askMu.Unlock()
+	v, ok := s.panes[id]
+	return v, ok
+}
+
+// listEntries dresses a discovered list for the phone: the screen's question over the
+// transcript's (which comes later, or never while the picker is up), and for a live
+// session the question's choices and the pane's last lines. A live pane the 5-second scan
+// has not reached yet - the list a phone gets the moment it connects - is captured now, so
+// its porthole is not empty for the first seconds. [capture] is nil in tests.
+func (s *Server) listEntries(list []session.Info, capture func(pane string) (string, bool)) []listEntry {
+	s.overlayAsking(list)
+	out := make([]listEntry, len(list))
+	fresh := 0
+	for i, si := range list {
+		out[i] = listEntry{Info: si}
+		if !si.Live {
+			continue
+		}
+		seen, ok := s.screenSeenFor(si.ID)
+		if !ok && capture != nil && si.Pane != "" && fresh < maxFreshCaptures {
+			fresh++
+			if screen, good := capture(si.Pane); good {
+				seen = screenSeen{question: parseQuestion(screen), peek: peekLines(screen, peekRows, peekCols)}
+				ok = true
+				s.setScreenSeen(si.ID, seen.question, seen.peek)
+			}
+		}
+		if ok {
+			out[i].Question = seen.question
+			out[i].Peek = seen.peek
+		}
+	}
+	return out
+}
+
+// At most this many panes are captured while a list is built; the scan reaches the rest.
+const maxFreshCaptures = 12
+
+// capturePane reads a pane's screen as plain text.
+func capturePane(ctx context.Context) func(pane string) (string, bool) {
+	return func(pane string) (string, bool) {
+		cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(cctx, "tmux", "capture-pane", "-p", "-t", pane).Output()
+		return string(out), err == nil
+	}
 }
 
 // overlayAsking puts the screen's question on list entries, where the transcript's
@@ -344,10 +422,9 @@ func (s *Server) writeSessionList(ctx context.Context, c *websocket.Conn) error 
 	if err != nil {
 		return err
 	}
-	s.overlayAsking(list)
 	f := sessionListFrame{
 		Frame:    proto.Frame{V: proto.Version, Type: proto.TypeSessionList},
-		Sessions: list,
+		Sessions: s.listEntries(list, capturePane(ctx)),
 	}
 	b, err := json.Marshal(f)
 	if err != nil {

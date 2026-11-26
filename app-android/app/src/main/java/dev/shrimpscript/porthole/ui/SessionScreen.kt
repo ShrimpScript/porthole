@@ -78,6 +78,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.outlined.ArrowUpward
@@ -316,52 +322,24 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                 .fillMaxSize()
                 .background(c.ground)
         ) {
-            Column(Modifier.fillMaxSize().imePadding()) {
+            GlassHost {
+            // The header and the composer float over the feed as glass (DESIGN v3 §6): the
+            // feed runs the full height and keeps its first and last rows clear of them.
+            var topPad by remember { mutableStateOf(0.dp) }
+            var bottomPad by remember { mutableStateOf(0.dp) }
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            Box(Modifier.fillMaxSize().imePadding()) {
                 // Full screen is the terminal's alone: the header and the Feed/Terminal
                 // toggle go, and so do the system bars (a swipe from the edge shows them).
                 val fullTerm = termFull && view == SessionView.Terminal
                 Immersive(fullTerm)
                 // Back leaves full screen before it leaves the session.
                 androidx.activity.compose.BackHandler(enabled = fullTerm) { termFull = false }
-                if (!fullTerm) SessionHeader(title, branch, ring, onBack, compact = landscape, state = state, sharedKey = sharedKey,
-                    canCapture = "capture" in caps, canRecord = "record" in caps,
-                    onCapture = { if (it >= 0) onCapture(it) },
-                    canPreview = "preview" in caps, onPreview = { showPreview = true },
-                    canChanges = "changes" in caps, onChanges = { showChanges = true },
-                    canTerminal = tmux, view = view, onViewChange = onViewChange) { showStats = true }
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = reconnecting != null && !fullTerm,
-                    enter = androidx.compose.animation.fadeIn(spec(PortholeMotion.ENTER_MS)) + androidx.compose.animation.expandVertically(spec(PortholeMotion.ENTER_MS)),
-                    exit = androidx.compose.animation.fadeOut(spec(PortholeMotion.EXIT_MS)) + androidx.compose.animation.shrinkVertically(spec(PortholeMotion.EXIT_MS)),
-                ) {
-                    ReconnectBar(barLine, savedCopyAt, onConnectionOptions)
-                }
-                // Feed and terminal switch from the header now: a whole row for the toggle
-                // took the feed's room on every session.
-    
-                notice?.let { text ->
-                    Appear {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .background(c.raised, PortholeShape.control)
-                                .padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = c.warn, modifier = Modifier.size(18.dp))
-                            Text(text, style = PortholeType.secondary, color = c.text, modifier = Modifier.weight(1f))
-                            IconTarget(Icons.Outlined.Close, "Dismiss", onDismissNotice, Modifier.size(36.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                }
-    
                 when (view) {
                     SessionView.Feed -> {
+                        GlassSource(Modifier.fillMaxSize()) {
                         Feed(
-                            rows, backfillCount, loaded, state?.working == true, Modifier.weight(1f),
+                            rows, backfillCount, loaded, state?.working == true, Modifier.fillMaxSize(),
                             verb = status?.text.orEmpty(), remaining = remaining, earlierEpoch = earlierEpoch, loadedEpoch = loadedEpoch, onEarlier = onEarlier,
                             canLoadEarlier = canSend && savedCopyAt == 0L,
                             onChanges = if ("changes" in caps) ({ showChanges = true }) else null,
@@ -371,7 +349,22 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             imageFor = { images[it] }, clipFor = { clips[it] }, onNeedImage = onNeedImage, goneImages = goneImages,
                             onOpenImage = { viewImage = it }, onOpenClip = { viewClip = it },
                             agents = agents, onAgents = { showAgents = true },
+                            padTop = topPad, padBottom = bottomPad,
                         ) { detail = it }
+                        }
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(bottomPad + 24.dp)
+                                .background(Brush.verticalGradient(0f to Color.Transparent, 0.18f to c.ground.copy(alpha = 0.4f), 1f to c.ground.copy(alpha = 0.88f))),
+                        )
+                        Column(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .onSizeChanged { bottomPad = with(density) { it.height.toDp() } },
+                        ) {
                         if (status?.limitHit == true) {
                             LimitCard(
                                 status = status, autoContinue = autoContinue, onKey = onKey,
@@ -402,8 +395,8 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 12.dp)
-                                    .background(c.surface, PortholeShape.card)
-                                    .padding(14.dp),
+                                    .glass(PortholeShape.panel)
+                                    .padding(16.dp),
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     if (starting) Spinner(color = c.accent, background = c.surface)
@@ -575,8 +568,11 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 }
                             },
                         )
+                                            }
                     }
-                    SessionView.Terminal -> TerminalBody(
+                    SessionView.Terminal -> Column(Modifier.fillMaxSize()) {
+                        Spacer(Modifier.height(if (fullTerm) 0.dp else topPad))
+                        TerminalBody(
                         emulator = terminal,
                         revision = terminalRevision,
                         open = terminalOpen,
@@ -592,7 +588,59 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                         fullscreen = termFull,
                         onFullscreen = { termFull = it },
                     )
+                    }
                 }
+                // The scroll edges fade (as iOS 26 does under its bars): the feed does not show
+                // in a sliver above the header or below the composer.
+                if (view == SessionView.Feed) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(topPad + 12.dp)
+                            .background(Brush.verticalGradient(0f to c.ground.copy(alpha = 0.92f), 0.7f to c.ground.copy(alpha = 0.6f), 1f to Color.Transparent)),
+                    )
+                }
+                // What floats at the top: the header, and under it the bar and a notice.
+                Column(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .onSizeChanged { topPad = with(density) { it.height.toDp() } },
+                ) {
+                if (!fullTerm) SessionHeader(title, branch, ring, onBack, compact = landscape, glass = view == SessionView.Feed, state = state, sharedKey = sharedKey,
+                    canCapture = "capture" in caps, canRecord = "record" in caps,
+                    onCapture = { if (it >= 0) onCapture(it) },
+                    canPreview = "preview" in caps, onPreview = { showPreview = true },
+                    canChanges = "changes" in caps, onChanges = { showChanges = true },
+                    canTerminal = tmux, view = view, onViewChange = onViewChange) { showStats = true }
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = reconnecting != null && !fullTerm,
+                    enter = androidx.compose.animation.fadeIn(spec(PortholeMotion.ENTER_MS)) + androidx.compose.animation.expandVertically(spec(PortholeMotion.ENTER_MS)),
+                    exit = androidx.compose.animation.fadeOut(spec(PortholeMotion.EXIT_MS)) + androidx.compose.animation.shrinkVertically(spec(PortholeMotion.EXIT_MS)),
+                ) {
+                    ReconnectBar(barLine, savedCopyAt, onConnectionOptions)
+                }
+                notice?.let { text ->
+                    Appear {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .glass(PortholeShape.option)
+                                .padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = c.warn, modifier = Modifier.size(18.dp))
+                            Text(text, style = PortholeType.secondary, color = c.text, modifier = Modifier.weight(1f))
+                            IconTarget(Icons.Outlined.Close, "Dismiss", onDismissNotice, Modifier.size(36.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+                }
+            }
             }
     
             detail?.let { r -> DetailSheet(r) { detail = null } }
@@ -628,6 +676,8 @@ private fun SessionHeader(
     canChanges: Boolean = false, onChanges: () -> Unit = {},
     /** A tmux pane to show: the header offers the terminal, and from it the way back. */
     canTerminal: Boolean = false, view: SessionView = SessionView.Feed, onViewChange: (SessionView) -> Unit = {},
+    /** Floating over the feed: the controls are glass. Over the terminal they sit on its ground. */
+    glass: Boolean = true,
     onStats: () -> Unit,
 ) {
     val c = Porthole.colors
@@ -635,70 +685,70 @@ private fun SessionHeader(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 12.dp, top = if (compact) 0.dp else 4.dp),
+            .padding(start = 12.dp, end = 12.dp, top = if (compact) 4.dp else 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back to sessions", onBack)
-        Ring(
-            state = ring, size = 18.dp,
-            modifier = if (sharedKey.isNotBlank()) Modifier.sharedAcrossRoutes("ring-$sharedKey") else Modifier,
-        )
-        Column(Modifier.weight(1f)) {
-            Text(
-                title, style = PortholeType.rowTitle, color = c.text,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = if (sharedKey.isNotBlank()) Modifier.sharedAcrossRoutes("title-$sharedKey", bounds = true) else Modifier,
+        IconTarget(Icons.AutoMirrored.Outlined.ArrowBack, "Back to sessions", onBack, glass = glass, tint = c.text)
+        // The session itself, as one capsule: its ring, its name, where it is, and how full
+        // its context is. A tap opens the whole picture.
+        val interaction = remember { MutableInteractionSource() }
+        Row(
+            Modifier
+                .weight(1f)
+                .heightIn(min = 48.dp)
+                .pressScale(interaction)
+                .then(if (glass) Modifier.glass(PortholeShape.pill) else Modifier.background(c.raised, PortholeShape.pill))
+                .clickable(interaction, indication = null, role = Role.Button, onClickLabel = "Session details", onClick = onStats)
+                .padding(start = 12.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Ring(
+                state = ring, size = 22.dp, strokeWidth = 2.4.dp,
+                modifier = if (sharedKey.isNotBlank()) Modifier.sharedAcrossRoutes("ring-$sharedKey") else Modifier,
             )
-            if (branch.isNotBlank() && !compact) {
-                Text(branch, style = PortholeType.meta, color = c.faint)
-            }
-        }
-        // the site under test, in this phone's browser - only when the daemon can share one
-        if (canPreview) {
-            IconTarget(androidx.compose.material.icons.Icons.Outlined.Language, "Open a dev server on this phone", onPreview, tint = c.muted)
-        }
-        // a look at the desktop, only when the computer can actually take one
-        if (canCapture) {
-            Box {
-                IconTarget(androidx.compose.material.icons.Icons.Outlined.PhotoCamera, "Capture the screen", { captureMenu = true }, tint = c.muted)
-                androidx.compose.material3.DropdownMenu(
-                    expanded = captureMenu, onDismissRequest = { captureMenu = false },
-                    containerColor = c.raised,
-                ) {
-                    androidx.compose.material3.DropdownMenuItem(
-                        text = { Text("Screenshot", style = PortholeType.body, color = c.text) },
-                        onClick = { captureMenu = false; onCapture(0) },
-                    )
-                    if (canRecord) {
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Record 5 seconds", style = PortholeType.body, color = c.text) },
-                            onClick = { captureMenu = false; onCapture(5) },
-                        )
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Record 10 seconds", style = PortholeType.body, color = c.text) },
-                            onClick = { captureMenu = false; onCapture(10) },
-                        )
-                    }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title, style = PortholeType.rowTitle.copy(fontSize = 16.sp, lineHeight = 20.sp), color = c.text,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = if (sharedKey.isNotBlank()) Modifier.sharedAcrossRoutes("title-$sharedKey", bounds = true) else Modifier,
+                )
+                if (branch.isNotBlank() && !compact) {
+                    Text(branch, style = PortholeType.meta, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
         if (canTerminal || view == SessionView.Terminal) {
-            if (view == SessionView.Feed) IconTarget(Icons.Outlined.Terminal, "Open the terminal", { onViewChange(SessionView.Terminal) }, tint = c.muted)
-            else IconTarget(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.Chat, "Back to the feed", { onViewChange(SessionView.Feed) }, tint = c.accent)
+            if (view == SessionView.Feed) IconTarget(Icons.Outlined.Terminal, "Open the terminal", { onViewChange(SessionView.Terminal) }, glass = glass, tint = c.text)
+            else GlassCircle(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.Chat, "Back to the feed", { onViewChange(SessionView.Feed) }, selected = true)
         }
-        // How full the context is (the model and effort sit in the message box); the tap
-        // opens the full picture.
-        if (state != null) {
-            val window = contextWindow(state.model)
-            val pct = if (window > 0) (state.lastContext * 100 / window).toInt() else -1
-            Chip(
-                if (pct >= 0) "$pct%" else modelShortName(state.model).ifBlank { "session" },
-                onClick = onStats,
-            )
-        } else {
-            if (canChanges) IconTarget(Icons.Outlined.Difference, "What changed", onChanges, tint = c.faint)
-            IconTarget(Icons.Outlined.Info, "Session details", onStats, tint = c.faint)
+        // The occasional things - a look at the desktop, a dev server, what changed - in one
+        // menu, so the header is back, the session and the terminal.
+        if (canPreview || canCapture || canChanges) {
+            Box {
+                IconTarget(androidx.compose.material.icons.Icons.Outlined.MoreHoriz, "More", { captureMenu = true }, glass = glass, tint = c.text)
+                androidx.compose.material3.DropdownMenu(
+                    expanded = captureMenu, onDismissRequest = { captureMenu = false },
+                    containerColor = c.raised,
+                    shape = PortholeShape.option,
+                ) {
+                    @Composable
+                    fun item(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) =
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(text, style = PortholeType.body, color = c.text) },
+                            leadingIcon = { Icon(icon, contentDescription = null, tint = c.muted) },
+                            onClick = { captureMenu = false; onClick() },
+                        )
+                    if (canCapture) item("Screenshot", androidx.compose.material.icons.Icons.Outlined.PhotoCamera) { onCapture(0) }
+                    if (canCapture && canRecord) {
+                        item("Record 5 seconds", androidx.compose.material.icons.Icons.Outlined.Videocam) { onCapture(5) }
+                        item("Record 10 seconds", androidx.compose.material.icons.Icons.Outlined.Videocam) { onCapture(10) }
+                    }
+                    if (canPreview) item("Open a dev server", androidx.compose.material.icons.Icons.Outlined.Language) { onPreview() }
+                    if (canChanges) item("What changed", Icons.Outlined.Difference) { onChanges() }
+                }
+            }
         }
     }
 }
@@ -733,6 +783,9 @@ private fun Feed(
     onAgents: () -> Unit = {},
     /** The changes sheet, for a turn's diff chip; null when the computer cannot show them. */
     onChanges: (() -> Unit)? = null,
+    /** The glass floating over the feed's top and bottom: its first and last rows stay clear of it. */
+    padTop: androidx.compose.ui.unit.Dp = 0.dp,
+    padBottom: androidx.compose.ui.unit.Dp = 0.dp,
     onOpen: (FeedRow) -> Unit,
 ) {
     val c = Porthole.colors
@@ -823,6 +876,18 @@ private fun Feed(
         }
     }
     LaunchedEffect(atEnd) { if (atEnd) pendingNew = 0 }
+    // The glass at the bottom grew or shrank (a question card, a longer draft): a reader at
+    // the end stays at the end, rather than under the glass. By the change in pixels, not by
+    // jumping to an item (a tall last message would land on its top), and not on the first
+    // layout (that would undo landing where the reader left off).
+    val densityNow = androidx.compose.ui.platform.LocalDensity.current
+    var lastPad by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(padBottom) {
+        val px = with(densityNow) { padBottom.toPx() }
+        val before = lastPad
+        lastPad = px
+        if (before != null && atEnd && items.isNotEmpty() && px != before) listState.scrollBy(px - before)
+    }
 
     // Ghost rows after 150ms without history: a fast link never sees them.
     var ghosts by remember { mutableStateOf(false) }
@@ -833,12 +898,12 @@ private fun Feed(
 
     Box(modifier.fillMaxWidth()) {
         when {
-            !loaded -> if (ghosts) GhostRows() else Box(Modifier.fillMaxSize())
-            rows.isEmpty() -> Centered("Nothing in this session yet.")
+            !loaded -> if (ghosts) Box(Modifier.padding(top = padTop)) { GhostRows() } else Box(Modifier.fillMaxSize())
+            rows.isEmpty() -> Box(Modifier.padding(top = padTop, bottom = padBottom)) { Centered("Nothing in this session yet.") }
             else -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp + padTop, bottom = 12.dp + padBottom),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (remaining > 0) item(key = "earlier") {
@@ -883,7 +948,7 @@ private fun Feed(
         // New rows arrived below a reader who scrolled up.
         androidx.compose.animation.AnimatedVisibility(
             pendingNew > 0,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp + padBottom),
             enter = androidx.compose.animation.fadeIn(spec(PortholeMotion.ENTER_MS)) +
                 androidx.compose.animation.slideInVertically(spec(PortholeMotion.ENTER_MS)) { it / 2 },
             exit = androidx.compose.animation.fadeOut(spec(PortholeMotion.EXIT_MS)),
@@ -1324,10 +1389,9 @@ private fun Composer(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .background(c.surface, RoundedCornerShape(22.dp))
-            .border(1.dp, c.edge, RoundedCornerShape(22.dp))
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp)
+            .glass(RoundedCornerShape(28.dp))
+            .padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(Modifier.fillMaxWidth().padding(end = 8.dp)) {
@@ -1374,8 +1438,8 @@ private fun Composer(
                 Box {
                     Box(
                         Modifier
-                            .size(36.dp)
-                            .background(c.raised, PortholeShape.pill)
+                            .size(40.dp)
+                            .background(Color.White.copy(alpha = if (c.isLight) 0.5f else 0.08f), PortholeShape.pill)
                             // A daemon that takes files gets a choice; an older one, the photo picker.
                             .clickable(enabled = enabled, role = Role.Button) { if (canAttachFiles) attachMenu = true else photo() },
                         contentAlignment = Alignment.Center,
@@ -1408,7 +1472,7 @@ private fun Composer(
                     modelLabel, style = PortholeType.meta, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .clip(PortholeShape.pill)
-                        .background(c.raised)
+                        .background(Color.White.copy(alpha = if (c.isLight) 0.5f else 0.08f))
                         .clickable(role = Role.Button, onClick = onModel)
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                         .semantics { contentDescription = "Model and effort: $modelLabel" },
@@ -1417,8 +1481,8 @@ private fun Composer(
             Spacer(Modifier.weight(1f))
             Box(
                 Modifier
-                    .size(40.dp)
-                    .background(if (ready) c.accent else c.raised, PortholeShape.pill)
+                    .size(42.dp)
+                    .then(if (ready) Modifier.bright(androidx.compose.foundation.shape.CircleShape) else Modifier.background(Color.White.copy(alpha = if (c.isLight) 0.5f else 0.08f), PortholeShape.pill))
                     .clickable(enabled = ready, role = Role.Button) { onSend() },
                 contentAlignment = Alignment.Center,
             ) {
@@ -1438,7 +1502,7 @@ private fun Composer(
  * option's digit, typed text (for "Type something"), Right to leave a multi-select
  * question, Enter on the review screen.
  */
-data class Answer(val option: Int = 0, val text: String = "", val advance: Boolean = false, val submit: Boolean = false)
+data class Answer(val option: Int = 0, val text: String = "", val advance: Boolean = false, val submit: Boolean = false, val expect: String = "")
 
 /**
  * A question as the transcript recorded it - which the CLI does only once it has been
@@ -1483,34 +1547,49 @@ private fun LiveQuestionCard(q: ScreenQuestion, onAnswer: (Answer) -> Unit, onTy
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp)
-            .background(c.raised, PortholeShape.card)
-            .border(1.dp, c.warn, PortholeShape.card)
-            .padding(14.dp),
+            .glass(PortholeShape.panel)
+            .warnEdge(PortholeShape.panel)
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Warn, like the approval card: the session needs the person (DESIGN §3, §8.4).
-        Text(
-            when {
-                q.review -> "Claude is asking you · review"
-                q.total > 1 -> "Claude is asking you · ${q.index} of ${q.total}"
-                else -> "Claude is asking you"
-            },
-            style = PortholeType.meta, color = c.warn,
-        )
-        if (q.header.isNotBlank() && !q.review) Text(q.header, style = PortholeType.rowTitle, color = c.text)
-        Text(q.text, style = PortholeType.body, color = c.text)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Ring(RingState.NeedsYou, size = 14.dp, strokeWidth = 2.dp, label = "needs you")
+            Text(
+                when {
+                    q.review -> "Claude is asking you · review"
+                    q.total > 1 -> "Claude is asking you · ${q.index} of ${q.total}"
+                    else -> "Claude is asking you"
+                },
+                style = PortholeType.secondary.copy(fontWeight = FontWeight.SemiBold), color = c.warn,
+            )
+        }
+        if (q.header.isNotBlank() && !q.review) Text(q.header, style = PortholeType.meta, color = c.muted)
+        Text(q.text, style = Porthole.type.title, color = c.text)
         q.options.forEach { o ->
-            Column(
+            Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(if (o.checked) c.accent.copy(alpha = 0.16f) else c.surface, PortholeShape.control)
-                    .border(1.dp, if (o.checked) c.accent else c.edge, PortholeShape.control)
-                    .clickable(role = Role.Button) { onAnswer(Answer(option = o.n)) }
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-                    .semantics { contentDescription = "Option ${o.n}: ${o.label}" + if (o.checked) ", selected" else "" },
+                    .heightIn(min = 56.dp)
+                    .clip(PortholeShape.option)
+                    .then(if (o.checked) Modifier.bright(PortholeShape.option, glow = false) else Modifier.background(Color.White.copy(alpha = if (c.isLight) 0.5f else 0.07f)))
+                    .clickable(role = Role.Button) { onAnswer(Answer(option = o.n, expect = q.text)) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .semantics(mergeDescendants = true) { contentDescription = "Option ${o.n}: ${o.label}" + if (o.checked) ", selected" else "" },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text((if (q.multi) (if (o.checked) "☑ " else "☐ ") else "${o.n}. ") + o.label, style = PortholeType.body, color = c.text)
-                if (o.description.isNotBlank() && o.description != o.label) Text(o.description, style = PortholeType.secondary, color = c.muted)
+                val on = if (o.checked) c.onAccent else c.text
+                Box(
+                    Modifier.size(26.dp).background(if (o.checked) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.10f), PortholeShape.pill),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (q.multi) (if (o.checked) "✓" else "") else "${o.n}", style = PortholeType.meta.copy(fontWeight = FontWeight.SemiBold), color = if (o.checked) c.onAccent else c.muted)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(o.label, style = PortholeType.body.copy(fontWeight = FontWeight.SemiBold), color = on)
+                    if (o.description.isNotBlank() && o.description != o.label) Text(o.description, style = PortholeType.secondary, color = if (o.checked) c.onAccent.copy(alpha = 0.7f) else c.muted)
+                }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1537,8 +1616,8 @@ private fun QuickReplies(replies: List<String>, onSend: (String) -> Unit, onEdit
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        replies.filter { it.isNotBlank() }.forEach { text -> Pill(text, filled = false) { onSend(text) } }
-        IconTarget(Icons.Outlined.Edit, "Edit the quick replies", onEdit, tint = c.faint)
+        replies.filter { it.isNotBlank() }.forEach { text -> GlassChip(text, onClick = { onSend(text) }) }
+        IconTarget(Icons.Outlined.Edit, "Edit the quick replies", onEdit, glass = true)
     }
 }
 
@@ -1578,9 +1657,9 @@ private fun AskingAtTheDesk(question: String, onTerminal: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
-            .background(c.surface, PortholeShape.card)
-            .border(1.dp, c.warn.copy(alpha = 0.5f), PortholeShape.card)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .glass(PortholeShape.panel)
+            .warnEdge(PortholeShape.panel)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text("Claude is asking", style = PortholeType.meta, color = c.warn)

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.shrimpscript.porthole.R
 
@@ -44,15 +45,17 @@ data class PortholeColors(
     val surface: Color = Color(0xFF141415),
     val raised: Color = Color(0xFF1E1E20),
     val edge: Color = Color(0xFF2B2B2E),
-    val text: Color = Color(0xFFECECEE),
+    val text: Color = Color(0xFFF2F2F4),
     val muted: Color = Color(0xFFA3A3A9),
-    val faint: Color = Color(0xFF878791),   // 4.6 on `raised`, AA
-    val accent: Color = Color(0xFF3FD4C0),
-    val warn: Color = Color(0xFFE8B84F),
-    val bad: Color = Color(0xFFF5726C),
-    val ok: Color = Color(0xFF5ED68F),
-    /** Text on a filled accent/warn/bad surface. Porthole: `ground` - white on bad is 2.62. */
-    val onAccent: Color = Color(0xFF04211D),
+    val faint: Color = Color(0xFF878791),   // 4.6 on `raised`, AA; never on glass (3.3 at worst)
+    /** Clear: the accent is white light. Colour on screen is only ever a state. */
+    val accent: Color = Color(0xFFF2F2F4),
+    /** Needs you: the one colour that asks. */
+    val warn: Color = Color(0xFFFFB340),
+    val bad: Color = Color(0xFFFF6159),
+    val ok: Color = Color(0xFF3DD68C),
+    /** Text on a filled accent/warn/bad surface: near-black, never white (white on bad is 2.6). */
+    val onAccent: Color = Color(0xFF0B0B0C),
     /** The deepest ground: the terminal pane and full-screen media viewers. */
     val deep: Color = Color(0xFF070708),
     /** True when the ground is light, so system bar icons and the terminal default go dark. */
@@ -222,13 +225,14 @@ private val Hanken = FontFamily(
     Font(R.font.hanken_grotesk_regular, FontWeight.Normal),
     Font(R.font.hanken_grotesk_medium, FontWeight.Medium),
     Font(R.font.hanken_grotesk_semibold, FontWeight.SemiBold),
+    Font(R.font.hanken_grotesk_bold, FontWeight.Bold),
 )
 
 /**
- * Schibsted Grotesk SemiBold stays as the logo face only: the wordmark on the splash, the
- * site and the ads is drawn from its outlines, so the app's wordmark keeps it too.
+ * The wordmark's face: Hanken Grotesk Bold, the UI face at its heaviest (DESIGN v3 §3). The
+ * splash's wordmark is drawn from the same outlines.
  */
-val PortholeLogoFace = FontFamily(Font(R.font.schibsted_grotesk_semibold, FontWeight.SemiBold))
+val PortholeLogoFace = FontFamily(Font(R.font.hanken_grotesk_bold, FontWeight.Bold))
 
 /**
  * Iosevka Term is the terminal's face (bundled in res/font, subset to the ranges a
@@ -238,6 +242,9 @@ val PortholeLogoFace = FontFamily(Font(R.font.schibsted_grotesk_semibold, FontWe
  * monospace.
  */
 val PortholeMono = FontFamily.Monospace
+
+/** Iosevka Term for Compose: the miniature terminals in the portholes and the hero's picture. */
+val PortholeTermFace = FontFamily(Font(R.font.iosevka_term_regular, FontWeight.Normal))
 
 /**
  * Source Serif 4 stands in for the Claude app's serif (Tiempos Text / Anthropic Serif,
@@ -291,20 +298,28 @@ class PortholeTypeSet(f: PortholeFonts) {
 
 /** The type scale. Nothing below 12sp, anywhere. */
 object PortholeType {
-    val display = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 34.sp)
-    val title = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp)
+    /** Screen titles - the computer's name - Bold and tight, as the reference sets its headlines. */
+    val display = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.025).em)
+    val title = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.01).em)
     val rowTitle = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 22.sp)
-    val body = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp)
-    val secondary = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp)
+    val body = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp)
+    val secondary = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 19.sp)
     val meta = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp)
     val mono = TextStyle(fontFamily = PortholeMono, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp)
 }
 
-/** Radius: 16 cards, 12 controls, 8 key caps (28 sheets, Material's own). Zero is reserved for the terminal pane. */
+/**
+ * Shape (DESIGN v3 §6): concentric with the phone's corners. Floating sheets 40 (8dp in from the
+ * edges), glass panels 26, cards 24, option rows 18, fields 16, key caps 12 on a capsule bar;
+ * buttons and inputs are capsules. Zero is reserved for the terminal pane.
+ */
 object PortholeShape {
-    val card = RoundedCornerShape(16.dp)
-    val control = RoundedCornerShape(12.dp)
-    val key = RoundedCornerShape(8.dp)
+    val sheet = RoundedCornerShape(40.dp)
+    val panel = RoundedCornerShape(26.dp)
+    val card = RoundedCornerShape(24.dp)
+    val option = RoundedCornerShape(18.dp)
+    val control = RoundedCornerShape(16.dp)
+    val key = RoundedCornerShape(12.dp)
     val pill = RoundedCornerShape(999.dp)
 }
 

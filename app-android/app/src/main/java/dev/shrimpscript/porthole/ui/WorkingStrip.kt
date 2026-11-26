@@ -73,7 +73,7 @@ fun WorkingStrip(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
-                .background(c.surface, PortholeShape.card)
+                .glass(PortholeShape.panel)
                 .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -118,8 +118,8 @@ fun LimitCard(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
-                .background(c.surface, PortholeShape.card)
-                .border(1.dp, c.warn, PortholeShape.card)
+                .glass(PortholeShape.panel)
+                .warnEdge(PortholeShape.panel)
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {

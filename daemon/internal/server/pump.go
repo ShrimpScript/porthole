@@ -92,6 +92,10 @@ type clientFrame struct {
 	Option    int    `json:"option"`  // session.answer: the 1-based option to press (0: none)
 	Advance   bool   `json:"advance"` // session.answer: Right, to leave a multi-select question for the next tab
 	Submit    bool   `json:"submit"`  // session.answer: Enter on the picker's review screen
+	// Expect is the question the phone drew its choices from (session.answer). When set, the
+	// press happens only if the picker on screen still asks exactly that: a list a few seconds
+	// old must not answer the question that replaced it. Older apps leave it empty.
+	Expect string `json:"expect"`
 	// Images attached to a prompt from the phone. Saved beside the daemon's state and
 	// named in the prompt, so Claude can Read them.
 	Attachments []promptImage `json:"attachments"`
@@ -318,7 +322,7 @@ func (s *Server) serveClient(ctx context.Context, w *writer, deviceName string, 
 			s.sendKey(ctx, w, f.SessionID, f.Key, deviceName)
 		case proto.TypeSessionAnswer:
 			// Off the read loop: it waits between presses for the picker to redraw.
-			go s.answer(ctx, w, f.SessionID, f.Option, f.Text, f.Advance, f.Submit, deviceName)
+			go s.answer(ctx, w, f.SessionID, f.Option, f.Text, f.Advance, f.Submit, f.Expect, deviceName)
 		case proto.TypeImageGet:
 			s.serveImage(ctx, w, f.SessionID, f.Ref)
 		case proto.TypeCaptureStill:
@@ -904,7 +908,7 @@ func (s *Server) clientReport(text, device string) {
 // waits for Enter. Text is for the "Type something" option: the digit opens the field,
 // the text is typed literally, Enter submits it. The phone sequences these per question;
 // the daemon presses exactly what it is told, in this order: option, text, Right, Enter.
-func (s *Server) answer(ctx context.Context, w *writer, id string, option int, text string, advance, submit bool, device string) {
+func (s *Server) answer(ctx context.Context, w *writer, id string, option int, text string, advance, submit bool, expect, device string) {
 	si, ok := s.findSession(id)
 	if !ok {
 		_ = w.send(ctx, proto.NewError("no_session", "that session is no longer here"))
@@ -931,6 +935,10 @@ func (s *Server) answer(ctx context.Context, w *writer, id string, option int, t
 	sq := parseQuestion(string(screen))
 	if sq == nil {
 		_ = w.send(ctx, proto.NewError("not_asking", "Claude is not asking anything right now"))
+		return
+	}
+	if !stillAsks(sq, expect) {
+		_ = w.send(ctx, proto.NewError("question_changed", "Claude is asking something else now: "+sq.Text))
 		return
 	}
 	if option > 0 {
@@ -985,6 +993,12 @@ func (s *Server) answer(ctx context.Context, w *writer, id string, option int, t
 		}
 	}
 	s.log.Info("question answered from the phone", "session", si.Title, "option", option, "typed", text != "", "advance", advance, "submit", submit, "from", device)
+}
+
+// stillAsks is whether the picker on screen is the question a phone answered from. An empty
+// expect (an older app, or the session's own live card) accepts whatever is on screen.
+func stillAsks(sq *ScreenQuestion, expect string) bool {
+	return expect == "" || (sq != nil && strings.TrimSpace(sq.Text) == strings.TrimSpace(expect))
 }
 
 func (s *Server) sendKey(ctx context.Context, w *writer, id, key, device string) {

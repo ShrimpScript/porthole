@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
@@ -92,8 +93,8 @@ fun TerminalBody(
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(c.surface)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .background(c.ground)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -172,15 +173,16 @@ private fun StripButton(label: String, accent: Boolean = false, onClick: () -> U
         Modifier
             .height(40.dp)
             .defaultMinSize(minWidth = 40.dp)
-            .background(c.raised, PortholeShape.key)
+            .clip(PortholeShape.pill)
+            .background(c.text.copy(alpha = if (accent) 0.18f else 0.07f))
             .clickable { onClick() }
             .semantics { if (accent) selected = true }
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // Labels in full text on the raised tile; "fit" when on is the accent's word, not
-        // a filled block, so the strip never outshouts the terminal under it.
-        Text(label, style = PortholeType.secondary, color = if (accent) c.accent else c.text)
+        // Labels in full text on a quiet capsule; "fit" when on is a brighter capsule and a
+        // heavier word, not a filled block, so the strip never outshouts the terminal under it.
+        Text(label, style = PortholeType.secondary.copy(fontWeight = if (accent) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal), color = c.text)
     }
 }
 

@@ -100,6 +100,9 @@ private const val TAILSCALE_PKG = "com.tailscale.ipn"
 private const val PREFS = "porthole"
 private const val SESSIONS_REFRESH_MS = 8_000L
 
+/** The splash porthole's glass radius in the 108-unit icon (tools/brand-vectors.py: 32/47 of a rim radius of 25). */
+private const val GLASS_UNITS = 17.02f
+
 /** Debug-only: an `am start -e sshPort N` extra points the failsafe at a stand-in SSH server. */
 private var sshDebugPort: Int = 0
 
@@ -164,7 +167,6 @@ private val themeAppearance = androidx.compose.runtime.mutableStateOf(Appearance
 
 @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 class MainActivity : ComponentActivity() {
-    private var launchAccent: Int = PortholeColors.Porthole.accent.toArgb()
 
     /**
      * Porthole is dark only; Claude and Gemini are light or dark by choice, or follow the
@@ -239,11 +241,20 @@ class MainActivity : ComponentActivity() {
             }
             val loc = IntArray(2).also { icon.getLocationInWindow(it) }
             // The system draws the 108-unit icon at 288dp, one and a half times the view
-            // it reports (measured: a 140px ring on a 504px view). The ring is radius 20,
-            // stroke 5, of those units.
+            // it reports (measured: a 140px ring on a 504px view). The porthole's rim and
+            // glass are drawn from the same vectors the splash is (tools/brand-vectors.py),
+            // at that size, so the opening's first frame is the splash's last.
             val unit = icon.width * 1.5f / 108f
             val cx = loc[0] + icon.width / 2f
             val cy = loc[1] + icon.height / 2f
+            val markPx = (108f * unit).toInt()
+            fun markBitmap(res: Int): android.graphics.Bitmap? = runCatching {
+                val d = androidx.core.content.ContextCompat.getDrawable(this, res) ?: return@runCatching null
+                val bmp = android.graphics.Bitmap.createBitmap(markPx, markPx, android.graphics.Bitmap.Config.ARGB_8888)
+                d.setBounds(0, 0, markPx, markPx)
+                d.draw(android.graphics.Canvas(bmp))
+                bmp
+            }.getOrNull()
             val ground = ApertureView.groundOf(view.view.background, PortholeColors.Porthole.ground.toArgb())
             // The wordmark the system placed: an ImageView beside the icon. Copied so it can fade.
             // The wordmark the system placed: a plain View with the branding drawable as
@@ -266,7 +277,8 @@ class MainActivity : ComponentActivity() {
                     bmp
                 }.getOrNull()
             }
-            val aperture = ApertureView(this, cx, cy, 20f * unit, 5f * unit, ground, PortholeColors.Porthole.accent.toArgb(), launchAccent, brandBitmap, brandBounds)
+            // The glass's radius in the 108-unit icon: 32 of the mark's 100, at a rim radius of 25.
+            val aperture = ApertureView(this, cx, cy, GLASS_UNITS * unit, markBitmap(R.drawable.ic_porthole_rim), markBitmap(R.drawable.ic_porthole_glass), ground, brandBitmap, brandBounds)
             // Swap once the aperture's first frame - its copy of the splash - is on
             // screen; hold for a beat while the app underneath settles (the porthole is
             // the view of it); then open. The opening draws on its own thread, so the
@@ -314,10 +326,9 @@ class MainActivity : ComponentActivity() {
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         val palette = paletteFor(themeChoice.value, themeAppearance.value, systemDark)
         // The system draws the starting window from the manifest theme before any of this
-        // runs, so the splash itself is always the Porthole ring on the Porthole ground.
+        // runs, so the splash itself is always the Porthole mark on the Porthole ground.
         // What the saved theme can still decide is the window it hands over to, and how:
         // on a Claude palette the splash fades out over the new ground instead of cutting.
-        launchAccent = palette.accent.toArgb()
         // The app's own night mode is what the system reads when it draws the splash, so
         // set it from the theme here (for the next launch) and whenever the theme changes.
         applyNightMode(themeChoice.value, themeAppearance.value)
@@ -1292,6 +1303,12 @@ private fun PortholeApp(
                     onNewSession = if ("start" in (daemon?.caps ?: emptyList())) ({ newNote = null; showNewSession = true }) else null,
                     onInbox = if (inbox != null) ({ vm.fleet.refreshInbox(); route = Route.Inbox }) else null,
                     inboxCount = inbox?.count ?: 0,
+                    // A single-choice question answered from the list: the daemon presses the
+                    // digit only if the picker is still on screen; the list catches up after.
+                    onAnswer = { s, n ->
+                        vm.fleet.clientFor(s).answer(s.id, n, expect = s.question?.text.orEmpty())
+                        scope.launch { delay(1500); vm.fleet.refreshAll() }
+                    },
                 )
                 }
 
@@ -1334,7 +1351,7 @@ private fun PortholeApp(
                             // A prompt is typed into the session's tmux window, so a session
                             // with no live terminal genuinely cannot receive one.
                             canSend = s.live && activeConn is Connection.Live,
-                            onAnswer = { a -> sc.answer(s.id, a.option, a.text, a.advance, a.submit) },
+                            onAnswer = { a -> sc.answer(s.id, a.option, a.text, a.advance, a.submit, a.expect) },
                             changes = changes?.takeIf { it.sessionId == s.id },
                             onChangesRefresh = { sc.getChanges(s.id) },
                             files = files?.takeIf { it.sessionId == s.id },

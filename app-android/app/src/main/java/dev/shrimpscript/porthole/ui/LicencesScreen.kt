@@ -52,7 +52,6 @@ internal data class Notice(
 /** Every font and library in the APK. THIRD_PARTY.md carries the same list. */
 internal val Notices = listOf(
     Notice("Hanken Grotesk", "Copyright 2021 The Hanken Grotesk Project Authors", "SIL Open Font License 1.1", "OFL-HankenGrotesk.txt"),
-    Notice("Schibsted Grotesk", "Copyright 2023 The Schibsted-Grotesk Project Authors", "SIL Open Font License 1.1", "OFL-SchibstedGrotesk.txt"),
     Notice("Iosevka Term", "Copyright 2015-2025, Renzhi Li (Belleve Invis)", "SIL Open Font License 1.1", "OFL-Iosevka.txt"),
     Notice(
         "Porthole Serif", "© 2014 - 2021 Adobe Systems Incorporated, with Reserved Font Name ‘Source’",
@@ -70,6 +69,7 @@ internal val Notices = listOf(
         note = "OkHttp carries the Public Suffix List (publicsuffix.org), under the Mozilla Public License 2.0: mozilla.org/MPL/2.0",
     ),
     Notice("sshj", "SSHJ Contributors", "Apache License 2.0", "Apache-2.0.txt", note = "With its ASN.1 library, asn-one."),
+    Notice("Haze", "Chris Banes", "Apache License 2.0", "Apache-2.0.txt", note = "The frosted glass under the floating controls."),
     Notice(
         "Supporting libraries", "Their respective authors", "Apache License 2.0", "Apache-2.0.txt",
         note = "Guava ListenableFuture, javax.inject, JSpecify, JetBrains annotations, Firebase components and " +

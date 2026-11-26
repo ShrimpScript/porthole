@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import dev.shrimpscript.porthole.ui.bright
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
@@ -109,9 +111,8 @@ fun KeyRow(
     Column(
         modifier
             .fillMaxWidth()
-            .background(c.surface)
+            .background(c.ground)
     ) {
-        Box(Modifier.fillMaxWidth().padding(top = 1.dp).background(c.edge).size(1.dp))
 
         Row(
             Modifier
@@ -184,26 +185,25 @@ private fun Cap(label: String, onClick: () -> Unit) {
         Modifier
             // 40dp wide x 44dp tall: 44dp is the app's minimum touch target.
             .heightIn(min = 44.dp)
-            .background(c.raised, PortholeShape.key)
-            .border(1.dp, c.edge, PortholeShape.key)
+            .clip(PortholeShape.pill)
+            .background(c.text.copy(alpha = if (c.isLight) 0.10f else 0.08f))
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = PortholeType.mono, color = c.text, maxLines = 1)
+        Text(label, style = PortholeType.secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = c.text, maxLines = 1)
     }
 }
 
 @Composable
 private fun ModCap(label: String, state: ModState, onClick: () -> Unit) {
     val c = Porthole.colors
-    val bg = if (state == ModState.Off) c.raised else c.accent
     val fg = if (state == ModState.Off) c.text else c.onAccent
     Box(
         Modifier
             .heightIn(min = 44.dp)
-            .background(bg, PortholeShape.key)
-            .border(1.dp, if (state == ModState.Off) c.edge else c.accent, PortholeShape.key)
+            // An armed or locked modifier is the bright capsule: it changes the next key.
+            .then(if (state == ModState.Off) Modifier.clip(PortholeShape.pill).background(c.text.copy(alpha = if (c.isLight) 0.10f else 0.08f)) else Modifier.bright(PortholeShape.pill, glow = false))
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,

@@ -195,9 +195,8 @@ private fun InboxCard(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
-            .background(c.raised, PortholeShape.card)
-            .then(if (pending != null) Modifier.border(1.dp, c.accent, PortholeShape.card) else Modifier)
-            .padding(14.dp),
+            .background(c.surface, PortholeShape.card)
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
@@ -222,7 +221,7 @@ private fun InboxCard(
                 // link in the footer. The footer keeps one action: putting the question aside.
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item.options.forEach { o -> Choice(o, suggested = o == item.suggested) { onPick(o) } }
-                    if (item.options.isEmpty() && item.suggested.isNotBlank()) Choice("Use the suggestion", suggested = true) { onPick(item.suggested) }
+                    if (item.options.isEmpty() && item.suggested.isNotBlank()) Choice("Use the suggestion", suggested = false) { onPick(item.suggested) }
                     Choice(
                         if (item.options.isEmpty() && item.suggested.isBlank()) "Write an answer" else "Something else",
                         suggested = false, write = true,
@@ -248,23 +247,25 @@ private fun InboxCard(
 @Composable
 private fun Choice(text: String, suggested: Boolean, write: Boolean = false, onClick: () -> Unit) {
     val c = Porthole.colors
+    // Every choice is the same filled capsule: an outline reads as "selected" when nothing is.
+    // The note's suggestion says so in words.
+    val label = androidx.compose.ui.text.buildAnnotatedString {
+        append(text)
+        if (suggested) {
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = c.muted))
+            append(" · suggested")
+            pop()
+        }
+    }
     Text(
-        text,
+        label,
         style = PortholeType.body, color = if (write) c.muted else c.text,
         modifier = Modifier
-            .clip(PortholeShape.control)
-            .background(c.surface)
-            // Light palettes put surface and raised a shade apart, so plain chips keep an edge there.
-            .then(
-                when {
-                    suggested -> Modifier.border(1.dp, c.accent.copy(alpha = 0.6f), PortholeShape.control)
-                    c.isLight -> Modifier.border(1.dp, c.edge, PortholeShape.control)
-                    else -> Modifier
-                }
-            )
+            .clip(PortholeShape.pill)
+            .background(c.text.copy(alpha = if (c.isLight) 0.08f else 0.09f))
             .clickable(role = Role.Button, onClick = onClick)
             .defaultMinSize(minHeight = 44.dp)
-            .padding(horizontal = 14.dp, vertical = 11.dp)
+            .padding(horizontal = 16.dp, vertical = 11.dp)
             .semantics { contentDescription = if (write) text else "Answer: $text" + if (suggested) ", suggested" else "" },
     )
 }
@@ -288,11 +289,11 @@ private fun PendingRow(p: PendingAnswer, left: Float, onUndo: () -> Unit) {
     val c = Porthole.colors
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Answering: ${p.text}", style = PortholeType.body, color = c.accent, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text("Answering: ${p.text}", style = PortholeType.body, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Pill("Undo", filled = false, onClick = onUndo)
         }
-        Box(Modifier.fillMaxWidth().height(2.dp).background(c.edge)) {
-            Box(Modifier.fillMaxWidth(left).fillMaxHeight().background(c.accent))
+        Box(Modifier.fillMaxWidth().height(4.dp).background(c.text.copy(alpha = 0.10f), PortholeShape.pill)) {
+            Box(Modifier.fillMaxWidth(left).fillMaxHeight().background(c.text, PortholeShape.pill))
         }
     }
 }
@@ -305,9 +306,8 @@ private fun ReplyBox(value: String, onChange: (String) -> Unit, onSend: () -> Un
             Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 48.dp)
-                .background(c.surface, PortholeShape.control)
-                .border(1.dp, c.edge, PortholeShape.control)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .background(c.raised, PortholeShape.control)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             if (value.isEmpty()) Text("Your answer", style = PortholeType.body, color = c.faint)
             BasicTextField(

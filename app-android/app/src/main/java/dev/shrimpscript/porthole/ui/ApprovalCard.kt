@@ -72,8 +72,9 @@ fun ApprovalOverlay(
             .background(Porthole.colors.scrim),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        Appear(Modifier.padding(16.dp)) {
-            ApprovalCardBody(approval, remaining, onAllow, onDeny)
+        // A sheet set 8dp in from the screen's edges, its corners concentric with the phone's.
+        Appear(Modifier.padding(8.dp)) {
+            ApprovalCardBody(approval, remaining, onAllow, onDeny, total = approval.expiresInSeconds)
         }
     }
 }
@@ -86,15 +87,17 @@ fun ApprovalCardBody(
     onAllow: (() -> Unit)?,
     onDeny: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** The whole wait, for the bar that drains; 0 draws no bar. */
+    total: Int = 0,
 ) {
     val c = Porthole.colors
     Column(
         modifier
             .fillMaxWidth()
-            .background(c.surface, PortholeShape.card)
-            .border(1.dp, c.warn, PortholeShape.card)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .glass(PortholeShape.sheet)
+            .warnEdge(PortholeShape.sheet)
+            .padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Icon(
@@ -108,7 +111,7 @@ fun ApprovalCardBody(
                     "Edit" -> "Claude wants to edit a file"
                     else -> "Claude wants to use ${approval.toolName}"
                 },
-                style = PortholeType.rowTitle, color = c.text,
+                style = Porthole.type.title, color = c.text,
             )
         }
 
@@ -116,9 +119,8 @@ fun ApprovalCardBody(
             Modifier
                 .fillMaxWidth()
                 .heightIn(max = 220.dp)
-                .background(c.ground, PortholeShape.control)
-                .border(1.dp, c.edge, PortholeShape.control)
-                .padding(12.dp)
+                .background(c.deep.copy(alpha = 0.85f), PortholeShape.option)
+                .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
             Text(
@@ -132,17 +134,31 @@ fun ApprovalCardBody(
             }
         }
 
-        Text(
-            if (remaining > 0) "Waiting · ${remaining}s left"
-            else "Timed out — answer at the computer",
-            style = PortholeType.secondary,
-            color = if (remaining > 0) c.muted else c.faint,
-        )
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                if (remaining > 0) "Waiting for you" else "Timed out — answer at the computer",
+                style = PortholeType.secondary, color = c.muted, modifier = Modifier.weight(1f),
+            )
+            if (remaining > 0) Text("${remaining}s left", style = PortholeType.secondary, color = c.text)
+        }
+        // The wait, draining: the same amber as the edge, so the card reads as one call.
+        if (total > 0 && remaining > 0) {
+            Box(Modifier.fillMaxWidth().height(6.dp).background(c.text.copy(alpha = 0.08f), PortholeShape.pill)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth((remaining.toFloat() / total).coerceIn(0f, 1f))
+                        .height(6.dp)
+                        .background(c.warn, PortholeShape.pill),
+                )
+            }
+        }
 
         if (onAllow != null && onDeny != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                GhostButton("Deny", onDeny, Modifier.weight(1f))
-                PrimaryButton("Allow", onAllow, Modifier.weight(1f), enabled = remaining > 0)
+            // Two equal answers: neither is louder than the command, and neither is a default
+            // (DESIGN §8.4). The words tell them apart.
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GhostButton("Deny", onDeny, Modifier.weight(1f), glass = true)
+                GhostButton(if (remaining > 0) "Allow" else "Allow (timed out)", { if (remaining > 0) onAllow() }, Modifier.weight(1f), glass = true)
             }
         }
     }

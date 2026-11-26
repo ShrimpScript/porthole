@@ -237,9 +237,26 @@ fun parseSessionList(arr: org.json.JSONArray): List<SessionInfo> = buildList {
                 agents = s.optInt("agents"),
                 tmuxName = s.optString("tmux"),
                 pane = s.optString("pane"),
+                question = s.optJSONObject("question")?.let(::parseScreenQuestion),
+                peek = s.optJSONArray("peek")?.let { a -> List(a.length()) { a.optString(it) } }.orEmpty(),
             )
         )
     }
+}
+
+/** The CLI's question picker as the daemon read it off the pane. */
+fun parseScreenQuestion(q: JSONObject): ScreenQuestion {
+    val opts = q.optJSONArray("options")
+    return ScreenQuestion(
+        header = q.optString("header"), text = q.optString("text"), multi = q.optBoolean("multi"),
+        typed = q.optInt("typed"), review = q.optBoolean("review"), index = q.optInt("index"), total = q.optInt("total"),
+        options = buildList {
+            for (j in 0 until (opts?.length() ?: 0)) {
+                val o = opts!!.getJSONObject(j)
+                add(ScreenOption(o.optInt("n"), o.optString("label"), o.optString("description"), o.optBoolean("checked")))
+            }
+        },
+    )
 }
 
 /** A row the phone made itself (a screen capture or a clip): not in the transcript. */
@@ -487,6 +504,10 @@ data class SessionInfo(
     val machineDown: Boolean = false,
     /** The socket's state as a word while [machineDown]: connecting, reconnecting, refused, not connected. */
     val machineState: String = "",
+    /** The question picker on its screen at the last scan, with its choices: answerable from the list. */
+    val question: ScreenQuestion? = null,
+    /** The bottom of its terminal at the last scan, a few lines, drawn small in its porthole. */
+    val peek: List<String> = emptyList(),
 ) {
     /** Belongs under Needs you: a question on screen, or anything else Claude Code is stopped on the person for. */
     val needsYou: Boolean get() = asking.isNotBlank() || waiting
@@ -1048,9 +1069,11 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
      * Pick an option of the question Claude is asking: the daemon presses that number in
      * the CLI's picker. [text] goes with the "Type something" option: typed, then Enter.
      */
-    fun answer(sessionId: String, option: Int, text: String = "", advance: Boolean = false, submit: Boolean = false) {
+    fun answer(sessionId: String, option: Int, text: String = "", advance: Boolean = false, submit: Boolean = false, expect: String = "") {
+        // [expect] is the question the choices were drawn from: the computer presses nothing
+        // unless its screen still asks exactly that (a newer daemon; an older one ignores it).
         send(JSONObject().put("type", "session.answer").put("session_id", sessionId).put("option", option).put("text", text)
-            .put("advance", advance).put("submit", submit).toString())
+            .put("advance", advance).put("submit", submit).apply { if (expect.isNotBlank()) put("expect", expect) }.toString())
     }
 
     fun sendKey(sessionId: String, key: String) {
@@ -1674,19 +1697,7 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
                         limitStopped = obj.optBoolean("limit_stopped"),
                         effort = obj.optString("effort"),
                         effortDefault = obj.optString("effort_default"),
-                        question = obj.optJSONObject("question")?.let { q ->
-                            val opts = q.optJSONArray("options")
-                            ScreenQuestion(
-                                header = q.optString("header"), text = q.optString("text"), multi = q.optBoolean("multi"),
-                                typed = q.optInt("typed"), review = q.optBoolean("review"), index = q.optInt("index"), total = q.optInt("total"),
-                                options = buildList {
-                                    for (j in 0 until (opts?.length() ?: 0)) {
-                                        val o = opts!!.getJSONObject(j)
-                                        add(ScreenOption(o.optInt("n"), o.optString("label"), o.optString("description"), o.optBoolean("checked")))
-                                    }
-                                },
-                            )
-                        },
+                        question = obj.optJSONObject("question")?.let(::parseScreenQuestion),
                     )
                 }
                 "pty.data" -> {

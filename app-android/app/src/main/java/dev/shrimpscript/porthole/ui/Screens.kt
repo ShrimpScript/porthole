@@ -91,11 +91,12 @@ fun ConnectScreen(
     if (result != null) {
         Appear {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // One fact, one colour: the ring is the state, the words stay in text.
                 Ring(state = if (reachable) RingState.Live else RingState.Dropped, size = 16.dp)
                 Text(
                     result,
                     style = PortholeType.secondary,
-                    color = if (reachable) Porthole.colors.ok else Porthole.colors.bad,
+                    color = if (reachable) Porthole.colors.text else Porthole.colors.bad,
                 )
             }
         }
@@ -222,84 +223,103 @@ fun SessionsScreen(
     onInbox: (() -> Unit)? = null,
     /** Questions waiting in the inbox, for the count on its button. */
     inboxCount: Int = 0,
+    /** Press option [Int] of the question on that session's screen; null where the list cannot answer. */
+    onAnswer: ((SessionInfo, Int) -> Unit)? = null,
 ) = Screen {
     val c = Porthole.colors
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Ring(state = ring, size = 20.dp)
-            Column(Modifier.weight(1f)) {
-                Text(machine, style = PortholeType.title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    "${sessions.size} session${if (sessions.size == 1) "" else "s"} · ${computers.ifBlank { ring.label }}",
-                    style = PortholeType.meta, color = c.faint,
-                )
-            }
-            if (onInbox != null) InboxButton(inboxCount, onInbox)
-            if (onNewSession != null) IconTarget(Icons.Outlined.Add, "New session", onNewSession)
-            IconTarget(Icons.Outlined.Refresh, "Refresh sessions", onRefresh)
-            IconTarget(Icons.Outlined.Settings, "Settings", onSettings)
-        }
-        androidx.compose.animation.AnimatedVisibility(
-            visible = reconnecting != null,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(),
-        ) {
-            var line by remember { androidx.compose.runtime.mutableStateOf("") }
-            if (reconnecting != null) line = reconnecting
-            ReconnectBar(line, onOptions = onConnectionOptions)
-        }
-        if (update != null) {
-            Appear { UpdateBanner(update, updateProgress, updateNote, onUpdate, onDismissUpdate) }
-        }
-        // One clock for every working row; it ticks only while something is working.
-        val anyWorking = sessions.any { it.working && it.workingSince > 0 }
-        var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-        LaunchedEffect(anyWorking) {
-            while (anyWorking) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) }
-        }
-        if (sessions.isEmpty()) {
-            EmptySessions()
-        } else {
-            // Sessions waiting on the person come first: away from the desk, the list's
-            // job is triage. Then working sessions, then the rest.
-            // Keys must be unique or the lazy list throws. The daemon promises one row per
-            // session now; this keeps an older one from being able to close the app.
-            val sessions = sessions.distinctBy { it.machineId + "/" + it.id }
-            // One of several computers the phone cannot reach right now: its rows, as last
-            // seen, apart. With one computer the rows keep their places, each as last seen,
-            // so a drop does not reshuffle the list.
-            fun apart(s: SessionInfo) = s.machineDown && s.machine.isNotBlank()
-            val needs = sessions.filter { it.live && it.needsYou && !apart(it) }
-            val live = sessions.filter { (it.live || it.tmux) && it !in needs && !apart(it) }.sortedWith(compareByDescending<SessionInfo> { it.working }.thenByDescending { it.live })
-            val idle = sessions.filter { !it.live && !it.tmux && !apart(it) }
-            val down = sessions.filter { apart(it) }.groupBy { it.machineId }
-            LazyColumn(Modifier.fillMaxSize()) {
-                if (needs.isNotEmpty()) item { SectionLabel("Needs you") }
-                itemsIndexed(needs, key = { _, s -> s.machineId + "/" + s.id }) { i, s ->
-                    Appear(delayMs = minOf(i, 5) * PortholeMotion.STAGGER_MS) { SessionRow(s, now) { onSession(s) } }
-                }
-                if (live.isNotEmpty()) item { SectionLabel("Live") }
-                itemsIndexed(live, key = { _, s -> s.machineId + "/" + s.id }) { i, s ->
-                    Appear(delayMs = minOf(i, 5) * PortholeMotion.STAGGER_MS) { SessionRow(s, now, unseen = !s.working && seen[s.id]?.let { it != s.lastActive } ?: false) { onSession(s) } }
-                }
-                if (idle.isNotEmpty()) item { SectionLabel("Recent") }
-                itemsIndexed(idle, key = { _, s -> s.machineId + "/" + s.id }) { i, s ->
-                    Appear(delayMs = minOf(i, 5) * PortholeMotion.STAGGER_MS) { SessionRow(s, now, unseen = seen[s.id]?.let { it != s.lastActive } ?: false) { onSession(s) } }
-                }
-                down.forEach { (machineId, rows) ->
-                    val first = rows.first()
-                    item(key = "down-$machineId") { SectionLabel("${first.machine} · ${first.machineState.ifBlank { "unreachable" }}") }
-                    itemsIndexed(rows, key = { _, s -> machineId + "/" + s.id }) { i, s ->
-                        Appear(delayMs = minOf(i, 5) * PortholeMotion.STAGGER_MS) { SessionRow(s, now) { onSession(s) } }
+    // One clock for every working row; it ticks only while something is working.
+    val anyWorking = sessions.any { it.working && it.workingSince > 0 }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(anyWorking) {
+        while (anyWorking) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) }
+    }
+    // Keys must be unique or the lazy list throws. The daemon promises one row per session
+    // now; this keeps an older one from being able to close the app.
+    val rows = sessions.distinctBy { it.machineId + "/" + it.id }
+    // One of several computers the phone cannot reach right now: its rows, as last seen,
+    // apart. With one computer the rows keep their places, each as last seen, so a drop
+    // does not reshuffle the list.
+    fun apart(s: SessionInfo) = s.machineDown && s.machine.isNotBlank()
+    // Away from the desk the list's job is triage: what needs you leads, then what works.
+    // The longest-waiting leads, so the hero does not change places under a finger when a
+    // second session starts waiting.
+    val needs = rows.filter { it.live && it.needsYou && !apart(it) }.sortedBy { if (it.workingSince > 0) it.workingSince else Long.MAX_VALUE }
+    val hero = needs.firstOrNull()
+    val restNeeds = needs.drop(1)
+    val live = rows.filter { (it.live || it.tmux) && it !in needs && !apart(it) }.sortedWith(compareByDescending<SessionInfo> { it.working }.thenByDescending { it.live })
+    val idle = rows.filter { !it.live && !it.tmux && !apart(it) }
+    val down = rows.filter { apart(it) }.groupBy { it.machineId }
+    val subtitle = "${rows.size} session${if (rows.size == 1) "" else "s"} · ${computers.ifBlank { ring.label }}"
+    GlassHost {
+        Box(Modifier.fillMaxSize()) {
+            GlassSource(Modifier.fillMaxSize()) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = if (onNewSession != null || onInbox != null) 96.dp else 16.dp),
+            ) {
+                item(key = "head") {
+                    val header: @Composable () -> Unit = {
+                        SessionsHeader(machine, ring, subtitle, onRefresh, onSettings, overContent = hero != null)
+                    }
+                    if (hero != null) {
+                        NeedsYouHero(
+                            hero, header,
+                            onOpen = { onSession(hero) },
+                            onAnswer = onAnswer?.let { f -> { n: Int -> f(hero, n) } },
+                        )
+                    } else {
+                        header()
                     }
                 }
+                item(key = "bars") {
+                    Column {
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = reconnecting != null,
+                            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(),
+                        ) {
+                            var line by remember { androidx.compose.runtime.mutableStateOf("") }
+                            if (reconnecting != null) line = reconnecting
+                            ReconnectBar(line, onOptions = onConnectionOptions)
+                        }
+                        if (update != null) {
+                            Appear { UpdateBanner(update, updateProgress, updateNote, onUpdate, onDismissUpdate) }
+                        }
+                    }
+                }
+                if (rows.isEmpty()) {
+                    item(key = "empty") { EmptySessions() }
+                }
+                fun group(key: String, label: String, list: List<SessionInfo>, unseenOf: (SessionInfo) -> Boolean) {
+                    if (list.isEmpty()) return
+                    item(key = "label-$key") { SectionLabel(label) }
+                    item(key = "group-$key") {
+                        Appear {
+                            RowGroup {
+                                list.forEachIndexed { i, s ->
+                                    SessionRow(s, now, unseen = unseenOf(s), first = i == 0) { onSession(s) }
+                                }
+                            }
+                        }
+                    }
+                }
+                group("needs", "Also needs you", restNeeds) { false }
+                group("live", "Live", live) { s -> !s.working && seen[s.id]?.let { it != s.lastActive } ?: false }
+                group("recent", "Recent", idle) { s -> seen[s.id]?.let { it != s.lastActive } ?: false }
+                down.forEach { (machineId, list) ->
+                    val first = list.first()
+                    group("down-$machineId", "${first.machine} · ${first.machineState.ifBlank { "unreachable" }}", list) { false }
+                }
             }
+            }
+            if (onNewSession != null || onInbox != null) Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(36.dp)
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to androidx.compose.ui.graphics.Color.Transparent, 1f to c.ground.copy(alpha = 0.92f))),
+            )
+            SessionsDock(onNewSession, onInbox, inboxCount, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
@@ -357,38 +377,11 @@ internal fun UpdateBanner(update: BuildInfo, progress: Float?, note: String?, on
     }
 }
 
-/** The inbox, with how many questions wait in it. */
-@Composable
-private fun InboxButton(count: Int, onClick: () -> Unit) {
-    val c = Porthole.colors
-    Box(contentAlignment = Alignment.Center) {
-        IconTarget(
-            Icons.Outlined.Inbox,
-            if (count > 0) "Inbox, $count waiting on you" else "Inbox",
-            onClick,
-            tint = if (count > 0) c.text else c.muted,
-        )
-        if (count > 0) {
-            Text(
-                if (count > 99) "99+" else "$count",
-                style = PortholeType.meta, color = c.onAccent,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 4.dp)
-                    .clip(PortholeShape.pill)
-                    .background(c.accent)
-                    .padding(horizontal = 5.dp)
-                    .clearAndSetSemantics {},
-            )
-        }
-    }
-}
-
 @Composable
 private fun SectionLabel(text: String) {
     Text(
-        text, style = PortholeType.secondary, color = Porthole.colors.muted,
-        modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 4.dp),
+        text, style = PortholeType.secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Porthole.colors.muted,
+        modifier = Modifier.padding(start = 22.dp, top = 22.dp, bottom = 8.dp),
     )
 }
 
@@ -401,29 +394,26 @@ fun elapsedLabel(ms: Long): String {
 }
 
 @Composable
-private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, onClick: () -> Unit) {
+private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, first: Boolean = true, onClick: () -> Unit) {
     val c = Porthole.colors
     val interaction = remember { MutableInteractionSource() }
-    Column(
+    Box(
         Modifier
             .fillMaxWidth()
             .pressScale(interaction)
             .clickable(interactionSource = interaction, indication = null) { onClick() }
     ) {
+        // A short rule between rows, from the text's edge: the card holds the group.
+        if (!first) Box(Modifier.padding(start = 82.dp, end = 16.dp).fillMaxWidth().height(0.5.dp).background(c.edge))
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // The only ring that spins on this screen is a session that is working.
-            Ring(
-                // As last seen, nothing spins: whether it is still working is not known.
-                state = when { s.machineDown -> RingState.Idle; s.needsYou -> RingState.NeedsYou; s.working -> RingState.Connecting; s.live -> RingState.Live; else -> RingState.Idle }, size = 18.dp,
-                label = when { s.asking.isNotBlank() -> "asking you"; s.waiting -> "waiting for you"; s.working -> "working"; s.live -> "live"; else -> "idle" },
-                modifier = Modifier.padding(top = 2.dp).sharedAcrossRoutes("ring-${s.id}"),
-            )
+            // The session through its porthole, with its state ring round it.
+            SessionPorthole(s, size = 46.dp, sharedKey = "ring-${s.id}")
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -437,9 +427,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                     // Finished since you last opened it: a mark, not a badge with a number.
                     if (unseen) Box(Modifier.size(7.dp).background(c.accent, PortholeShape.pill).semantics { contentDescription = "new since you looked" })
                 }
-                // What the session wants, as a chip with its detail beside it. A row that is
-                // only live or idle has no state line: the ring already says so, and the row
-                // that needs you stays the tallest thing on the list.
+                // What it wants or is doing: the chip carries the state, the line its detail.
                 val chip: String? = when {
                     s.machineDown -> "As last seen"
                     s.asking.isNotBlank() -> "Asking you"
@@ -459,7 +447,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                         else -> "Claude not running"
                     }
                     Row(
-                        Modifier.padding(top = 4.dp, bottom = 2.dp),
+                        Modifier.padding(top = 3.dp, bottom = 1.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -477,26 +465,19 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                         )
                     }
                 }
-                // The tmux session is the handle the person has for "which terminal": with two
-                // sessions in one directory it is the only thing on the row that tells them apart.
-                val details = listOfNotNull(
+                // Which terminal and which computer: with two sessions in one directory the
+                // tmux name is the only thing on the row that tells them apart.
+                val where = listOfNotNull(
                     if (s.agents > 0) (if (s.agents == 1) "1 agent" else "${s.agents} agents") else null,
                     s.machine.ifBlank { null },
                     s.branch.ifBlank { null },
                     if (s.tmuxName.isNotBlank() && (s.live || s.tmux)) "tmux ${s.tmuxName}" else null,
                     modelShortName(s.model).ifBlank { null },
                 ).joinToString(" · ")
-                if (details.isNotBlank()) Text(details, style = PortholeType.meta, color = c.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (where.isNotBlank()) Text(where, style = PortholeType.meta, color = c.faint, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             }
             Text(relativeTime(s.lastActive), style = PortholeType.meta, color = c.faint)
         }
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = 46.dp)
-                .height(1.dp)
-                .background(c.edge)
-        )
     }
 }
 

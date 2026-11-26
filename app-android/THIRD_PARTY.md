@@ -10,8 +10,7 @@ All under the SIL Open Font License 1.1.
 
 | Face | Use | Copyright | Licence text |
 |---|---|---|---|
-| Hanken Grotesk | UI (Regular, Medium and SemiBold instanced, Latin subset) | Copyright 2021 The Hanken Grotesk Project Authors | `OFL-HankenGrotesk.txt` |
-| Schibsted Grotesk | the wordmark (SemiBold only) | Copyright 2023 The Schibsted-Grotesk Project Authors | `OFL-SchibstedGrotesk.txt` |
+| Hanken Grotesk | UI and the wordmark (Regular, Medium, SemiBold and Bold, Latin subset) | Copyright 2021 The Hanken Grotesk Project Authors | `OFL-HankenGrotesk.txt` |
 | Iosevka Term | terminal (subset to the ranges a terminal needs) | Copyright 2015-2025, Renzhi Li (Belleve Invis) | `OFL-Iosevka.txt` |
 | Porthole Serif | the Claude theme's prose and display lines | © 2014 - 2021 Adobe Systems Incorporated, with Reserved Font Name 'Source' | `OFL-SourceSerif4.txt` |
 | Google Sans Flex | the Gemini theme's prose and display lines (Regular and SemiBold instanced at opsz 16, Latin subset) | Copyright 2015 The Google Sans Flex Authors | `OFL-GoogleSansFlex.txt` |
@@ -28,6 +27,7 @@ tables. The resource files keep their `source_serif4_*.ttf` names.
 | AndroidX and Jetpack Compose, including Glance, Browser, Core SplashScreen and the Material icons | Apache 2.0 | `Apache-2.0.txt` |
 | Kotlin standard library and kotlinx.coroutines | Apache 2.0 | `Apache-2.0.txt` |
 | OkHttp and Okio (Square) | Apache 2.0 | `Apache-2.0.txt` |
+| Haze (Chris Banes): the frosted glass under the floating controls | Apache 2.0 | `Apache-2.0.txt` |
 | sshj and asn-one (Hierynomus) | Apache 2.0 | `Apache-2.0.txt` |
 | Guava ListenableFuture, javax.inject, JSpecify, JetBrains annotations, Firebase components and encoders, Google Data Transport (transitive) | Apache 2.0 | `Apache-2.0.txt` |
 | Bouncy Castle: bcprov, bcpkix, bcutil | Bouncy Castle Licence (MIT) | `BouncyCastle.txt` |
