@@ -251,7 +251,7 @@ fun NeedsYouHero(
                     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp)) {
                         val since = if (s.workingSince > 0 && now > 0) " · " + relativeShort(now - s.workingSince) else ""
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Ring(RingState.NeedsYou, size = 14.dp, strokeWidth = 2.dp, label = s.ringLabel())
+                            Ring(RingState.NeedsYou, size = 14.dp, strokeWidth = 2.dp, label = s.ringLabel(), modifier = Modifier.apertureSource(s.id))
                             Text(
                                 (if (s.asking.isNotBlank()) "Asking you" else "Waiting for you") + since,
                                 style = PortholeType.secondary.copy(fontWeight = FontWeight.SemiBold), color = c.warn,

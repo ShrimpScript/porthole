@@ -69,6 +69,9 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -303,6 +306,8 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
             // feed runs the full height and keeps its first and last rows clear of them.
             var topPad by remember { mutableStateOf(0.dp) }
             var bottomPad by remember { mutableStateOf(0.dp) }
+            // Reading back through the feed: the header lets its second line go (DESIGN v3 §7d).
+            var reading by remember(sharedKey) { mutableStateOf(false) }
             val density = androidx.compose.ui.platform.LocalDensity.current
             Box(Modifier.fillMaxSize().imePadding()) {
                 // Full screen is the terminal's alone: the header and the Feed/Terminal
@@ -326,6 +331,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             onOpenImage = { viewImage = it }, onOpenClip = { viewClip = it },
                             agents = agents, onAgents = { showAgents = true },
                             padTop = topPad, padBottom = bottomPad,
+                            onReading = { reading = it },
                         ) { detail = it }
                         }
                         Box(
@@ -480,7 +486,14 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 Chip("Answering: ${screenQ.text.take(40)}  ✕") { answering = false }
                             }
                         }
+                        val spot = LocalComposerSpot.current
+                        DisposableEffect(spot, sharedKey) {
+                            onDispose { if (spot != null && spot.sessionId == sharedKey) { spot.rect = null; spot.sessionId = null } }
+                        }
                         Composer(
+                            spot = if (spot != null && sharedKey.isNotBlank()) Modifier.onGloballyPositioned {
+                                spot.sessionId = sharedKey; spot.rect = it.boundsInRoot()
+                            } else Modifier,
                             value = draft,
                             onValueChange = { draft = it },
                             placeholder = if (answering) "Your answer" else "Message, or / for commands",
@@ -584,7 +597,8 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                         .fillMaxWidth()
                         .onSizeChanged { topPad = with(density) { it.height.toDp() } },
                 ) {
-                if (!fullTerm) SessionHeader(title, branch, ring, onBack, compact = landscape, glass = view == SessionView.Feed, state = state, sharedKey = sharedKey,
+                if (!fullTerm) SessionHeader(title, branch, ring, onBack, compact = landscape, slim = reading && view == SessionView.Feed,
+                    glass = view == SessionView.Feed, state = state, sharedKey = sharedKey,
                     canCapture = "capture" in caps, canRecord = "record" in caps,
                     onCapture = { if (it >= 0) onCapture(it) },
                     canPreview = "preview" in caps, onPreview = { showPreview = true },
@@ -647,6 +661,8 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
 @Composable
 private fun SessionHeader(
     title: String, branch: String, ring: RingState, onBack: () -> Unit, compact: Boolean,
+    /** Reading back through the feed: the branch line folds away and the title settles to the middle. */
+    slim: Boolean = false,
     state: SessionState?, sharedKey: String = "", canCapture: Boolean = false, canRecord: Boolean = false,
     onCapture: (Int) -> Unit = {}, canPreview: Boolean = false, onPreview: () -> Unit = {},
     canChanges: Boolean = false, onChanges: () -> Unit = {},
@@ -690,7 +706,14 @@ private fun SessionHeader(
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = if (sharedKey.isNotBlank()) Modifier.sharedAcrossRoutes("title-$sharedKey", bounds = true) else Modifier,
                 )
-                if (branch.isNotBlank() && !compact) {
+                val motion = motionEnabled()
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = branch.isNotBlank() && !compact && !slim,
+                    enter = if (motion) androidx.compose.animation.fadeIn(spec(PortholeMotion.ENTER_MS)) +
+                        androidx.compose.animation.expandVertically(spec(PortholeMotion.AXIS_MS)) else androidx.compose.animation.EnterTransition.None,
+                    exit = if (motion) androidx.compose.animation.fadeOut(spec(PortholeMotion.EXIT_MS, PortholeMotion.leave)) +
+                        androidx.compose.animation.shrinkVertically(spec(PortholeMotion.AXIS_MS)) else androidx.compose.animation.ExitTransition.None,
+                ) {
                     Text(branch, style = PortholeType.meta, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -762,6 +785,8 @@ private fun Feed(
     /** The glass floating over the feed's top and bottom: its first and last rows stay clear of it. */
     padTop: androidx.compose.ui.unit.Dp = 0.dp,
     padBottom: androidx.compose.ui.unit.Dp = 0.dp,
+    /** The reader has scrolled back from the end (true) or is at it (false). */
+    onReading: (Boolean) -> Unit = {},
     onOpen: (FeedRow) -> Unit,
 ) {
     val c = Porthole.colors
@@ -815,6 +840,7 @@ private fun Feed(
             (info.visibleItemsInfo.lastOrNull()?.index ?: -1) to info.totalItemsCount
         }.collect { (last, total) -> if (total > 0 && last >= 0) atEnd = last >= total - 2 }
     }
+    LaunchedEffect(atEnd) { onReading(!atEnd) }
     var pendingNew by remember { mutableStateOf(0) }
     var lastSize by remember { mutableStateOf(-1) }
     // Counted in what the feed draws: a result folding into its work line is nothing new.
@@ -846,7 +872,10 @@ private fun Feed(
         val marker = if (newItem > 0 && rows.size - newFrom >= 3) newItem + (if (remaining > 0) 1 else 0) else -1
         when {
             first && marker > 0 -> { listState.scrollToItem(marker); pendingNew = 0 }
-            first || atEnd -> listState.animateScrollToItem(lastIndex.coerceAtLeast(0))
+            // A feed just filled is already at its end when it shows (the session opens out
+            // of its porthole: no run down the whole history); new rows are followed smoothly.
+            first -> listState.scrollToItem(lastIndex.coerceAtLeast(0))
+            atEnd -> listState.animateScrollToItem(lastIndex.coerceAtLeast(0))
             // Rows merged in after a reconnect, or a queued bubble resolved: no jump for a reader above.
             newItems > 0 -> pendingNew += newItems
         }
@@ -1322,6 +1351,8 @@ private fun Composer(
     hasAttachments: Boolean = false,
     onAttach: (dev.shrimpscript.porthole.net.Attachment) -> Unit = {},
     onAttachError: (String) -> Unit = {},
+    /** Applied to the box itself, inside its margin: where an approval grows out of. */
+    spot: Modifier = Modifier,
     onSend: () -> Unit,
 ) {
     val c = Porthole.colors
@@ -1366,6 +1397,7 @@ private fun Composer(
         Modifier
             .fillMaxWidth()
             .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp)
+            .then(spot)
             .glass(RoundedCornerShape(28.dp))
             .padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -407,7 +407,7 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // The session through its porthole, with its state ring round it.
-            SessionPorthole(s, size = 46.dp, sharedKey = "ring-${s.id}")
+            SessionPorthole(s, size = 46.dp, sharedKey = "ring-${s.id}", modifier = Modifier.apertureSource(s.id))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(

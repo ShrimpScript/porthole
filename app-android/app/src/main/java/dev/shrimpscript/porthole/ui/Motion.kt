@@ -3,6 +3,22 @@
 package dev.shrimpscript.porthole.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
@@ -61,7 +77,8 @@ import kotlin.math.roundToInt
  * tokens in PortholeMotion and all inert when the person has animations off:
  *
  *  - Appear:          something arrives (fade + a 12dp settle upward)
- *  - RouteTransition: moving between screens (fade-through with a short slide)
+ *  - RouteTransition: moving between screens (fade-through with a short slide; a session
+ *                     opens out of its porthole on the list, and closes back into it)
  *  - pressScale:      the tap was heard (0.97 scale while pressed)
  *  - SegmentedToggle: the indicator glides between two options
  */
@@ -114,32 +131,142 @@ fun Modifier.sharedAcrossRoutes(key: String, bounds: Boolean = false): Modifier 
     }
 }
 
+/**
+ * Where each session's porthole is on the list, so the session can open out of it (DESIGN
+ * v3 §7d). Positions are centres in the root's coordinates, kept after the list goes so the
+ * session can close back into the same place; [key] is the session being opened or closed.
+ */
+@Stable
+class Aperture {
+    internal val at = HashMap<String, Offset>()
+    var key: String? = null
+    fun centre(): Offset? = key?.let { at[it] }
+}
+
+val LocalAperture = staticCompositionLocalOf<Aperture?> { null }
+
+/** This is the session's porthole: the session opens out of here. */
+fun Modifier.apertureSource(key: String): Modifier = composed {
+    val a = LocalAperture.current ?: return@composed this
+    onGloballyPositioned { a.at[key] = it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f) }
+}
+
+/**
+ * Where the open session's message box is, so an approval for that session grows out of
+ * it (DESIGN v3 §7d). [rect] is in the root's coordinates; both clear when the box goes.
+ */
+@Stable
+class ComposerSpot {
+    var sessionId: String? = null
+    var rect: androidx.compose.ui.geometry.Rect? = null
+}
+
+val LocalComposerSpot = staticCompositionLocalOf<ComposerSpot?> { null }
+
+/** A circle of radius [r] round [c], as a shape the layer can clip to on every API level. */
+private class CircleAt(val c: Offset, val r: Float) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
+        Outline.Rounded(RoundRect(c.x - r, c.y - r, c.x + r, c.y + r, CornerRadius(r)))
+}
+
 @Composable
 fun <T> RouteTransition(
     target: T,
     forward: Boolean,
     modifier: Modifier = Modifier,
+    /** True when [to] opens out of a porthole on [from] (the list into a session). */
+    opensThrough: (from: T, to: T) -> Boolean = { _, _ -> false },
+    /** The move to this screen is over: nothing of the last one is drawn any more. */
+    onSettled: (T) -> Unit = {},
     content: @Composable (T) -> Unit,
 ) {
     val on = motionEnabled()
-    AnimatedContent(
-        targetState = target,
+    val aperture = LocalAperture.current
+    val tr = updateTransition(target, label = "route")
+    LaunchedEffect(tr.currentState, tr.targetState) { if (tr.currentState == tr.targetState) onSettled(tr.currentState) }
+    // Whether the move under way goes through the porthole: decided once, when it starts.
+    var through by remember { mutableStateOf(false) }
+    tr.AnimatedContent(
         modifier = modifier,
         transitionSpec = {
-            if (!on) {
-                ContentTransform(EnterTransition.None, ExitTransition.None, sizeTransform = null)
-            } else {
-                val dir = if (forward) 1 else -1
-                (fadeIn(tween(PortholeMotion.AXIS_MS, easing = PortholeMotion.settle)) +
-                    slideInHorizontally(tween(PortholeMotion.AXIS_MS, easing = PortholeMotion.settle)) { dir * it / 10 })
-                    .togetherWith(
-                        fadeOut(tween(PortholeMotion.EXIT_MS, easing = PortholeMotion.leave)) +
-                            slideOutHorizontally(tween(PortholeMotion.EXIT_MS, easing = PortholeMotion.leave)) { -dir * it / 14 }
-                    ).also { it.targetContentZIndex = 1f }
+            val opening = opensThrough(initialState, targetState)
+            val closing = opensThrough(targetState, initialState)
+            through = on && (opening || closing) && aperture?.centre() != null
+            when {
+                !on -> ContentTransform(EnterTransition.None, ExitTransition.None, sizeTransform = null)
+                // The new screen grows out of the porthole in its own circle (below); the list
+                // waits under it. Closing, the session stays on top and shrinks back in.
+                through -> ContentTransform(
+                    EnterTransition.None, ExitTransition.KeepUntilTransitionsFinished,
+                    targetContentZIndex = if (opening) 1f else 0f, sizeTransform = null,
+                )
+                else -> {
+                    val dir = if (forward) 1 else -1
+                    (fadeIn(tween(PortholeMotion.AXIS_MS, easing = PortholeMotion.settle)) +
+                        slideInHorizontally(tween(PortholeMotion.AXIS_MS, easing = PortholeMotion.settle)) { dir * it / 10 })
+                        .togetherWith(
+                            fadeOut(tween(PortholeMotion.EXIT_MS, easing = PortholeMotion.leave)) +
+                                slideOutHorizontally(tween(PortholeMotion.EXIT_MS, easing = PortholeMotion.leave)) { -dir * it / 14 }
+                        ).also { it.targetContentZIndex = 1f }
+                }
             }
         },
-        label = "route",
-    ) { CompositionLocalProvider(LocalRouteVisibility provides this) { content(it) } }
+    ) { r ->
+        val a = tr.currentState
+        val b = tr.targetState
+        val opening = opensThrough(a, b)
+        val closing = opensThrough(b, a)
+        // The session is the inner side: it grows out of the porthole, or back into it. The
+        // list is the outer side: it sinks back a little while the session is over it.
+        val inner = through && a != b && ((opening && r == b) || (closing && r == a))
+        val outer = through && a != b && ((opening && r == a) || (closing && r == b))
+        // On every screen from its first frame, so one that later opens or closes through the
+        // porthole is already part of the move (an animation added mid-move would not hold
+        // the screen until it ends). Any other move: it snaps, and changes nothing.
+        val p by transition.animateFloat(
+            transitionSpec = {
+                when {
+                    !through -> androidx.compose.animation.core.snap()
+                    opening -> tween(PortholeMotion.SLOW_MS, easing = PortholeMotion.settle)
+                    else -> tween(PortholeMotion.AXIS_MS, easing = PortholeMotion.standard)
+                }
+            },
+            label = "aperture",
+        ) { if (it == EnterExitState.Visible) 1f else 0f }
+        // Where this screen is, as state, so the layer redraws once it is known.
+        var here by remember { mutableStateOf(Offset.Zero) }
+        val start = with(LocalDensity.current) { 24.dp.toPx() }
+        val shaped = if ((inner || outer) && aperture != null) {
+            Modifier
+                .onGloballyPositioned { here = it.positionInRoot() }
+                .graphicsLayer {
+                    val c = aperture.centre() ?: return@graphicsLayer
+                    val local = c - here
+                    if (inner) {
+                        val far = maxOf(
+                            local.getDistance(),
+                            (local - Offset(size.width, 0f)).getDistance(),
+                            (local - Offset(0f, size.height)).getDistance(),
+                            (local - Offset(size.width, size.height)).getDistance(),
+                        )
+                        clip = true
+                        shape = CircleAt(local, start + (far - start) * p)
+                        // At the porthole's own size it fades, in and out, over the porthole.
+                        alpha = (p / 0.15f).coerceIn(0f, 1f)
+                    } else {
+                        val k = 0.95f + 0.05f * p
+                        scaleX = k; scaleY = k
+                        if (size.width > 0f && size.height > 0f) {
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(local.x / size.width, local.y / size.height)
+                        }
+                        alpha = 0.45f + 0.55f * p
+                    }
+                }
+        } else Modifier
+        Box(shaped) {
+            CompositionLocalProvider(LocalRouteVisibility provides this@AnimatedContent) { content(r) }
+        }
+    }
 }
 
 /** Shrinks to 0.97 while pressed. Feedback that the tap was heard; nothing more. */

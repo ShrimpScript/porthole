@@ -15,6 +15,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -72,6 +74,10 @@ import dev.shrimpscript.porthole.ui.NeedsScreen
 import dev.shrimpscript.porthole.ui.PairScreen
 import dev.shrimpscript.porthole.ui.RingState
 import dev.shrimpscript.porthole.ui.RouteTransition
+import dev.shrimpscript.porthole.ui.Aperture
+import dev.shrimpscript.porthole.ui.LocalAperture
+import dev.shrimpscript.porthole.ui.ComposerSpot
+import dev.shrimpscript.porthole.ui.LocalComposerSpot
 import dev.shrimpscript.porthole.ui.SessionScreen
 import dev.shrimpscript.porthole.ui.SessionView
 import dev.shrimpscript.porthole.ui.SessionsScreen
@@ -356,7 +362,11 @@ class MainActivity : ComponentActivity() {
             PortholeTheme(themeChoice.value, themeAppearance.value) {
                 WindowChrome()
                 SharedTransitionLayout {
-                    CompositionLocalProvider(LocalSharedTransition provides this) {
+                    val aperture = remember { Aperture() }
+                    val composerSpot = remember { ComposerSpot() }
+                    CompositionLocalProvider(
+                        LocalSharedTransition provides this, LocalAperture provides aperture, LocalComposerSpot provides composerSpot,
+                    ) {
                         PortholeApp(startRoute, presetHost, pairCode, sessionId)
                     }
                 }
@@ -661,8 +671,17 @@ private fun PortholeApp(
         inbox?.find(pa)?.let { (p, item) -> answerInbox(p, item, pa.text) }
     }
 
+    val aperture = LocalAperture.current
+    val motionOn = dev.shrimpscript.porthole.ui.theme.motionEnabled()
+    // A session closing back into its porthole stays drawn and attached until the move is
+    // over (DESIGN v3 §7d); then it lets go. Null when nothing is closing.
+    var closing by remember { mutableStateOf<SessionInfo?>(null) }
     fun openSession(s: SessionInfo) {
+        // One still closing lets go now, unless it is the one being opened again.
+        closing?.let { c -> closing = null; if (c.id != s.id) vm.fleet.clientFor(c).detach() }
         openSession = s
+        // The session opens out of its porthole on the list, when the list showed it.
+        aperture?.key = s.id
         vm.attachedId = s.id
         vm.attachedTitle = s.title
         openedSeenAt = seenStamps[s.id].orEmpty()
@@ -762,10 +781,28 @@ private fun PortholeApp(
     }
 
     fun closeSession() {
+        val s = openSession
+        if (s != null && motionOn && aperture?.centre() != null) {
+            closing = s
+            route = Route.Sessions
+            return
+        }
         (openSession?.let { vm.fleet.clientFor(it) } ?: client).detach()
         openSession = null
         vm.attachedId = ""
         route = Route.Sessions
+    }
+
+    /** The list is back and the session has shrunk away: let it go now. */
+    fun closed() {
+        val s = closing ?: return
+        closing = null
+        if (route == Route.Session) return
+        vm.fleet.clientFor(s).detach()
+        if (openSession?.id == s.id) {
+            openSession = null
+            vm.attachedId = ""
+        }
     }
 
     // A pairing link opened from the camera or a browser: everything typed, for us.
@@ -1124,7 +1161,11 @@ private fun PortholeApp(
     // System-bar insets are applied once, here, so no screen can forget them and put
     // content under the status bar.
     Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
-        RouteTransition(target = route, forward = forward) { r ->
+        RouteTransition(
+            target = route, forward = forward,
+            opensThrough = { from, to -> from == Route.Sessions && to == Route.Session },
+            onSettled = { r -> if (r != Route.Session) closed() },
+        ) { r ->
             when (r) {
                 Route.Welcome -> WelcomeScreen(
                     onStart = { route = Route.Needs },
@@ -1328,6 +1369,8 @@ private fun PortholeApp(
                 Route.Session -> {
                     val s = openSession
                     if (s == null) {
+                        // Nothing to shrink back into a porthole: the list just comes back.
+                        aperture?.key = null
                         route = Route.Sessions
                     } else {
                         val sc = vm.fleet.clientFor(s)
@@ -1590,11 +1633,25 @@ private fun PortholeApp(
         // The last one is remembered so the card can fade out with its content intact.
         var shown by remember { mutableStateOf<dev.shrimpscript.porthole.net.FleetApproval?>(null) }
         approval?.let { shown = it }
+        // In the session it is for, the sheet grows out of the message box (DESIGN v3 §7d);
+        // anywhere else it fades up into place. Decided when it arrives, kept until it goes.
+        val spot = LocalComposerSpot.current
+        val motion = dev.shrimpscript.porthole.ui.theme.motionEnabled()
+        val from = remember(shown?.approval?.toolUseId) {
+            spot?.rect?.takeIf { motion && spot.sessionId != null && spot.sessionId == shown?.approval?.sessionId }
+        }
         AnimatedVisibility(
             visible = approval != null,
-            enter = fadeIn(spec(PortholeMotion.SLOW_MS)),
-            exit = fadeOut(spec(PortholeMotion.EXIT_MS, PortholeMotion.leave)),
+            enter = if (from != null) androidx.compose.animation.EnterTransition.None else fadeIn(spec(PortholeMotion.SLOW_MS)),
+            exit = if (from != null) androidx.compose.animation.ExitTransition.None else fadeOut(spec(PortholeMotion.EXIT_MS, PortholeMotion.leave)),
         ) {
+            val grown by transition.animateFloat(
+                transitionSpec = {
+                    if (targetState == androidx.compose.animation.EnterExitState.Visible) tween(PortholeMotion.SLOW_MS, easing = PortholeMotion.settle)
+                    else tween(PortholeMotion.AXIS_MS, easing = PortholeMotion.standard)
+                },
+                label = "approval",
+            ) { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
             shown?.let { fa ->
                 val a = fa.approval
                 val ac = vm.fleet.client(fa.machineId)
@@ -1603,6 +1660,8 @@ private fun PortholeApp(
                     onAllow = { ac.decide(a.toolUseId, allow = true) },
                     onDeny = { ac.decide(a.toolUseId, allow = false, reason = "Denied from phone") },
                     onExpired = { ac.expireApproval(a.toolUseId) },
+                    from = from,
+                    progress = { grown },
                 )
             }
         }
