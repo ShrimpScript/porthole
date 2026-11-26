@@ -216,6 +216,9 @@ fun SessionScreen(
     if (reconnecting != null) barLine = reconnecting
     // Kept on the phone as it is typed: a dropped connection, the failure card, the app
     // closing - none of them take a half-written message with them.
+    // Typing needs the session's tmux pane: one started in a plain terminal can be followed
+    // here but not typed into (the daemon refuses it), so nothing offers to type into it.
+    val canType = canSend && tmux
     var draft by remember(sharedKey) { mutableStateOf(initialDraft) }
     LaunchedEffect(sharedKey, draft) { onDraft(draft) }
     // The message in the box is on its way and not yet confirmed: the box holds it,
@@ -360,7 +363,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             if (turnOpen) {
                                 WorkingStrip(
                                     state = state, status = status,
-                                    canInterrupt = live && canSend,
+                                    canInterrupt = live && canType,
                                     onInterrupt = onInterrupt,
                                     agentsRunning = agentsAtWork.size,
                                     onAgents = { showAgents = true },
@@ -369,6 +372,25 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 // the turn has ended but background agents work on
                                 AgentsStrip(agentsAtWork) { showAgents = true }
                                 LayoutSpacer(Modifier.height(8.dp))
+                            }
+                        }
+                        if (live && !tmux) {
+                            // Running in a plain terminal at the computer: readable, not typable.
+                            LayoutSpacer(Modifier.height(8.dp))
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp)
+                                    .glass(PortholeShape.panel)
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(Symbols.Info, contentDescription = null, tint = c.muted, modifier = Modifier.size(18.dp))
+                                Text(
+                                    "This session runs outside tmux on the computer, so you can follow it here but not type into it. To use it from the phone, quit it there and resume it inside tmux.",
+                                    style = PortholeType.secondary, color = c.muted, modifier = Modifier.weight(1f),
+                                )
                             }
                         }
                         if (!live) {
@@ -431,7 +453,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                 if (cmd.sheet) {
                                     showStats = true
                                     draft = ""
-                                } else if (cmd.arg != null || !canSend) {
+                                } else if (cmd.arg != null || !canType) {
                                     // Offline, a command waits in the box like any message.
                                     draft = cmd.name + " "
                                 } else {
@@ -458,8 +480,9 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                         }
                         // Idle and nothing asked: the three-word replies a phone is for.
                         // Once something is typed they are in the way, not a shortcut.
-                        val idle = canSend && state?.working == false && status?.question == null && rows.isNotEmpty()
-                        if (idle && draft.isEmpty()) {
+                        val idle = canType && state?.working == false && status?.question == null && rows.isNotEmpty()
+                        // Gone while one is on its way: a second tap would send it twice.
+                        if (idle && draft.isEmpty() && pendingSends.none { !it.unconfirmed }) {
                             QuickReplies(quickReplies, onSend = { onSend(it) }, onEdit = { editReplies = true })
                         }
                         val screenQ = status?.question
@@ -497,7 +520,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             value = draft,
                             onValueChange = { draft = it },
                             placeholder = if (answering) "Your answer" else "Message, or / for commands",
-                            enabled = canSend,
+                            enabled = canType,
                             sending = awaiting,
                             // An older daemon closes the connection on any photo (its 32 KB
                             // limit), so attaching needs one that takes files in pieces.
@@ -515,7 +538,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             },
                             onAttachError = { attachError = it },
                             reason = when {
-                                !tmux -> "No tmux window for this session on the computer"
+                                !tmux -> "Outside tmux, so read-only here"
                                 !live -> "Claude Code isn't running here - open Terminal and run claude"
                                 else -> "Not connected"
                             },
@@ -531,7 +554,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                                     // a dialog on the computer's screen. Works offline too.
                                     showStats = true
                                     draft = ""
-                                } else if (!canSend || awaiting) {
+                                } else if (!canType || awaiting) {
                                     // Not connected, or the last message is still on its way: the
                                     // text stays where it is, and nothing is sent - an answer neither.
                                 } else if (answering && typingInto != null) {
@@ -651,7 +674,7 @@ CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                     onDismiss = { showStats = false },
                     onSend = onSend, onKey = onKey,
                     muted = muted, onMuted = onMuted,
-                    canRename = canSend,
+                    canRename = canType,
                 )
             }
         }

@@ -37,6 +37,14 @@ The share reaches only what is listed: loopback listeners owned by the daemon's 
 with the ephemeral range and known tooling hidden. A share whose server has exited is
 closed on the next listing. Shares die with the daemon; nothing is written into tailscaled.
 
+**Where typing goes** (0.45.1). Keystrokes from the phone - prompts, answers, Esc, Enter -
+only ever go to the session's own tmux pane, named exactly. A session running outside tmux
+(Claude Code in a plain terminal) is shown but never typed into: before 0.45.1 the daemon
+handed tmux an empty target for one, which tmux reads as the pane used last, so a prompt for
+it was typed into another session. Nothing is typed either while the CLI waits on something
+at the desk - a permission prompt, a question, a menu - which would take the text and the
+Enter as its answer.
+
 **The bottom of each screen in the list** (0.44.0). The session list carries, for each live
 session, the last 16 lines of its tmux pane (cut to 64 characters) and the question picker on
 it, so the phone can draw the session small and answer a single-choice question from the list.

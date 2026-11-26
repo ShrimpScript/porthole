@@ -1431,6 +1431,17 @@ class PortholeClient(private val http: OkHttpClient = defaultClient()) {
         _returned.tryEmit(p)
     }
 
+    /**
+     * Not sent at all: the phone already knows the desk would take it as an answer (a
+     * permission prompt is up there). It goes back to its box with the reason, exactly as a
+     * refusal from the computer would - for a daemon too old to refuse it itself.
+     */
+    fun holdBack(sessionId: String, text: String, why: String) {
+        val p = PendingPrompt(java.util.UUID.randomUUID().toString(), sessionId, text, System.currentTimeMillis())
+        _sending.update { it + (p.ref to p) }
+        notTyped(p.ref, why)
+    }
+
     /** The connection went before the computer said: whether those landed is not known yet. */
     private fun unconfirmAll() {
         _sending.update { m -> if (m.isEmpty()) m else m.mapValues { it.value.copy(unconfirmed = true) } }

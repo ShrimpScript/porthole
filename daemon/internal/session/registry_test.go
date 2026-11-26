@@ -307,3 +307,70 @@ func TestListMarksASessionWaitingOnThePerson(t *testing.T) {
 		t.Errorf("a session not waiting should not say so: %s", off)
 	}
 }
+
+// Held is every "waiting" reason, a menu left open included: the screen at the desk would
+// take keystrokes as its answer. Busy and idle hold nothing.
+func TestHeldIsWhatTheDeskScreenIsWaitingOn(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", root)
+	sessions := filepath.Join(root, "sessions")
+	if err := os.MkdirAll(sessions, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	start := ownStart(t)
+	cwd := filepath.Join(root, "proj")
+	want := map[string][3]string{ // id -> status, waitingFor, held
+		"perm":  {"waiting", "permission prompt", "permission prompt"},
+		"menu":  {"waiting", "dialog open", "dialog open"},
+		"old":   {"waiting", "", "something"},
+		"runs":  {"busy", "", ""},
+		"rests": {"idle", "", ""},
+	}
+	for id, r := range want {
+		b := fmt.Sprintf(`{"pid":%d,"sessionId":%q,"cwd":%q,"procStart":%q,"kind":"interactive","tmux":"w:@1.%%1","status":%q,"waitingFor":%q,"startedAt":1789344486512}`,
+			os.Getpid(), id, cwd, start, r[0], r[1])
+		if err := os.WriteFile(filepath.Join(sessions, id+".json"), []byte(b), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list, err := List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, si := range list {
+		if w, ok := want[si.ID]; ok && si.Held != w[2] {
+			t.Errorf("%s: held = %q, want %q", si.ID, si.Held, w[2])
+		}
+	}
+}
+
+// An ended session's id never resolves to another conversation that merely runs in the
+// same directory: a message meant for one must not reach the other.
+func TestAnEndedSessionIsNotAnotherOneInItsDirectory(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", root)
+	sessions := filepath.Join(root, "sessions")
+	cwd := filepath.Join(root, "proj")
+	projects := filepath.Join(root, "projects", ProjectSlugForTest(cwd))
+	for _, d := range []string{sessions, projects, cwd} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, id := range []string{"ended", "running"} {
+		if err := os.WriteFile(filepath.Join(projects, id+".jsonl"), []byte(`{"type":"user","message":{"content":"hi"}}`+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b := fmt.Sprintf(`{"pid":%d,"sessionId":"running","cwd":%q,"procStart":%q,"kind":"interactive","tmux":"w:@1.%%4","status":"idle","startedAt":1789344486512}`,
+		os.Getpid(), cwd, ownStart(t))
+	if err := os.WriteFile(filepath.Join(sessions, "running.json"), []byte(b), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if si, ok := Resolve("running"); !ok || si.ID != "running" {
+		t.Fatalf("the running one: %+v %v", si, ok)
+	}
+	if si, ok := Resolve("ended"); ok {
+		t.Fatalf("the ended session resolved to %q, another conversation in its directory", si.ID)
+	}
+}

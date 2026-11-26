@@ -115,6 +115,20 @@
     <div class="rels">
 
       <section class="rel">
+        <span id="v0.45.1" class="v">0.45.1</span>
+        <h2>Messages go where you send them</h2>
+        <div class="rel-date"><span>26 November 2026</span><span class="tag">fix</span><span class="tag">security</span></div>
+        <div class="rel-body">
+          <ul>
+            <li><b>Sessions outside tmux are read-only, and say so.</b> A session started in a plain terminal can be followed from the phone but not typed into; the list marks it "outside tmux" and the session explains what to do. Before, a message sent to one was typed into whichever tmux pane was used last, which belongs to another session.</li>
+            <li><b>Nothing is typed into a question at the desk.</b> While Claude Code waits on a permission prompt, a question or an open menu at the computer, a message from the phone is held back with the reason instead of being taken as the answer.</li>
+            <li><b>No more joined messages.</b> After you interrupt Claude, the message it puts back in its input box is cleared before your next one is typed, rather than sent together with it.</li>
+            <li>A quick reply can't be sent twice by a second tap while it is on its way, and a session that has ended is never mistaken for another one in the same folder.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="rel">
         <span id="v0.45.0" class="v">0.45.0</span>
         <h2>Motion: the bolts turn, the porthole opens</h2>
         <div class="rel-date"><span>26 November 2026</span><span class="tag">design</span></div>

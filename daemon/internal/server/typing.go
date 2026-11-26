@@ -5,8 +5,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,7 +36,23 @@ import (
 // No record and an empty or unrecognisable box counts as taken (a /clear, a picker, a CLI
 // that draws its box differently): that is how every prompt was judged before.
 func typePrompt(ctx context.Context, si session.Info, text string) (submitted bool, err error) {
-	target := typeTarget(si)
+	target, ok := tmuxTarget(si)
+	if !ok {
+		return false, errNoTmux
+	}
+	if si.Held != "" {
+		return false, errHeld
+	}
+	// Interrupted early, the CLI puts the prompt it was given back in the box to edit. Typed
+	// after it, the next prompt would go as one with it ("Looks good", Esc, then "Stop" was
+	// sent as "Looks goodStop", 2026-11-26), so that prompt leaves the box first. Anything
+	// else still there afterwards is someone's text: nothing is typed after it.
+	if last := lastPrompt(si.Transcript); last != "" && boxShows(paneText(ctx, si), last) {
+		clearBox(ctx, target, last)
+		if boxShows(paneText(ctx, si), last) {
+			return false, errBoxHeld
+		}
+	}
 	from := fileSize(si.Transcript)
 	if err := pasteText(ctx, target, text); err != nil {
 		return false, err
@@ -147,17 +166,40 @@ func isPromptRecord(line []byte) bool {
 }
 
 func paneText(ctx context.Context, si session.Info) string {
-	out, err := exec.CommandContext(ctx, "tmux", "capture-pane", "-p", "-t", captureTarget(si)).Output()
+	target, ok := tmuxTarget(si)
+	if !ok {
+		return ""
+	}
+	out, err := exec.CommandContext(ctx, "tmux", "capture-pane", "-p", "-t", target).Output()
 	if err != nil {
 		return ""
 	}
 	return string(out)
 }
 
-// inputHolds reports whether the CLI's input box - the lines between the last two rules
-// of "─" on screen - still shows this prompt: a paste or image placeholder, or the prompt's
-// own first words. False when the box is empty or cannot be found.
-func inputHolds(pane, text string) bool {
+// errBoxHeld: the box at the desk holds text that is not this prompt and was not cleared.
+var errBoxHeld = errors.New("the input box holds other text")
+
+// errHeld: the CLI is waiting on something at the desk (si.Held) that would take the
+// keystrokes as its answer.
+var errHeld = errors.New("the CLI is waiting on something at the desk")
+
+// heldMessage says what is on the screen at the desk, and what to do first.
+func heldMessage(held string) string {
+	switch held {
+	case "permission prompt":
+		return "Claude Code is asking for permission at the desk. Answer that first: a message typed now would be taken as the answer"
+	case "input needed":
+		return "Claude Code is asking you something at the desk. Answer it first, from its card here or at the computer, then send this"
+	case "dialog open":
+		return "A menu is open in Claude Code at the desk. Close it first (Esc, in Terminal or at the computer), then send this"
+	}
+	return "Claude Code is waiting on something at the desk (" + held + "). Deal with that first: a message typed now would be taken as the answer"
+}
+
+// inputBox is what the CLI's input box shows: the lines between the last two rules of "─"
+// on screen, joined, without the prompt mark. ok is false when there is no box to read.
+func inputBox(pane string) (string, bool) {
 	lines := strings.Split(strings.TrimRight(pane, "\n"), "\n")
 	var rules []int
 	for i, l := range lines {
@@ -167,19 +209,110 @@ func inputHolds(pane, text string) bool {
 		}
 	}
 	if len(rules) < 2 {
-		return false
+		return "", false
 	}
 	box := strings.Join(lines[rules[len(rules)-2]+1:rules[len(rules)-1]], " ")
-	box = strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(box), "❯>"))
-	if box == "" {
+	return strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(box), "❯>")), true
+}
+
+// firstWords is the start of a prompt as the box would show it: its first line, at most 20
+// characters.
+func firstWords(text string) string {
+	first := strings.TrimSpace(strings.SplitN(strings.TrimSpace(text), "\n", 2)[0])
+	if r := []rune(first); len(r) > 20 {
+		first = string(r[:20])
+	}
+	return first
+}
+
+// boxShows is whether the box shows this text's own words - not a placeholder that could
+// stand for anything.
+func boxShows(pane, text string) bool {
+	box, ok := inputBox(pane)
+	first := firstWords(text)
+	return ok && box != "" && first != "" && strings.HasPrefix(box, first)
+}
+
+// clearBox deletes a prompt the CLI put back in the box: one Backspace per character, and
+// a few more (on an empty box they do nothing).
+func clearBox(ctx context.Context, target, text string) {
+	n := utf8.RuneCountInString(text) + 8
+	_ = exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, "-N", strconv.Itoa(n), "BSpace").Run()
+	time.Sleep(150 * time.Millisecond)
+}
+
+// lastPrompt is the text of the last prompt the transcript records - what the CLI puts
+// back in the box when that prompt's turn is interrupted before it answers. Read from the
+// last 256 KB; the CLI's own interruption marker is not a prompt.
+func lastPrompt(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	if fi, err := f.Stat(); err == nil && fi.Size() > 256<<10 {
+		_, _ = f.Seek(fi.Size()-256<<10, 0)
+	}
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(f); err != nil {
+		return ""
+	}
+	lines := bytes.Split(buf.Bytes(), []byte("\n"))
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		if !bytes.Contains(line, []byte(`"type":"user"`)) || !isPromptRecord(line) {
+			continue
+		}
+		var r struct {
+			Message struct {
+				Content json.RawMessage `json:"content"`
+			} `json:"message"`
+		}
+		if json.Unmarshal(line, &r) != nil {
+			continue
+		}
+		text := contentText(r.Message.Content)
+		if text == "" || strings.HasPrefix(text, "[Request interrupted") {
+			continue
+		}
+		return text
+	}
+	return ""
+}
+
+// contentText is a message's text: a plain string, or its text parts joined.
+func contentText(raw json.RawMessage) string {
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	var parts []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &parts) != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, p := range parts {
+		if p.Type == "text" {
+			b.WriteString(p.Text)
+		}
+	}
+	return b.String()
+}
+
+// inputHolds reports whether the CLI's input box - the lines between the last two rules
+// of "─" on screen - still shows this prompt: a paste or image placeholder, or the prompt's
+// own first words. False when the box is empty or cannot be found.
+func inputHolds(pane, text string) bool {
+	box, ok := inputBox(pane)
+	if !ok || box == "" {
 		return false
 	}
 	if strings.Contains(box, "[Pasted text") || strings.Contains(box, "[Image #") {
 		return true
 	}
-	first := strings.TrimSpace(strings.SplitN(strings.TrimSpace(text), "\n", 2)[0])
-	if r := []rune(first); len(r) > 20 {
-		first = string(r[:20])
-	}
+	first := firstWords(text)
 	return first != "" && strings.Contains(box, first)
 }

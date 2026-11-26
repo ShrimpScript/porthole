@@ -190,6 +190,16 @@ class OfflineTest {
         client.disconnect()
     }
 
+    /** Held back on the phone (a permission prompt is up at the desk): never sent, back in its box with why. */
+    @Test
+    fun aMessageHeldBackGoesBackToItsBoxUnsent() {
+        val client = PortholeClient()
+        client.holdBack("s1", "deploy it", "Claude Code is asking for permission at the desk")
+        assertTrue(client.sending.value.isEmpty())
+        val notice = client.notice.value.orEmpty()
+        assertTrue(notice, notice.startsWith("Claude Code is asking for permission at the desk") && notice.contains("in the box to send again"))
+    }
+
     /** Refused (Claude is not running there): it stays in the box, with the reason, and nothing is retried. */
     @Test
     fun aRefusedMessageStaysInItsBox() {

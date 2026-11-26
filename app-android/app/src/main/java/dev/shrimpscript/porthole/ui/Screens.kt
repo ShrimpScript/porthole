@@ -466,7 +466,12 @@ private fun SessionRow(s: SessionInfo, now: Long = 0L, unseen: Boolean = false, 
                     if (s.agents > 0) (if (s.agents == 1) "1 agent" else "${s.agents} agents") else null,
                     s.machine.ifBlank { null },
                     s.branch.ifBlank { null },
-                    if (s.tmuxName.isNotBlank() && (s.live || s.tmux)) "tmux ${s.tmuxName}" else null,
+                    when {
+                        s.tmuxName.isNotBlank() && (s.live || s.tmux) -> "tmux ${s.tmuxName}"
+                        // Running, but not where the phone can type: say so before it is opened.
+                        s.live && !s.tmux -> "outside tmux"
+                        else -> null
+                    },
                     modelShortName(s.model).ifBlank { null },
                 ).joinToString(" · ")
                 if (where.isNotBlank()) Text(where, style = PortholeType.meta, color = c.faint, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))

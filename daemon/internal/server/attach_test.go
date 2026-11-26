@@ -157,8 +157,8 @@ func TestUploadAssembledFromPieces(t *testing.T) {
 }
 
 // Over the socket: a file in pieces reaches the prompt, and a prompt that cannot be
-// typed (no tmux pane here) is refused naming the upload, with the file let go - the
-// phone gets the message back and sends it again.
+// typed (the session here is not in tmux) is refused naming the upload, with the file let
+// go - the phone gets the message back and sends it again.
 func TestUploadInPiecesReachesThePrompt(t *testing.T) {
 	state := t.TempDir()
 	t.Setenv("PORTHOLE_STATE_DIR", state)
@@ -166,8 +166,8 @@ func TestUploadInPiecesReachesThePrompt(t *testing.T) {
 	c, ctx := dialPaired(t)
 	pieces(t, ctx, c, "u1", "report.txt", []byte(strings.Repeat("x", 400<<10)))
 	sendJSON(t, ctx, c, map[string]any{"type": "prompt.send", "session_id": "sess1", "text": "Summarise this", "uploads": []string{"u1"}})
-	if e := nextErrorFrame(t, ctx, c); e.Code != "send_failed" || e.Ref != "u1" {
-		t.Fatalf("want send_failed about u1, got %+v", e)
+	if e := nextErrorFrame(t, ctx, c); e.Code != "no_tmux" || e.Ref != "u1" {
+		t.Fatalf("want no_tmux about u1, got %+v", e)
 	}
 	// The refusal goes out first and the files right after it.
 	waitGone(t, filepath.Join(state, "uploads", "*", "*"))
@@ -183,7 +183,8 @@ func TestOldAppsPhotoInsideThePromptArrives(t *testing.T) {
 	photo := make([]byte, 400<<10)
 	sendJSON(t, ctx, c, map[string]any{"type": "prompt.send", "session_id": "sess1", "text": "",
 		"attachments": []map[string]string{{"name": "photo-1.jpg", "media": "image/jpeg", "data": base64.StdEncoding.EncodeToString(photo)}}})
-	if e := nextError(t, ctx, c); !strings.HasPrefix(e, "send_failed") {
+	// Saved, then refused at the typing step: this session is not in tmux.
+	if e := nextError(t, ctx, c); !strings.HasPrefix(e, "no_tmux") {
 		t.Fatalf("want the prompt to reach the typing step, got %q", e)
 	}
 	if saved, _ := filepath.Glob(filepath.Join(state, "uploads", "*", "*photo-1.jpg")); len(saved) != 1 {

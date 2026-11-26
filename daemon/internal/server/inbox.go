@@ -116,8 +116,12 @@ func AnswerInbox(ctx context.Context, dir, id, text string) (string, string, err
 	if !ok {
 		return rel, "", nil
 	}
-	ensureReadable(ctx, captureTarget(si), slog.Default())
-	dismissPanel(ctx, si)
+	target, inTmux := tmuxTarget(si)
+	if !inTmux {
+		return rel, "", nil // recorded for Claude to find; nowhere to type it
+	}
+	ensureReadable(ctx, target, slog.Default())
+	si = dismissPanel(ctx, si)
 	if submitted, err := typePrompt(ctx, si, inbox.Message(it, text, rel)); err != nil || !submitted {
 		return rel, "", nil
 	}

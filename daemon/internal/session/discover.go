@@ -43,6 +43,10 @@ type Info struct {
 	// the phone's approval card. WaitingFor is the CLI's reason, as it says it.
 	Waiting    bool   `json:"waiting,omitempty"`
 	WaitingFor string `json:"waiting_for,omitempty"`
+	// Held is what the CLI has on screen in place of its input box, from its registry: any
+	// "waiting" reason, a menu left open included. Typed text and an Enter would land in
+	// it - "Yes" on a permission prompt - so nothing is typed while it is set.
+	Held string `json:"-"`
 	// Agents is how many of its subagents are at work right now.
 	Agents     int    `json:"agents,omitempty"`
 	TmuxName   string `json:"tmux,omitempty"`
@@ -516,8 +520,9 @@ func (t procTree) hasDescendant(pid int, name string) bool {
 }
 
 // Resolve finds a session by transcript id. An id the phone learned earlier may belong
-// to a transcript that a restarted Claude Code has since superseded in the same
-// directory; that directory's newest session is what the phone means.
+// to a transcript that a restarted Claude Code has since superseded: the session now
+// running in the pane it had is what the phone means. Only without the CLI's registry is
+// the directory's one live session taken instead.
 func Resolve(id string) (Info, bool) {
 	list, err := List()
 	if err != nil {
@@ -537,6 +542,14 @@ func Resolve(id string) (Info, bool) {
 			}
 		}
 	}
+	// With the CLI's registry to go by, that is the only way an ended session is followed:
+	// any other live session in its directory is a different conversation, and a message or
+	// a keystroke meant for this one must not reach it (three in a home directory at once
+	// is ordinary).
+	if len(Procs()) > 0 {
+		return Info{}, false
+	}
+	// No registry (an older CLI): the directory's one live session is the best guess.
 	matches, _ := filepath.Glob(filepath.Join(transcript.ProjectsDir(), "*", id+".jsonl"))
 	if len(matches) == 0 {
 		return Info{}, false
@@ -637,6 +650,12 @@ func List() ([]Info, error) {
 		}
 		if p.Status == "waiting" && p.WaitingFor != "dialog open" {
 			si.Waiting, si.WaitingFor = true, p.WaitingFor
+		}
+		if p.Status == "waiting" {
+			si.Held = p.WaitingFor
+			if si.Held == "" {
+				si.Held = "something" // an older CLI: waiting, reason unsaid
+			}
 		}
 		if path != "" {
 			si.Agents = RunningAgents(path)

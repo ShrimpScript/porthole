@@ -584,21 +584,29 @@ func tmuxNameFor(ctx context.Context, cwd string) string {
 
 func (s *Server) findSession(id string) (session.Info, bool) { return session.Resolve(id) }
 
-// typeTarget is where a session's keystrokes go: the pane the CLI registered, else the
-// tmux session (its active pane, the pre-registry guess). captureTarget is the same for
-// capture-pane, where a session name wants the exact-match prefix.
-func typeTarget(si session.Info) string {
-	if si.Pane != "" {
-		return si.Pane
+// tmuxTarget is where a session's keystrokes go and its screen is read from: the pane the
+// CLI registered, else its tmux session by exact name (the pre-registry guess: that
+// session's active pane). ok is false for a session outside tmux - Claude Code started in a
+// plain terminal - and then nothing may be typed or pressed: tmux reads an empty target as
+// "the pane used last", which belongs to another session. (2026-11-26: a phone's
+// "Continue" for a session in a kitty window was typed into a session in tmux, and set it
+// working.) A bare name would be a prefix match too; "=" makes it exact.
+func tmuxTarget(si session.Info) (string, bool) {
+	switch {
+	case si.Pane != "":
+		return si.Pane, true
+	case si.TmuxName != "":
+		return "=" + si.TmuxName, true
 	}
-	return si.TmuxName
+	return "", false
 }
 
-func captureTarget(si session.Info) string {
-	if si.Pane != "" {
-		return si.Pane
-	}
-	return "=" + si.TmuxName
+// errNoTmux: the session runs outside tmux, so there is nowhere to type.
+var errNoTmux = errors.New("the session is not in tmux")
+
+// noTmuxMessage is what the phone shows for a session it can watch but not type into.
+func noTmuxMessage() string {
+	return "This session is running outside tmux on the computer, so Porthole can show it but not type into it. To use it from the phone, quit it there and resume it inside tmux."
 }
 
 func (s *Server) attach(ctx context.Context, w *writer, att *attachment, id string) {
@@ -663,8 +671,8 @@ func (s *Server) attach(ctx context.Context, w *writer, att *attachment, id stri
 			s.log.Warn("tailer stopped", "session", id, "err", err)
 		}
 	}()
-	if si.TmuxName != "" {
-		go s.pollStatus(wctx, w, id, captureTarget(si))
+	if target, ok := tmuxTarget(si); ok && si.TmuxName != "" {
+		go s.pollStatus(wctx, w, id, target)
 	}
 	go s.pollAgents(wctx, w, id, func() string { att.mu.Lock(); defer att.mu.Unlock(); return att.path })
 	s.log.Info("device attached to session", "session", si.Title, "rows", len(res.Rows))
@@ -862,13 +870,22 @@ var panelTabs = regexp.MustCompile(`\bSettings\s+Status\s+Config\s+Usage\s+Stats
 
 // dismissPanel closes that panel with Esc before a prompt is typed. Esc is only sent
 // when the panel is actually on screen: at any other time it would interrupt a turn.
-func dismissPanel(ctx context.Context, si session.Info) {
-	out, err := exec.CommandContext(ctx, "tmux", "capture-pane", "-p", "-t", captureTarget(si)).Output()
-	if err != nil || !panelTabs.Match(out) {
-		return
+// It returns si as it now is: with the panel closed, the menu it was ("dialog open") no
+// longer holds the screen.
+func dismissPanel(ctx context.Context, si session.Info) session.Info {
+	target, ok := tmuxTarget(si)
+	if !ok {
+		return si
 	}
-	_ = exec.CommandContext(ctx, "tmux", "send-keys", "-t", typeTarget(si), "Escape").Run()
+	out, err := exec.CommandContext(ctx, "tmux", "capture-pane", "-p", "-t", target).Output()
+	if err != nil || !panelTabs.Match(out) {
+		return si
+	}
+	if exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, "Escape").Run() == nil && si.Held == "dialog open" {
+		si.Held = ""
+	}
 	time.Sleep(200 * time.Millisecond)
+	return si
 }
 
 // sendKey types one named key into the session. Only keys with a documented meaning at
@@ -922,12 +939,16 @@ func (s *Server) answer(ctx context.Context, w *writer, id string, option int, t
 		_ = w.send(ctx, proto.NewError("bad_option", "option must be 1-9, text, or advance/submit"))
 		return
 	}
+	target, inTmux := tmuxTarget(si)
+	if !inTmux {
+		_ = w.send(ctx, proto.NewError("no_tmux", noTmuxMessage()))
+		return
+	}
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	target := typeTarget(si)
 	// Only ever press into a picker that is on screen now. A stale tap (answered at
 	// the desk a moment ago) would otherwise type a digit into the prompt.
-	screen, err := exec.CommandContext(cctx, "tmux", "capture-pane", "-p", "-t", captureTarget(si)).Output()
+	screen, err := exec.CommandContext(cctx, "tmux", "capture-pane", "-p", "-t", target).Output()
 	if err != nil {
 		_ = w.send(ctx, proto.NewError("send_failed", "could not read the screen"))
 		return
@@ -1012,7 +1033,12 @@ func (s *Server) sendKey(ctx context.Context, w *writer, id, key, device string)
 		_ = w.send(ctx, proto.NewError("not_live", "Claude Code isn't running in that session"))
 		return
 	}
-	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", typeTarget(si), key).Run(); err != nil {
+	target, inTmux := tmuxTarget(si)
+	if !inTmux {
+		_ = w.send(ctx, proto.NewError("no_tmux", noTmuxMessage()))
+		return
+	}
+	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, key).Run(); err != nil {
 		_ = w.send(ctx, proto.NewError("send_failed", "could not send "+key))
 		return
 	}
@@ -1027,7 +1053,12 @@ func (s *Server) interrupt(ctx context.Context, w *writer, id, device string) {
 		_ = w.send(ctx, proto.NewError("not_live", "Claude Code isn't running in that session, so there is nothing to interrupt"))
 		return
 	}
-	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", typeTarget(si), "Escape").Run(); err != nil {
+	target, inTmux := tmuxTarget(si)
+	if !inTmux {
+		_ = w.send(ctx, proto.NewError("no_tmux", noTmuxMessage()))
+		return
+	}
+	if err := exec.CommandContext(ctx, "tmux", "send-keys", "-t", target, "Escape").Run(); err != nil {
 		_ = w.send(ctx, proto.NewError("send_failed", "could not send Esc"))
 		return
 	}
@@ -1056,10 +1087,26 @@ func (s *Server) sendPrompt(ctx context.Context, w *writer, id, text, device, re
 		return false
 	}
 
-	target := typeTarget(si)
-	ensureReadable(ctx, captureTarget(si), s.log)
-	dismissPanel(ctx, si)
+	target, inTmux := tmuxTarget(si)
+	if !inTmux {
+		s.log.Warn("prompt refused: the session is not in tmux", "session", si.Title, "from", device)
+		_ = w.send(ctx, proto.NewErrorFor("no_tmux", noTmuxMessage(), ref))
+		return false
+	}
+	ensureReadable(ctx, target, s.log)
+	si = dismissPanel(ctx, si)
 	submitted, err := typePrompt(ctx, si, text)
+	if errors.Is(err, errHeld) {
+		s.log.Warn("prompt refused: the CLI is waiting at the desk", "session", si.Title, "on", si.Held, "from", device)
+		_ = w.send(ctx, proto.NewErrorFor("asking", heldMessage(si.Held), ref))
+		return false
+	}
+	if errors.Is(err, errBoxHeld) {
+		s.log.Warn("prompt refused: the input box at the desk holds other text", "session", si.Title, "from", device)
+		_ = w.send(ctx, proto.NewErrorFor("box_busy",
+			"Claude Code's input box at the desk already has text in it, so this was not typed after it. Clear the box there, or in Terminal, and send it again", ref))
+		return false
+	}
 	if err != nil {
 		_ = w.send(ctx, proto.NewErrorFor("send_failed", fmt.Sprintf("could not type into %s", target), ref))
 		return false

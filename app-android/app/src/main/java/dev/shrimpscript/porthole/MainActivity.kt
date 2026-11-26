@@ -1378,7 +1378,14 @@ private fun PortholeApp(
                         val sc = vm.fleet.clientFor(s)
                         SessionScreen(
                             title = s.title,
-                            branch = listOf(s.branch, if (s.live && s.tmuxName.isNotBlank()) "tmux ${s.tmuxName}" else "").filter { it.isNotBlank() }.joinToString(" · "),
+                            branch = listOf(
+                                s.branch,
+                                when {
+                                    s.live && s.tmuxName.isNotBlank() -> "tmux ${s.tmuxName}"
+                                    s.live && !s.tmux -> "outside tmux"
+                                    else -> ""
+                                },
+                            ).filter { it.isNotBlank() }.joinToString(" · "),
                             ring = ringOf(activeConn),
                             live = s.live,
                             tmux = s.tmux,
@@ -1406,6 +1413,12 @@ private fun PortholeApp(
                             quickReplies = quickReplies,
                             onQuickReplies = { quickReplies = it; prefs.edit().putString("quick_replies", it.joinToString("\n")).apply() },
                             onSend = { text ->
+                                // A permission prompt up at the desk takes typed text and an Enter
+                                // as its answer ("Yes"): held back here as well as refused there.
+                                if (s.waiting && s.waitingFor == "permission prompt") {
+                                    sc.holdBack(s.id, text, "Claude Code is asking for permission at the desk. Answer that first: a message typed now would be taken as the answer")
+                                    return@SessionScreen
+                                }
                                 sc.sendPrompt(s.id, text)
                                 // A slash command whose answer is printed by the CLI is
                                 // only visible in the terminal, so go there.

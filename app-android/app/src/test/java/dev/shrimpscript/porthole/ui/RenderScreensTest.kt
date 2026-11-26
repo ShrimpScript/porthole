@@ -256,6 +256,38 @@ class RenderScreensTest {
         save("table-question")
     }
 
+    /**
+     * Running in a plain terminal at the computer, outside tmux: the phone can follow it but
+     * there is no pane to type into, so nothing offers to type - no quick replies, no box to
+     * send from - and the card says why and what to do.
+     */
+    @Test
+    fun aSessionOutsideTmuxCanBeFollowedNotTypedInto() {
+        val rows = listOf(
+            row("user", "Rename the helper and run the tests.", "2026-09-14T09:58:00Z"),
+            row("assistant", "Done: renamed `fetchAll` to `loadAll`, 42 tests pass.", "2026-09-14T09:58:40Z"),
+            row("turn", "Worked for 38s", "2026-09-14T09:58:41Z"),
+        )
+        rule.setContent {
+            PortholeTheme {
+                SessionScreen(
+                    title = "Add dark mode to settings", branch = "main · outside tmux", ring = RingState.Live, live = true, tmux = false,
+                    rows = rows, backfillCount = rows.size, loaded = true, canSend = true, onSend = {}, onBack = {},
+                    view = SessionView.Feed, onViewChange = {}, terminal = TerminalEmulator(80, 24), terminalRevision = 0,
+                    terminalOpen = false, onOpenTerminal = {}, onTerminalKeys = {}, fontSp = 13f, onFontSp = {}, fit = true, onFit = {},
+                    notice = null, onDismissNotice = {}, state = state(working = false),
+                    status = TuiStatus(working = false, text = "", elapsed = "", tokens = "", permissionMode = "", interruptible = false),
+                    caps = listOf("changes"), quickReplies = listOf("Continue", "Yes", "No", "Looks good"),
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("runs outside tmux", substring = true).assertIsDisplayed()
+        rule.onNodeWithContentDescription("Outside tmux, so read-only here").assertExists()
+        rule.onAllNodesWithText("Continue").assertCountEquals(0)
+        save("session-outside-tmux")
+    }
+
     @Test
     fun sessionScreenIdleShowsQuickReplies() {
         val rows = listOf(
